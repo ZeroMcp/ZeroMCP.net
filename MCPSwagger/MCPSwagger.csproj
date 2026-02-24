@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>SwaggerMcp</RootNamespace>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);1591</NoWarn>
+    <!-- NuGet package -->
+    <PackageId>SwaggerMcp</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>SwaggerMcp</Authors>
+    <Description>Expose ASP.NET Core API actions as an MCP (Model Context Protocol) server. Tag actions with [McpTool], add AddSwaggerMcp() and MapSwaggerMcp() for a POST /mcp endpoint.</Description>
+    <PackageTags>mcp;model-context-protocol;aspnetcore;openapi;swagger;llm;claude</PackageTags>
+    <PackageProjectUrl>https://github.com/your-repo/SwaggerMcp</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/your-repo/SwaggerMcp</RepositoryUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <!-- Library: do not produce an executable -->
+    <OutputType>Library</OutputType>
+    <IsPackable>true</IsPackable>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+
+  <!-- Exclude sample and test code from the library (they live in separate projects) -->
+  <ItemGroup>
+    <Compile Remove="Program.cs" />
+    <Compile Remove="OrdersController.cs" />
+    <Compile Remove="McpEndpointIntegrationTests.cs" />
+    <Compile Remove="McpSchemaBuilderTests.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NJsonSchema" Version="11.0.0" />
+  </ItemGroup>
+
+</Project>

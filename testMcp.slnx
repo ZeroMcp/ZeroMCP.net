@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="MCPSwagger/MCPSwagger.csproj" />
+  <Project Path="TestService/TestService.csproj" />
+</Solution>
