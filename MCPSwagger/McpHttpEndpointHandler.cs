@@ -230,5 +230,16 @@ internal sealed class McpHttpEndpointHandler
     }
 }
 
-internal sealed class McpMethodNotFoundException(string message) : Exception(message);
-internal sealed class McpInvalidParamsException(string message) : Exception(message);
+internal sealed class McpMethodNotFoundException : Exception
+{
+    public McpMethodNotFoundException(string message) : base(message)
+    {
+    }
+}
+
+internal sealed class McpInvalidParamsException : Exception
+{
+    public McpInvalidParamsException(string message) : base(message)
+    {
+    }
+}
