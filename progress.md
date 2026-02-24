@@ -90,3 +90,11 @@
 
 6. **README.md**
    - Added a test-coverage highlights section documenting the expanded validation/schema/auth scenarios.
+
+### Verification status in this environment
+
+- Attempted:
+  - `dotnet build MCPSwagger.Tests/MCPSwagger.Tests.csproj -v detailed`
+  - `dotnet` location checks (`command -v dotnet`, `whereis dotnet`, `/usr/share/dotnet`)
+- Result:
+  - Build/test execution is currently blocked on this runner because the .NET SDK is not installed (`dotnet: command not found`).
