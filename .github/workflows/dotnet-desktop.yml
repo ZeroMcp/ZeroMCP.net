@@ -53,4 +53,4 @@ jobs:
         run: dotnet pack MCPSwagger/MCPSwagger.csproj -c Release -o ./nupkgs --no-build
 
       - name: Push to NuGet.org
-        run: dotnet nuget push ./nupkgs/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+        run: dotnet nuget push ./nupkgs/*.nupkg --api-key ${{ secrets.NUGET }} --source https://api.nuget.org/v3/index.json --skip-duplicate
