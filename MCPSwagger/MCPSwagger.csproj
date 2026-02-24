@@ -11,7 +11,7 @@
     <PackageId>SwaggerMcp</PackageId>
     <Version>1.0.2</Version>
     <Authors>SwaggerMcp</Authors>
-    <ReadmeFile>..\README.md</ReadmeFile>
+    <PackageReadmeFile>..\README.md</PackageReadmeFile>
     <Description>Expose ASP.NET Core API actions as an MCP (Model Context Protocol) server. Tag actions with [McpTool], add AddSwaggerMcp() and MapSwaggerMcp() for a POST /mcp endpoint.</Description>
     <PackageTags>mcp;model-context-protocol;aspnetcore;openapi;swagger;llm;claude</PackageTags>
     <PackageProjectUrl>https://github.com/kaladinstorm84/SwaggerMCP</PackageProjectUrl>
@@ -33,6 +33,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Include="..\README.md" Pack="true" PackagePath="\"/>
     <PackageReference Include="NJsonSchema" Version="11.0.0" />
   </ItemGroup>
 
