@@ -120,7 +120,7 @@ public sealed class McpSchemaBuilder
                 if (!string.IsNullOrEmpty(propSchema.Description))
                     propObj["description"] = propSchema.Description;
 
-                // Enum values
+                // Enum values from NJsonSchema
                 if (propSchema.Enumeration.Count > 0)
                     propObj["enum"] = propSchema.Enumeration.Select(e => e?.ToString() ?? "").ToArray();
 
@@ -131,9 +131,21 @@ public sealed class McpSchemaBuilder
                 if (propSchema.MaxLength.HasValue) propObj["maxLength"] = propSchema.MaxLength.Value;
                 if (!string.IsNullOrEmpty(propSchema.Pattern)) propObj["pattern"] = propSchema.Pattern;
                 // NJsonSchema does not populate Pattern from [RegularExpression]; add it from reflection
-                var patternFromAttr = GetRegularExpressionPattern(bodyType, propName);
-                if (patternFromAttr is not null)
-                    propObj["pattern"] = patternFromAttr;
+                var propInfo = GetBodyProperty(bodyType, propName);
+                if (propInfo is not null)
+                {
+                    var regexAttr = propInfo.GetCustomAttribute<RegularExpressionAttribute>();
+                    if (regexAttr is not null)
+                        propObj["pattern"] = regexAttr.Pattern;
+
+                    // Fallback for enums: if NJsonSchema didn't emit enum but the CLR type is an enum, add an enum array
+                    if (!propObj.ContainsKey("enum"))
+                    {
+                        var enumType = Nullable.GetUnderlyingType(propInfo.PropertyType) ?? propInfo.PropertyType;
+                        if (enumType.IsEnum)
+                            propObj["enum"] = Enum.GetNames(enumType);
+                    }
+                }
 
                 result[camelName] = propObj;
 
@@ -182,15 +194,36 @@ public sealed class McpSchemaBuilder
         _ => "string"
     };
 
-    /// <summary>Gets the regex pattern from [RegularExpression] on a body type property so we can emit it in JSON Schema (NJsonSchema does not do this by default).</summary>
-    private static string? GetRegularExpressionPattern(Type bodyType, string propertyName)
+    /// <summary>
+    /// Gets the reflected property for a body type, accounting for PascalCase vs camelCase
+    /// differences between CLR properties and schema property names.
+    /// </summary>
+    private static PropertyInfo? GetBodyProperty(Type bodyType, string propertyName)
     {
-        if (string.IsNullOrEmpty(propertyName)) return null;
-        var prop = bodyType.GetProperty(propertyName, BindingFlags.Public | BindingFlags.Instance)
-            ?? (propertyName.Length > 1
-                ? bodyType.GetProperty(char.ToUpperInvariant(propertyName[0]) + propertyName[1..], BindingFlags.Public | BindingFlags.Instance)
-                : bodyType.GetProperty(propertyName.ToUpperInvariant(), BindingFlags.Public | BindingFlags.Instance));
-        var attr = prop?.GetCustomAttribute<RegularExpressionAttribute>();
-        return attr?.Pattern;
+        if (string.IsNullOrEmpty(propertyName))
+            return null;
+
+        // Try exact name (e.g. \"Status\")
+        var prop = bodyType.GetProperty(propertyName, BindingFlags.Public | BindingFlags.Instance);
+        if (prop is not null)
+            return prop;
+
+        // Try PascalCase if schema used camelCase (e.g. \"status\" => \"Status\")
+        if (propertyName.Length > 1)
+        {
+            var pascal = char.ToUpperInvariant(propertyName[0]) + propertyName[1..];
+            prop = bodyType.GetProperty(pascal, BindingFlags.Public | BindingFlags.Instance);
+            if (prop is not null)
+                return prop;
+        }
+        else
+        {
+            var upper = propertyName.ToUpperInvariant();
+            prop = bodyType.GetProperty(upper, BindingFlags.Public | BindingFlags.Instance);
+            if (prop is not null)
+                return prop;
+        }
+
+        return null;
     }
 }

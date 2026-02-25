@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
@@ -82,6 +83,13 @@ public sealed class McpToolDispatcher
             return DispatchResult.Failure(400, $"Failed to bind arguments: {ex.Message}");
         }
 
+        // Simple auth check: if the tool requires authorization and the synthetic user is unauthenticated, fail with 401.
+        if (RequiresAuthentication(descriptor) && !IsAuthenticated(context))
+        {
+            _logger.LogDebug("Tool '{ToolName}' requires authentication and no authenticated user is present.", descriptor.Name);
+            return DispatchResult.Failure(401, "Unauthorized");
+        }
+
         // Set endpoint when available so pipeline (e.g. CreatedAtAction, LinkGenerator) sees a matched endpoint
         if (descriptor.Endpoint is not null)
             context.SetEndpoint(descriptor.Endpoint);
@@ -123,6 +131,24 @@ public sealed class McpToolDispatcher
         }
 
         return await ExtractResponseAsync(context, descriptor.Name);
+    }
+
+    private static bool IsAuthenticated(HttpContext context) =>
+        context.User?.Identities?.Any(i => i.IsAuthenticated) == true;
+
+    private static bool RequiresAuthentication(McpToolDescriptor descriptor)
+    {
+        // AllowAnonymous on either endpoint or action wins
+        if (descriptor.Endpoint?.Metadata.GetMetadata<IAllowAnonymous>() is not null)
+            return false;
+
+        if (descriptor.ActionDescriptor?.EndpointMetadata?.OfType<IAllowAnonymous>().Any() == true)
+            return false;
+
+        // Any Authorize on endpoint or action means auth is required
+        var hasAuthorizeEndpoint = descriptor.Endpoint?.Metadata.GetMetadata<IAuthorizeData>() is not null;
+        var hasAuthorizeAction = descriptor.ActionDescriptor?.EndpointMetadata?.OfType<IAuthorizeData>().Any() == true;
+        return hasAuthorizeEndpoint || hasAuthorizeAction;
     }
 
     private async Task<DispatchResult> DispatchMinimalEndpointAsync(McpToolDescriptor descriptor, HttpContext context)
