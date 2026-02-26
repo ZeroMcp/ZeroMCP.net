@@ -52,7 +52,7 @@ jobs:
       - name: Pack
         run: |
           VERSION="${GITHUB_REF#refs/tags/v}"
-          dotnet pack MCPSwagger/ZeroMCP.csproj -c Release -o ./nupkgs --no-build -p:Version=$VERSION
+          dotnet pack ZeroMcp/ZeroMCP.csproj -c Release -o ./nupkgs --no-build -p:Version=$VERSION
 
       - name: Push to NuGet.org
         run: dotnet nuget push ./nupkgs/*.nupkg --api-key ${{ secrets.NUGET }} --source https://api.nuget.org/v3/index.json --skip-duplicate
