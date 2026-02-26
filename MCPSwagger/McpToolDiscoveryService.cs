@@ -183,6 +183,8 @@ public sealed class McpToolDiscoveryService
             Name = meta.Name,
             Description = meta.Description,
             Tags = meta.Tags,
+            RequiredRoles = meta.Roles,
+            RequiredPolicy = meta.Policy,
             ApiDescription = null,
             ActionDescriptor = null,
             Endpoint = endpoint,
@@ -249,6 +251,8 @@ public sealed class McpToolDiscoveryService
                 ? mcpAttr.Description
                 : XmlDocHelper.GetMethodSummary(controllerDescriptor.MethodInfo),
             Tags = mcpAttr.Tags,
+            RequiredRoles = mcpAttr.Roles,
+            RequiredPolicy = mcpAttr.Policy,
             ApiDescription = apiDescription,
             ActionDescriptor = controllerDescriptor,
             Endpoint = FindEndpointForAction(controllerDescriptor),

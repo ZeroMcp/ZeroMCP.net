@@ -50,6 +50,7 @@ public static class EndpointRouteBuilderExtensions
             toolHandler,
             options.ServerName!,
             options.ServerVersion,
+            options,
             handlerLogger);
 
         // The MCP streamable HTTP transport: GET returns endpoint info, POST handles JSON-RPC

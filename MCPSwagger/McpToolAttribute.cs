@@ -23,6 +23,18 @@ public sealed class McpToolAttribute : Attribute
     /// </summary>
     public string[]? Tags { get; set; }
 
+    /// <summary>
+    /// Optional role names. When set, the tool is only included in tools/list if the current user is in at least one of these roles.
+    /// Requires authentication and authorization to be configured (e.g. AddAuthentication, AddAuthorization).
+    /// </summary>
+    public string[]? Roles { get; set; }
+
+    /// <summary>
+    /// Optional authorization policy name. When set, the tool is only included in tools/list if the current user satisfies this policy.
+    /// Requires AddAuthorization() and a policy with the given name to be configured.
+    /// </summary>
+    public string? Policy { get; set; }
+
     /// <param name="name">The tool name in snake_case (e.g. "get_order", "create_customer")</param>
     public McpToolAttribute(string name)
     {

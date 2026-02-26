@@ -1,8 +1,13 @@
+using System.Diagnostics;
 using System.Text.Json;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
-//using ModelContextProtocol.Server;
+using Microsoft.Extensions.Options;
 using SwaggerMcp.Discovery;
 using SwaggerMcp.Dispatch;
+using SwaggerMcp.Observability;
+using SwaggerMcp.Options;
 
 namespace SwaggerMcp.Transport;
 
@@ -14,21 +19,27 @@ internal sealed class McpSwaggerToolHandler
 {
     private readonly McpToolDiscoveryService _discovery;
     private readonly McpToolDispatcher _dispatcher;
+    private readonly SwaggerMcpOptions _options;
+    private readonly IMcpMetricsSink _metricsSink;
     private readonly ILogger<McpSwaggerToolHandler> _logger;
 
     public McpSwaggerToolHandler(
         McpToolDiscoveryService discovery,
         McpToolDispatcher dispatcher,
+        IOptions<SwaggerMcpOptions> options,
+        IMcpMetricsSink metricsSink,
         ILogger<McpSwaggerToolHandler> logger)
     {
         _discovery = discovery;
         _dispatcher = dispatcher;
+        _options = options.Value;
+        _metricsSink = metricsSink;
         _logger = logger;
     }
 
     /// <summary>
-    /// Returns all registered MCP tools in the format the SDK expects.
-    /// Called during the MCP tools/list request.
+    /// Returns all registered MCP tools in the format the SDK expects (no per-request filtering).
+    /// For role/policy/visibility filtering use <see cref="GetToolDefinitionsAsync"/> with an <see cref="HttpContext"/>.
     /// </summary>
     public IEnumerable<McpToolDefinition> GetToolDefinitions()
     {
@@ -46,6 +57,74 @@ internal sealed class McpSwaggerToolHandler
     }
 
     /// <summary>
+    /// Returns MCP tools visible to the current request (filtered by roles, policy, and ToolVisibilityFilter).
+    /// Called during the MCP tools/list request when governance is used.
+    /// </summary>
+    public async Task<IReadOnlyList<McpToolDefinition>> GetToolDefinitionsAsync(HttpContext? context, CancellationToken cancellationToken = default)
+    {
+        var list = new List<McpToolDefinition>();
+        foreach (var descriptor in _discovery.GetTools())
+        {
+            if (context is not null && !await IsVisibleAsync(descriptor, context, cancellationToken).ConfigureAwait(false))
+                continue;
+            list.Add(new McpToolDefinition
+            {
+                Name = descriptor.Name,
+                Description = BuildDescription(descriptor),
+                InputSchema = descriptor.InputSchemaJson is not null
+                    ? JsonDocument.Parse(descriptor.InputSchemaJson).RootElement
+                    : DefaultEmptySchema()
+            });
+        }
+        return list;
+    }
+
+    private async Task<bool> IsVisibleAsync(McpToolDescriptor descriptor, HttpContext context, CancellationToken cancellationToken)
+    {
+        if (descriptor.RequiredRoles is { Length: > 0 })
+        {
+            var inRole = false;
+            foreach (var role in descriptor.RequiredRoles)
+            {
+                if (context.User.IsInRole(role))
+                {
+                    inRole = true;
+                    break;
+                }
+            }
+            if (!inRole)
+            {
+                _logger.LogDebug("Tool '{ToolName}' hidden from tools/list: user not in required roles", descriptor.Name);
+                return false;
+            }
+        }
+
+        if (!string.IsNullOrEmpty(descriptor.RequiredPolicy))
+        {
+            var authService = context.RequestServices.GetService<IAuthorizationService>();
+            if (authService is null)
+            {
+                _logger.LogDebug("Tool '{ToolName}' hidden: RequiredPolicy set but IAuthorizationService not available", descriptor.Name);
+                return false;
+            }
+            var result = await authService.AuthorizeAsync(context.User, null, descriptor.RequiredPolicy!).ConfigureAwait(false);
+            if (!result.Succeeded)
+            {
+                _logger.LogDebug("Tool '{ToolName}' hidden from tools/list: policy '{Policy}' not satisfied", descriptor.Name, descriptor.RequiredPolicy);
+                return false;
+            }
+        }
+
+        if (_options.ToolVisibilityFilter is not null && !_options.ToolVisibilityFilter(descriptor.Name, context))
+        {
+            _logger.LogDebug("Tool '{ToolName}' excluded by ToolVisibilityFilter", descriptor.Name);
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
     /// Handles a tools/call request from the MCP client.
     /// </summary>
     /// <param name="sourceContext">Optional HTTP context of the MCP request; when set, configured headers (e.g. Authorization) are forwarded to the dispatched action.</param>
@@ -55,20 +134,41 @@ internal sealed class McpSwaggerToolHandler
         CancellationToken cancellationToken,
         HttpContext? sourceContext = null)
     {
+        var correlationId = sourceContext?.Items[McpHttpEndpointHandler.CorrelationIdItemKey] as string;
         var descriptor = _discovery.GetTool(toolName);
 
         if (descriptor is null)
         {
-            _logger.LogWarning("MCP client requested unknown tool '{ToolName}'", toolName);
+            _logger.LogWarning("MCP client requested unknown tool: ToolName={ToolName}, CorrelationId={CorrelationId}", toolName, correlationId ?? "");
             return McpToolResult.Error($"Unknown tool: {toolName}");
         }
 
+        var stopwatch = Stopwatch.StartNew();
         var result = await _dispatcher.DispatchAsync(descriptor, args, cancellationToken, sourceContext);
+        stopwatch.Stop();
+
+        var statusCode = result.StatusCode;
+        var isError = !result.IsSuccess;
+        var durationMs = stopwatch.Elapsed.TotalMilliseconds;
+
+        _metricsSink.RecordToolInvocation(toolName, statusCode, isError, durationMs, correlationId);
+
+        _logger.Log(isError ? LogLevel.Warning : LogLevel.Debug,
+            "Tool invocation: ToolName={ToolName}, StatusCode={StatusCode}, IsError={IsError}, DurationMs={DurationMs}, CorrelationId={CorrelationId}",
+            toolName, statusCode, isError, durationMs, correlationId ?? "");
+
+        if (_options.EnableOpenTelemetryEnrichment && Activity.Current is { } activity)
+        {
+            activity.SetTag("mcp.tool", toolName);
+            activity.SetTag("mcp.status_code", statusCode);
+            activity.SetTag("mcp.is_error", isError);
+            activity.SetTag("mcp.duration_ms", durationMs);
+            if (!string.IsNullOrEmpty(correlationId))
+                activity.SetTag("mcp.correlation_id", correlationId);
+        }
 
         if (result.IsSuccess)
-        {
             return McpToolResult.Success(result.Content, result.ContentType);
-        }
 
         return McpToolResult.Error(
             $"Tool '{toolName}' failed with HTTP {result.StatusCode}: {result.Content}");

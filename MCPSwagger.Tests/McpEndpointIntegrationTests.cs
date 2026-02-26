@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc.Testing;
+using SwaggerMcp;
 using Xunit;
 
 namespace SwaggerMcp.Tests;
@@ -24,13 +25,65 @@ public sealed class McpEndpointIntegrationTests : IClassFixture<WebApplicationFa
             jsonrpc = "2.0",
             id = 1,
             method = "initialize",
-            @params = new { protocolVersion = "2024-11-05", clientInfo = new { name = "test", version = "1.0" } }
+            @params = new { protocolVersion = McpProtocolConstants.ProtocolVersion, clientInfo = new { name = "test", version = "1.0" } }
         });
 
         response.Should().HaveProperty("result");
         var result = response["result"]!.AsObject();
-        result["protocolVersion"]!.GetValue<string>().Should().Be("2024-11-05");
+        result["protocolVersion"]!.GetValue<string>().Should().Be(McpProtocolConstants.ProtocolVersion);
         result["serverInfo"]!.AsObject()["name"]!.GetValue<string>().Should().Be("Orders API");
+    }
+
+    // --- Production Hardening: compatibility tests (Phase 1) ---
+
+    [Fact]
+    public async Task Compatibility_ProtocolVersion_IsLocked()
+    {
+        var response = await PostMcpAsync(new
+        {
+            jsonrpc = "2.0",
+            id = 100,
+            method = "initialize",
+            @params = new { protocolVersion = McpProtocolConstants.ProtocolVersion, clientInfo = new { name = "compat", version = "1.0" } }
+        });
+        var result = response["result"]!.AsObject();
+        result["protocolVersion"]!.GetValue<string>().Should().Be(McpProtocolConstants.ProtocolVersion, "MCP protocol version must be locked for production");
+    }
+
+    [Fact]
+    public async Task Compatibility_Request_WithoutMethod_ReturnsInvalidRequest()
+    {
+        var response = await PostMcpAsync(new { jsonrpc = "2.0", id = 101 });
+        response.Should().HaveProperty("error");
+        response["error"]!.AsObject()["code"]!.GetValue<int>().Should().Be(-32600);
+        response["error"]!.AsObject()["message"]!.GetValue<string>().Should().Contain("method");
+    }
+
+    [Fact]
+    public async Task Compatibility_ToolsList_EachToolHasRequiredFields()
+    {
+        var response = await PostMcpAsync(new { jsonrpc = "2.0", id = 102, method = "tools/list" });
+        response.Should().HaveProperty("result");
+        var tools = response["result"]!.AsObject()["tools"]!.AsArray();
+        tools.Should().NotBeEmpty();
+        foreach (var toolNode in tools)
+        {
+            var tool = toolNode!.AsObject();
+            tool.Should().HaveProperty("name");
+            tool.Should().HaveProperty("description");
+            tool.Should().HaveProperty("inputSchema");
+            tool["name"]!.GetValue<string>().Should().NotBeNullOrWhiteSpace();
+        }
+    }
+
+    [Fact]
+    public async Task Compatibility_ErrorResponse_HasCodeAndMessage()
+    {
+        var response = await PostMcpAsync(new { jsonrpc = "2.0", id = 103, method = "unknown/method" });
+        response.Should().HaveProperty("error");
+        var error = response["error"]!.AsObject();
+        error["code"]!.GetValue<int>().Should().Be(-32601);
+        error["message"]!.GetValue<string>().Should().NotBeNullOrWhiteSpace();
     }
 
     [Fact]
@@ -52,8 +105,54 @@ public sealed class McpEndpointIntegrationTests : IClassFixture<WebApplicationFa
         toolNames.Should().Contain("create_order");
         toolNames.Should().Contain("update_order_status");
         toolNames.Should().Contain("get_secure_order");
+        toolNames.Should().Contain("health_check");
         toolNames.Should().NotContain("delete_order");
+        // admin_health has RequiredRoles = ["Admin"]; without auth it is hidden
+        toolNames.Should().NotContain("admin_health");
     }
+
+    // --- Governance & Tool Control (Phase 1) ---
+
+    [Fact]
+    public async Task Governance_ToolsList_WithoutAuth_ExcludesRoleRequiredTool()
+    {
+        var response = await PostMcpAsync(new { jsonrpc = "2.0", id = 200, method = "tools/list" });
+        response.Should().HaveProperty("result");
+        var toolNames = response["result"]!.AsObject()["tools"]!.AsArray()
+            .Select(t => t!.AsObject()["name"]!.GetValue<string>())
+            .ToList();
+        toolNames.Should().NotContain("admin_health", "admin_health has Roles = [Admin] and request has no auth");
+    }
+
+    [Fact]
+    public async Task Governance_ToolsList_WithAdminKey_IncludesRoleRequiredTool()
+    {
+        var response = await PostMcpAsync(
+            new { jsonrpc = "2.0", id = 201, method = "tools/list" },
+            new Dictionary<string, string> { ["X-Api-Key"] = "admin-key" });
+        response.Should().HaveProperty("result");
+        var toolNames = response["result"]!.AsObject()["tools"]!.AsArray()
+            .Select(t => t!.AsObject()["name"]!.GetValue<string>())
+            .ToList();
+        toolNames.Should().Contain("admin_health", "admin-key adds Admin role so admin_health is visible");
+    }
+
+    // --- Observability (Phase 1) ---
+
+    [Fact]
+    public async Task Observability_CorrelationId_EchoedInResponse()
+    {
+        const string correlationId = "test-correlation-123";
+        var body = new { jsonrpc = "2.0", id = 300, method = "tools/list" };
+        var content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/mcp") { Content = content };
+        request.Headers.TryAddWithoutValidation("X-Correlation-ID", correlationId);
+        var httpResponse = await _client.SendAsync(request);
+        await httpResponse.Content.ReadAsStringAsync(); // ensure response is fully written so OnStarting has run
+        httpResponse.Headers.TryGetValues("X-Correlation-ID", out var values).Should().BeTrue();
+        values!.Single().Should().Be(correlationId);
+    }
+
 
     [Fact]
     public async Task ToolsList_ReturnsExpectedInputSchemaShapes()
@@ -302,16 +401,22 @@ public sealed class McpEndpointIntegrationTests : IClassFixture<WebApplicationFa
         error["message"]!.GetValue<string>().Should().Be("Parse error");
     }
 
-    private async Task<JsonObject> PostMcpAsync(object body)
+    private async Task<JsonObject> PostMcpAsync(object body, IReadOnlyDictionary<string, string>? headers = null)
     {
         var json = JsonSerializer.Serialize(body);
-        return await PostRawMcpAsync(json);
+        return await PostRawMcpAsync(json, headers);
     }
 
-    private async Task<JsonObject> PostRawMcpAsync(string rawBody)
+    private async Task<JsonObject> PostRawMcpAsync(string rawBody, IReadOnlyDictionary<string, string>? headers = null)
     {
         var content = new StringContent(rawBody, Encoding.UTF8, "application/json");
-        var httpResponse = await _client.PostAsync("/mcp", content);
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/mcp") { Content = content };
+        if (headers is not null)
+        {
+            foreach (var (key, value) in headers)
+                request.Headers.TryAddWithoutValidation(key, value);
+        }
+        var httpResponse = await _client.SendAsync(request);
         var responseJson = await httpResponse.Content.ReadAsStringAsync();
         return JsonNode.Parse(responseJson)!.AsObject();
     }

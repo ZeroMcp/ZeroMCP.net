@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Http;
+
 namespace SwaggerMcp.Options;
 
 /// <summary>
@@ -27,10 +29,18 @@ public sealed class SwaggerMcpOptions
     public bool IncludeInputSchemas { get; set; } = true;
 
     /// <summary>
-    /// Optional predicate to further filter which [McpTool]-tagged actions are exposed.
-    /// Useful for environment-specific exclusions.
+    /// Optional predicate to further filter which [McpTool]-tagged actions are exposed at discovery time (by name only).
+    /// Useful for environment-specific exclusions (e.g. exclude admin tools in non-production).
     /// </summary>
     public Func<string, bool>? ToolFilter { get; set; }
+
+    /// <summary>
+    /// Optional predicate to filter which tools are returned in tools/list per request.
+    /// Receives the tool name and the current HTTP context (e.g. to check user, headers, or environment).
+    /// Return true to include the tool, false to hide it. When null, no per-request filter is applied
+    /// (role/policy filters on descriptors still apply).
+    /// </summary>
+    public Func<string, HttpContext, bool>? ToolVisibilityFilter { get; set; }
 
     /// <summary>
     /// Header names to forward from the incoming MCP request into the synthetic HttpContext
@@ -38,4 +48,16 @@ public sealed class SwaggerMcpOptions
     /// Default is ["Authorization"]. Set to empty or null to disable forwarding.
     /// </summary>
     public IReadOnlyList<string>? ForwardHeaders { get; set; } = ["Authorization"];
+
+    /// <summary>
+    /// Request header name used to read and propagate a correlation ID. If present, the same value is echoed in the response and in logs.
+    /// If absent, a new GUID is generated. Default is "X-Correlation-ID". Set to null or empty to disable correlation ID handling.
+    /// </summary>
+    public string? CorrelationIdHeader { get; set; } = "X-Correlation-ID";
+
+    /// <summary>
+    /// When true, tags the current <see cref="System.Diagnostics.Activity"/> (if any) with MCP tool invocation details
+    /// (mcp.tool, mcp.status_code, mcp.is_error, mcp.duration_ms). Use with OpenTelemetry or similar. Default is false.
+    /// </summary>
+    public bool EnableOpenTelemetryEnrichment { get; set; }
 }

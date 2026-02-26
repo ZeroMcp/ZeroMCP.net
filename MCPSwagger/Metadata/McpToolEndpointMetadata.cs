@@ -11,12 +11,16 @@ public sealed class McpToolEndpointMetadata
     public string Name { get; }
     public string? Description { get; }
     public string[]? Tags { get; }
+    public string[]? Roles { get; }
+    public string? Policy { get; }
 
-    public McpToolEndpointMetadata(string name, string? description = null, string[]? tags = null)
+    public McpToolEndpointMetadata(string name, string? description = null, string[]? tags = null, string[]? roles = null, string? policy = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         Name = name;
         Description = description;
         Tags = tags;
+        Roles = roles;
+        Policy = policy;
     }
 }

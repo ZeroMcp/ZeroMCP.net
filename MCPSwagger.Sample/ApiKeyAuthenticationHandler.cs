@@ -19,19 +19,27 @@ internal sealed class ApiKeyAuthenticationHandler : AuthenticationHandler<Authen
     {
     }
 
+    private const string AdminKey = "admin-key";
+
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
         if (!Request.Headers.TryGetValue(HeaderName, out var apiKey))
             return Task.FromResult(AuthenticateResult.NoResult());
 
-        if (apiKey.Count != 1 || !string.Equals(apiKey[0], ValidKey, StringComparison.Ordinal))
+        if (apiKey.Count != 1)
             return Task.FromResult(AuthenticateResult.Fail("Invalid API key."));
 
-        var claims = new[]
+        var key = apiKey[0];
+        if (string.IsNullOrEmpty(key) || (!string.Equals(key, ValidKey, StringComparison.Ordinal) && !string.Equals(key, AdminKey, StringComparison.Ordinal)))
+            return Task.FromResult(AuthenticateResult.Fail("Invalid API key."));
+
+        var claims = new List<Claim>
         {
-            new Claim(ClaimTypes.NameIdentifier, "mcp-test"),
-            new Claim(ClaimTypes.Name, "MCP Test Client")
+            new Claim(ClaimTypes.NameIdentifier, string.Equals(key, AdminKey, StringComparison.Ordinal) ? "admin" : "mcp-test"),
+            new Claim(ClaimTypes.Name, string.Equals(key, AdminKey, StringComparison.Ordinal) ? "Admin Client" : "MCP Test Client")
         };
+        if (string.Equals(key, AdminKey, StringComparison.Ordinal))
+            claims.Add(new Claim(ClaimTypes.Role, "Admin"));
 
         var identity = new ClaimsIdentity(claims, SchemeName);
         var principal = new ClaimsPrincipal(identity);

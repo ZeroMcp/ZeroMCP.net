@@ -1,8 +1,11 @@
+using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using SwaggerMcp;
+using SwaggerMcp.Options;
 using SwaggerMcp.Transport;
 
 namespace SwaggerMcp.Transport;
@@ -18,20 +21,25 @@ namespace SwaggerMcp.Transport;
 /// </summary>
 internal sealed class McpHttpEndpointHandler
 {
+    internal const string CorrelationIdItemKey = "McpCorrelationId";
+
     private readonly McpSwaggerToolHandler _toolHandler;
     private readonly string _serverName;
     private readonly string _serverVersion;
+    private readonly SwaggerMcpOptions _options;
     private readonly ILogger<McpHttpEndpointHandler> _logger;
 
     public McpHttpEndpointHandler(
         McpSwaggerToolHandler toolHandler,
         string serverName,
         string serverVersion,
+        SwaggerMcpOptions options,
         ILogger<McpHttpEndpointHandler> logger)
     {
         _toolHandler = toolHandler;
         _serverName = serverName;
         _serverVersion = serverVersion;
+        _options = options;
         _logger = logger;
     }
 
@@ -53,7 +61,7 @@ internal sealed class McpHttpEndpointHandler
                     jsonrpc = "2.0",
                     id = 1,
                     method = "initialize",
-                    @params = new { protocolVersion = "2024-11-05", clientInfo = new { name = "client", version = "1.0" } }
+                    @params = new { protocolVersion = McpProtocolConstants.ProtocolVersion, clientInfo = new { name = "client", version = "1.0" } }
                 }
             }, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = true }));
             return;
@@ -99,47 +107,72 @@ internal sealed class McpHttpEndpointHandler
 
         root.TryGetProperty("params", out var @params);
 
-        _logger.LogDebug("MCP request: method={Method}", method);
-
-        try
+        // Correlation ID: from header or generate; set on context and response
+        var correlationId = GetOrCreateCorrelationId(context);
+        if (!string.IsNullOrEmpty(correlationId))
         {
-            var responsePayload = method switch
-            {
-                "initialize" => HandleInitialize(@params),
-                "notifications/initialized" => null, // fire and forget, no response
-                "tools/list" => HandleToolsList(),
-                "tools/call" => await HandleToolsCallAsync(@params, context),
-                _ => throw new McpMethodNotFoundException($"Method not found: {method}")
-            };
+            context.Items[CorrelationIdItemKey] = correlationId;
+            var headerName = _options.CorrelationIdHeader;
+            if (!string.IsNullOrEmpty(headerName))
+                context.Response.OnStarting(() => { context.Response.Headers[headerName] = correlationId; return Task.CompletedTask; });
+        }
 
-            if (responsePayload is null)
+        using (_logger.BeginScope("CorrelationId={CorrelationId}, JsonRpcId={JsonRpcId}, Method={Method}", correlationId ?? "", idValue?.ToString() ?? "", method))
+        {
+            var stopwatch = Stopwatch.StartNew();
+            try
             {
-                context.Response.StatusCode = 204;
-                return;
+                object? responsePayload = method switch
+                {
+                    "initialize" => HandleInitialize(@params),
+                    "notifications/initialized" => null, // fire and forget, no response
+                    "tools/list" => await HandleToolsListAsync(context),
+                    "tools/call" => await HandleToolsCallAsync(@params, context),
+                    _ => throw new McpMethodNotFoundException($"Method not found: {method}")
+                };
+
+                if (responsePayload is null)
+                {
+                    context.Response.StatusCode = 204;
+                    _logger.LogDebug("MCP request completed: Method={Method}, DurationMs={DurationMs}", method, stopwatch.ElapsedMilliseconds);
+                    return;
+                }
+
+                await WriteResultAsync(context, idValue, responsePayload);
+                _logger.LogDebug("MCP request completed: Method={Method}, DurationMs={DurationMs}", method, stopwatch.ElapsedMilliseconds);
             }
+            catch (McpMethodNotFoundException ex)
+            {
+                _logger.LogWarning("MCP method not found: Method={Method}, DurationMs={DurationMs}", method, stopwatch.ElapsedMilliseconds);
+                await WriteErrorAsync(context, idValue, -32601, ex.Message, null);
+            }
+            catch (McpInvalidParamsException ex)
+            {
+                _logger.LogWarning("MCP invalid params: Method={Method}, Message={Message}, DurationMs={DurationMs}", method, ex.Message, stopwatch.ElapsedMilliseconds);
+                await WriteErrorAsync(context, idValue, -32602, ex.Message, null);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unhandled error processing MCP method: Method={Method}, DurationMs={DurationMs}", method, stopwatch.ElapsedMilliseconds);
+                await WriteErrorAsync(context, idValue, -32603, "Internal error", ex.Message);
+            }
+        }
+    }
 
-            await WriteResultAsync(context, idValue, responsePayload);
-        }
-        catch (McpMethodNotFoundException ex)
-        {
-            await WriteErrorAsync(context, idValue, -32601, ex.Message, null);
-        }
-        catch (McpInvalidParamsException ex)
-        {
-            await WriteErrorAsync(context, idValue, -32602, ex.Message, null);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Unhandled error processing MCP method '{Method}'", method);
-            await WriteErrorAsync(context, idValue, -32603, "Internal error", ex.Message);
-        }
+    private string? GetOrCreateCorrelationId(HttpContext context)
+    {
+        var headerName = _options.CorrelationIdHeader;
+        if (string.IsNullOrEmpty(headerName)) return null;
+        if (context.Request.Headers.TryGetValue(headerName, out var value) && !string.IsNullOrWhiteSpace(value))
+            return value.ToString().Trim();
+        return Guid.NewGuid().ToString("N");
     }
 
     private object HandleInitialize(JsonElement @params)
     {
         return new
         {
-            protocolVersion = "2024-11-05",
+            protocolVersion = McpProtocolConstants.ProtocolVersion,
             serverInfo = new { name = _serverName, version = _serverVersion },
             capabilities = new
             {
@@ -148,15 +181,15 @@ internal sealed class McpHttpEndpointHandler
         };
     }
 
-    private object HandleToolsList()
+    private async Task<object> HandleToolsListAsync(HttpContext context)
     {
-        var tools = _toolHandler.GetToolDefinitions().Select(t => new
+        var list = await _toolHandler.GetToolDefinitionsAsync(context, context.RequestAborted);
+        var tools = list.Select(t => new
         {
             name = t.Name,
             description = t.Description,
             inputSchema = t.InputSchema
         });
-
         return new { tools };
     }
 

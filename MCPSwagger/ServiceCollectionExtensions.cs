@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using SwaggerMcp.Dispatch;
 using SwaggerMcp.Discovery;
+using SwaggerMcp.Observability;
 using SwaggerMcp.Options;
 using SwaggerMcp.Schema;
 using SwaggerMcp.Transport;
@@ -48,6 +49,9 @@ public static class ServiceCollectionExtensions
         // Dispatch infrastructure
         services.AddSingleton<SyntheticHttpContextFactory>();
         services.AddSingleton<McpToolDispatcher>();
+
+        // Observability: metrics sink (register your own after AddSwaggerMcp to replace the no-op)
+        services.AddSingleton<IMcpMetricsSink, NoOpMcpMetricsSink>();
 
         // Transport
         services.AddSingleton<McpSwaggerToolHandler>();

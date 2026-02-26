@@ -1,5 +1,7 @@
 # SwaggerMcp
 
+**This is the repository (GitLab/project) README** — full documentation, build, contributing, and project structure. The **NuGet package** ships with a shorter, consumer-focused README in `MCPSwagger/README.md`.
+
 Expose your existing ASP.NET Core API as an MCP (Model Context Protocol) server with a single attribute and two lines of setup. No separate process. No code duplication.
 
 ## How It Works
@@ -77,6 +79,8 @@ public class OrdersController : ControllerBase
 
 Point any MCP client at your app's `/mcp` URL; it will see your tagged controller actions and minimal endpoints as tools.
 
+For **versioning and breaking-change policy**, see [VERSIONING.md](VERSIONING.md).
+
 ---
 
 ## Configuration
@@ -90,16 +94,59 @@ builder.Services.AddSwaggerMcp(options =>
     options.IncludeInputSchemas = true;    // attach JSON Schema to tools (helps LLM)
     options.ForwardHeaders = ["Authorization"];  // copy these from MCP request to tool dispatch
 
-    // Optional: filter which tagged tools are exposed at runtime
+    // Optional: filter which tagged tools are exposed at discovery time (by name)
     options.ToolFilter = name => !name.StartsWith("admin_");
+
+    // Optional: filter which tools appear in tools/list per request (e.g. by user, headers)
+    options.ToolVisibilityFilter = (name, ctx) => ctx.Request.Headers.TryGetValue("X-Show-Admin", out _) || !name.StartsWith("admin_");
+
+    // Observability (Phase 1)
+    options.CorrelationIdHeader = "X-Correlation-ID";  // read from request, echo in response and logs; default
+    options.EnableOpenTelemetryEnrichment = true;     // tag Activity.Current with mcp.tool, mcp.duration_ms, etc.
 });
 ```
+
+### Observability (Phase 1)
+
+- **Structured logging** — Each MCP request is logged with a scope containing `CorrelationId`, `JsonRpcId`, and `Method`. Tool invocations log `ToolName`, `StatusCode`, `IsError`, `DurationMs`, and `CorrelationId`.
+- **Execution timing** — Request duration and per-tool duration are recorded and included in log messages.
+- **Correlation ID** — Send `X-Correlation-ID` (or the header name in `CorrelationIdHeader`) on the request; the same value is echoed in the response and propagated to the synthetic request (`TraceIdentifier` and `HttpContext.Items`). If omitted, a new GUID is generated.
+- **Metrics sink** — Implement `IMcpMetricsSink` and register it after `AddSwaggerMcp()` to record tool invocations (tool name, status code, success/failure, duration). The default is a no-op.
+- **OpenTelemetry** — Set `EnableOpenTelemetryEnrichment = true` to tag the current `Activity` with `mcp.tool`, `mcp.status_code`, `mcp.is_error`, `mcp.duration_ms`, and `mcp.correlation_id` when present.
+
+### Governance & tool control (Phase 1)
+
+You can control which tools appear in `tools/list` per request:
+
+- **Role-based exposure** — On `[McpTool]` set `Roles = new[] { "Admin" }`. The tool is only listed if the current user is in at least one of the roles. Requires `AddAuthentication()` and `AddAuthorization()`.
+- **Policy-based exposure** — Set `Policy = "RequireEditor"` (or any policy name). The tool is only listed if `IAuthorizationService.AuthorizeAsync(user, null, policy)` succeeds.
+- **Environment / custom filter** — Use **`ToolFilter`** for discovery-time filtering by name (e.g. exclude `admin_*` in non-production). Use **`ToolVisibilityFilter`** for per-request filtering: `(toolName, httpContext) => bool` (e.g. hide tools based on user, headers, or feature flags).
+
+Minimal APIs support the same via `.WithMcpTool("name", "description", tags: null, roles: new[] { "Admin" }, policy: "RequireEditor")`.
+
+Tools that are hidden from `tools/list` are also not callable: a direct `tools/call` for that tool name will still be rejected (unknown tool). Authorization on the underlying action/endpoint is still enforced when the tool is invoked.
 
 ### Custom route
 
 ```csharp
 app.MapSwaggerMcp("/api/mcp");  // overrides options.RoutePrefix
 ```
+
+### Using controllers and minimal APIs together
+
+If you expose **both** controller actions (with `[McpTool]`) and minimal API endpoints (with `.WithMcpTool(...)`), you must register the API explorer so controller actions are discovered:
+
+```csharp
+builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();   // required for controller tool discovery
+// ... AddSwaggerMcp(...) ...
+
+app.MapControllers();
+// minimal APIs with .WithMcpTool(...)
+app.MapSwaggerMcp();
+```
+
+Without `AddEndpointsApiExplorer()`, only minimal API tools will appear in `tools/list`; controller actions will be missing because they are discovered from the same API description source as Swagger.
 
 ---
 
@@ -109,7 +156,9 @@ app.MapSwaggerMcp("/api/mcp");  // overrides options.RoutePrefix
 [McpTool(
     name: "create_order",               // Required. Snake_case tool name for the LLM.
     Description = "Creates an order.",  // Shown to the LLM. Be descriptive.
-    Tags = ["write", "orders"]          // Optional. For grouping/filtering.
+    Tags = ["write", "orders"],         // Optional. For grouping/filtering.
+    Roles = ["Editor", "Admin"],        // Optional. Tool only in tools/list if user in one of these roles.
+    Policy = "RequireEditor"            // Optional. Tool only in tools/list if user satisfies this policy.
 )]
 ```
 
@@ -226,11 +275,23 @@ app.MapSwaggerMcp().RequireAuthorization("McpPolicy");
 
 ---
 
+## Two READMEs
+
+| File | Purpose |
+|------|--------|
+| **README.md** (this file) | Repository / GitLab: full docs, build, tests, contributing, project layout. |
+| **MCPSwagger/README.md** | NuGet package: install, quick start, config summary. Shipped inside the package; keep it consumer-focused. |
+
+When you add features or options, update both: details and examples here, short summary and link in `MCPSwagger/README.md`.
+
+---
+
 ## Project Structure
 
 ```
 mcpAPI/
 ├── MCPSwagger/                    ← Library (NuGet package SwaggerMcp)
+│   ├── README.md                  ← Package README (NuGet)
 │   ├── Attributes/                ← [McpTool]
 │   ├── Discovery/                 ← Controller + minimal API tool discovery
 │   ├── Schema/                    ← JSON Schema for tool inputs (NJsonSchema)

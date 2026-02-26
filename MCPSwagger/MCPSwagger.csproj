@@ -33,7 +33,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="..\README.md" Pack="true" PackagePath="\"/>
+    <!-- NuGet package README (consumer-focused). Repo root README.md is for GitLab/project docs. -->
+    <None Include="README.md" Pack="true" PackagePath="\"/>
     <PackageReference Include="NJsonSchema" Version="11.0.0" />
   </ItemGroup>
 

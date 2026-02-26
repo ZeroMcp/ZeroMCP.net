@@ -33,6 +33,10 @@ app.MapControllers();
 app.MapGet("/api/health", () => Results.Ok(new { status = "ok", timestamp = DateTime.UtcNow }))
    .WithMcpTool("health_check", "Returns API health status.", tags: new[] { "system" });
 
+// Governance: role-based tool — only visible in tools/list when user is in Admin role
+app.MapGet("/api/admin/health", () => Results.Ok(new { status = "admin-ok", timestamp = DateTime.UtcNow }))
+   .WithMcpTool("admin_health", "Admin-only health. Visible only to callers with Admin role.", tags: new[] { "system", "admin" }, roles: new[] { "Admin" });
+
 app.MapSwaggerMcp();
 
 app.Run();

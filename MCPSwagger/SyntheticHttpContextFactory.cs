@@ -151,6 +151,13 @@ public sealed class SyntheticHttpContextFactory
             }
         }
 
+        // Propagate correlation ID to synthetic context so logs/traces use the same ID
+        if (sourceContext?.Items[Transport.McpHttpEndpointHandler.CorrelationIdItemKey] is string correlationId)
+        {
+            context.TraceIdentifier = correlationId;
+            context.Items[Transport.McpHttpEndpointHandler.CorrelationIdItemKey] = correlationId;
+        }
+
         return context;
     }
 

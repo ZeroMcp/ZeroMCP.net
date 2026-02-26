@@ -20,6 +20,12 @@ public sealed class McpToolDescriptor
     /// <summary>Optional tags from McpToolAttribute.</summary>
     public string[]? Tags { get; init; }
 
+    /// <summary>When set, tool is only visible in tools/list if the user is in at least one of these roles.</summary>
+    public string[]? RequiredRoles { get; init; }
+
+    /// <summary>When set, tool is only visible in tools/list if the user satisfies this authorization policy.</summary>
+    public string? RequiredPolicy { get; init; }
+
     /// <summary>The full ApiDescription for this action (route, HTTP method, params). Null for minimal API endpoints.</summary>
     public ApiDescription? ApiDescription { get; init; }
 
