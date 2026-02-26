@@ -14,8 +14,8 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <Description>MCP (Model Context Protocol) server from existing API with Zero duplication, Zero friction</Description>
     <PackageTags>mcp;model-context-protocol;aspnetcore;openapi;swagger;llm;claude</PackageTags>
-    <PackageProjectUrl>https://github.com/kaladinstorm84/SwaggerMCP</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/kaladinstorm84/SwaggerMCP</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/ZeroMcp/ZeroMCP.net</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/ZeroMcp/ZeroMCP.net</RepositoryUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <!-- Library: do not produce an executable -->
     <OutputType>Library</OutputType>
