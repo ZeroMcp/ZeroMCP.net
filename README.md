@@ -280,9 +280,9 @@ app.MapZeroMcp().RequireAuthorization("McpPolicy");
 | File | Purpose |
 |------|--------|
 | **README.md** (this file) | Repository / GitLab: full docs, build, tests, contributing, project layout. |
-| **MCPSwagger/README.md** | NuGet package: install, quick start, config summary. Shipped inside the package; keep it consumer-focused. |
+| **ZeroMcp/README.md** | NuGet package: install, quick start, config summary. Shipped inside the package; keep it consumer-focused. |
 
-When you add features or options, update both: details and examples here, short summary and link in `MCPSwagger/README.md`.
+When you add features or options, update both: details and examples here, short summary and link in `ZeroMcp/README.md`.
 
 ---
 
@@ -290,7 +290,7 @@ When you add features or options, update both: details and examples here, short 
 
 ```
 mcpAPI/
-├── MCPSwagger/                    ← Library (NuGet package ZeroMcp)
+├── ZeroMcp/                       ← Library (NuGet package ZeroMcp)
 │   ├── README.md                  ← Package README (NuGet)
 │   ├── Attributes/                ← [McpTool]
 │   ├── Discovery/                 ← Controller + minimal API tool discovery
@@ -299,8 +299,9 @@ mcpAPI/
 │   ├── Metadata/                  ← McpToolEndpointMetadata for minimal APIs
 │   ├── Extensions/                ← AddZeroMcp, MapZeroMcp, WithMcpTool
 │   ├── Options/                   ← ZeroMcpOptions
-│   └── MCPSwagger.csproj         (PackageId: ZeroMcp, Version: 1.0.2)
-├── MCPSwagger.Sample/             ← Sample (Orders API, health minimal endpoint, optional auth)
+│   └── ZeroMCP.csproj            (PackageId: ZeroMcp, Version: 1.0.2)
+├── ZeroMCP.Sample/                ← Sample (Orders, Customer, Product APIs; nested route Customer/{id}/orders; health minimal endpoint, optional auth)
+├── ZeroMCP.Tests/                 ← Integration + schema tests
 ├── nupkgs/                        ← dotnet pack -o nupkgs
 ├── progress.md
 └── README.md
@@ -321,9 +322,9 @@ mcpAPI/
 ## Build
 
 - **Targets:** .NET 9.0 and .NET 10.0 (library); sample and tests may target a single framework.
-- **Library:** `dotnet build MCPSwagger\MCPSwagger.csproj`
-- **Sample:** `dotnet build MCPSwagger.Sample\MCPSwagger.Sample.csproj`
-- **Tests:** `dotnet build MCPSwagger.Tests\MCPSwagger.Tests.csproj` then `dotnet test MCPSwagger.Tests\MCPSwagger.Tests.csproj`
+- **Library:** `dotnet build ZeroMcp\ZeroMCP.csproj`
+- **Sample:** `dotnet build ZeroMCP.Sample\ZeroMCP.Sample.csproj`
+- **Tests:** `dotnet build ZeroMCP.Tests\ZeroMCP.Tests.csproj` then `dotnet test ZeroMCP.Tests\ZeroMCP.Tests.csproj`
 - **TestService:** `dotnet build TestService\TestService.csproj`
 
 ### Test coverage

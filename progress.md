@@ -1,5 +1,29 @@
 # Progress
 
+## 2026-02-24 – Build fix after Order/Repository drift
+
+- **Order** (OrdersController): Restored `int? CustomerId`; removed string `CustomerID` / `ProductID` that had been added (and caused SampleData/CustomerController to fail). Order shape is again: Id, CustomerId, CustomerName, Product, Quantity, Status.
+- **Repository.cs**: Updated to use **int** Ids for Customer and Product and **CustomerId** (int) / **CustomerName** / **Product** on Order so it compiles with the shared Customer/Product/Order types.
+- **OrdersController**: Wired back to **SampleData.Orders** (single store) and added `using SampleApi` so `SampleData` is in scope.
+
+---
+
+## 2026-02-24 – Customer/Product controllers, nested routing, tests
+
+- **ZeroMCP.Sample**
+  - **Models:** `Customer` and `Product` in `SampleApi` with public setters; `Order` in `OrdersController` given `CustomerId` and wired to `SampleData.Orders`.
+  - **SampleData:** Shared in-memory store (`SampleData.Customers`, `SampleData.Products`, `SampleData.Orders`); `SampleData.cs` uses `SampleApi.Controllers` for `Order` type.
+  - **OrdersController:** Uses `SampleData.Orders` as single store; create/list/get/update/delete unchanged; all MCP tools unchanged.
+  - **CustomerController:** `api/Customer` — GET list, GET `{id}`, GET `{id}/orders` (nested route), POST create; all actions tagged with `[Mcp("...")]` (list_customers, get_customer, get_customer_orders, create_customer).
+  - **ProductController:** `api/Product` — GET list, GET `{id}`, POST create; MCP tools list_products, get_product, create_product.
+- **ZeroMCP.Tests**
+  - **Project references:** Updated from `..\MCPSwagger\` and `..\MCPSwagger.Sample\` to `..\ZeroMcp\ZeroMCP.csproj` and `..\ZeroMCP.Sample\ZeroMCP.Sample.csproj` so build and tests run after rename.
+  - **ToolsList_ReturnsTaggedToolsOnly:** Now asserts presence of list_customers, get_customer, get_customer_orders, create_customer, list_products, get_product, create_product.
+  - **GetCustomerOrders_ToolsCall_ReturnsOrdersForCustomer:** New integration test; calls `get_customer_orders` with `id: 1` and asserts result content is an array with at least one order (id=1, customerName=Alice, product=Widget).
+- **README.md:** Project structure and build commands updated to ZeroMcp / ZeroMCP.Sample / ZeroMCP.Tests; sample line notes Customer/Product and nested route `Customer/{id}/orders`.
+
+---
+
 ## 2026-02-24 – Two READMEs (GitLab vs NuGet)
 
 - **Repository (GitLab):** Root **README.md** — full documentation, build, tests, contributing, project structure. Intro now states it is the repo README and that the NuGet package has its own README.

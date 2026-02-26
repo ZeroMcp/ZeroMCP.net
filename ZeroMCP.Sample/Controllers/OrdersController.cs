@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using SampleApi;
 using ZeroMCP.Attributes;
 
 namespace SampleApi.Controllers;
@@ -9,17 +10,13 @@ namespace SampleApi.Controllers;
 [Route("api/[controller]")]
 public class OrdersController : ControllerBase
 {
-    private static readonly List<Order> _store =
-    [
-        new Order { Id = 1, CustomerName = "Alice", Product = "Widget", Quantity = 3, Status = "shipped" },
-        new Order { Id = 2, CustomerName = "Bob", Product = "Gadget", Quantity = 1, Status = "pending" },
-    ];
+    private static List<Order> Store => SampleData.Orders;
 
     [HttpGet("{id:int}")]
     [Mcp("get_order", Description = "Retrieves a single order by its numeric ID.")]
     public ActionResult<Order> GetOrder(int id)
     {
-        var order = _store.FirstOrDefault(o => o.Id == id);
+        var order = Store.FirstOrDefault(o => o.Id == id);
         return order is null ? NotFound($"Order {id} not found") : Ok(order);
     }
 
@@ -28,7 +25,7 @@ public class OrdersController : ControllerBase
     [Mcp("get_secure_order", Description = "Retrieves a single order by its numeric ID. Requires authentication.")]
     public ActionResult<Order> GetSecureOrder(int id)
     {
-        var order = _store.FirstOrDefault(o => o.Id == id);
+        var order = Store.FirstOrDefault(o => o.Id == id);
         return order is null ? NotFound($"Order {id} not found") : Ok(order);
     }
 
@@ -37,8 +34,8 @@ public class OrdersController : ControllerBase
     public ActionResult<List<Order>> ListOrders([FromQuery] string? status = null)
     {
         var orders = status is null
-            ? _store
-            : _store.Where(o => o.Status.Equals(status, StringComparison.OrdinalIgnoreCase)).ToList();
+            ? Store.ToList()
+            : Store.Where(o => o.Status.Equals(status, StringComparison.OrdinalIgnoreCase)).ToList();
         return Ok(orders);
     }
 
@@ -48,13 +45,13 @@ public class OrdersController : ControllerBase
     {
         var order = new Order
         {
-            Id = _store.Count + 1,
+            Id = Store.Count + 1,
             CustomerName = request.CustomerName,
             Product = request.Product,
             Quantity = request.Quantity,
             Status = "pending"
         };
-        _store.Add(order);
+        Store.Add(order);
         return CreatedAtAction(nameof(GetOrder), new { id = order.Id }, order);
     }
 
@@ -62,7 +59,7 @@ public class OrdersController : ControllerBase
     [Mcp("update_order_status", Description = "Updates the status of an existing order.")]
     public ActionResult<Order> UpdateStatus(int id, [FromBody] UpdateStatusRequest request)
     {
-        var order = _store.FirstOrDefault(o => o.Id == id);
+        var order = Store.FirstOrDefault(o => o.Id == id);
         if (order is null) return NotFound($"Order {id} not found");
         order.Status = request.Status;
         return Ok(order);
@@ -71,9 +68,9 @@ public class OrdersController : ControllerBase
     [HttpDelete("{id:int}")]
     public IActionResult DeleteOrder(int id)
     {
-        var order = _store.FirstOrDefault(o => o.Id == id);
+        var order = Store.FirstOrDefault(o => o.Id == id);
         if (order is null) return NotFound();
-        _store.Remove(order);
+        Store.Remove(order);
         return NoContent();
     }
 }
@@ -81,6 +78,7 @@ public class OrdersController : ControllerBase
 public class Order
 {
     public int Id { get; set; }
+    public int? CustomerId { get; set; }
     public string CustomerName { get; set; } = default!;
     public string Product { get; set; } = default!;
     public int Quantity { get; set; }

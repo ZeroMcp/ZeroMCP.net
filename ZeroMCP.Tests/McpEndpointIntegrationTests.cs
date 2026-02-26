@@ -106,9 +106,45 @@ public sealed class McpEndpointIntegrationTests : IClassFixture<WebApplicationFa
         toolNames.Should().Contain("update_order_status");
         toolNames.Should().Contain("get_secure_order");
         toolNames.Should().Contain("health_check");
+        toolNames.Should().Contain("list_customers");
+        toolNames.Should().Contain("get_customer");
+        toolNames.Should().Contain("get_customer_orders");
+        toolNames.Should().Contain("create_customer");
+        toolNames.Should().Contain("list_products");
+        toolNames.Should().Contain("get_product");
+        toolNames.Should().Contain("create_product");
         toolNames.Should().NotContain("delete_order");
         // admin_health has RequiredRoles = ["Admin"]; without auth it is hidden
         toolNames.Should().NotContain("admin_health");
+    }
+
+    [Fact]
+    public async Task GetCustomerOrders_ToolsCall_ReturnsOrdersForCustomer()
+    {
+        var response = await PostMcpAsync(new
+        {
+            jsonrpc = "2.0",
+            id = 50,
+            method = "tools/call",
+            @params = new
+            {
+                name = "get_customer_orders",
+                arguments = new { id = 1 }
+            }
+        });
+
+        response.Should().HaveProperty("result");
+        var result = response["result"]!.AsObject();
+        result["isError"]!.GetValue<bool>().Should().BeFalse();
+        var content = ExtractTextContent(response);
+        var orders = JsonSerializer.Deserialize<JsonElement[]>(content);
+        orders.Should().NotBeNull();
+        orders!.Length.Should().BeGreaterThan(0);
+        // SampleData: customer 1 (Alice) has order Id=1, Widget, Quantity=3, shipped
+        var first = orders[0];
+        first.GetProperty("id").GetInt32().Should().Be(1);
+        first.GetProperty("customerName").GetString().Should().Be("Alice");
+        first.GetProperty("product").GetString().Should().Be("Widget");
     }
 
     // --- Governance & Tool Control (Phase 1) ---

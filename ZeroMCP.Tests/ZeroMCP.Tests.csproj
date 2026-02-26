@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -9,8 +9,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\MCPSwagger\ZeroMCP.csproj" />
-    <ProjectReference Include="..\MCPSwagger.Sample\ZeroMCP.Sample.csproj" />
+    <ProjectReference Include="..\ZeroMcp\ZeroMCP.csproj" />
+    <ProjectReference Include="..\ZeroMCP.Sample\ZeroMCP.Sample.csproj" />
   </ItemGroup>
 
   <ItemGroup>
