@@ -36,10 +36,10 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          if git status --porcelain | grep .; then
-            git add .
-            git commit -m "Sync wiki from /wiki on $(date -u +'%Y-%m-%d %H:%M:%S')"
-            git push
-          else
-            echo "No wiki changes to push"
-          fi
+      #    if git status --porcelain | grep .; then
+          git add .
+          git commit -m "Sync wiki from /wiki on $(date -u +'%Y-%m-%d %H:%M:%S')"
+          git push
+       #   else
+        #    echo "No wiki changes to push"
+         # fi
