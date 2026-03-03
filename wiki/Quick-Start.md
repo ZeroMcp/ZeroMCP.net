@@ -74,6 +74,7 @@ Point any MCP client at your app's `/mcp` URL (e.g. `http://localhost:5000/mcp`)
 
 - **GET /mcp** — Server info and example JSON-RPC payload.
 - **GET /mcp/tools** — (Phase 3) JSON list of all registered tools and their schemas (when **EnableToolInspector** is true). Useful for debugging and tooling.
+- **GET /mcp/ui** — (Phase 3) Swagger-like test invocation UI: list tools, view schemas, and invoke tools from the browser (when **EnableToolInspectorUI** is true).
 - **POST /mcp** — JSON-RPC (`initialize`, `tools/list`, `tools/call`).
 
 See [Connecting MCP Clients](Connecting-Clients) for Claude Desktop and Claude.ai.

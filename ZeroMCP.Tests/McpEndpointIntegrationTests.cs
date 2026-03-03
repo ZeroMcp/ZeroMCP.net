@@ -599,6 +599,17 @@ public sealed class McpEndpointIntegrationTests : IClassFixture<WebApplicationFa
         var response = await _client.SendAsync(request);
         response.StatusCode.Should().Be(System.Net.HttpStatusCode.MethodNotAllowed, "inspector endpoint is GET only; POST /mcp/tools returns 405");
     }
+
+    [Fact]
+    public async Task Phase3_InspectorUI_Get_ReturnsHtmlWithTitle()
+    {
+        var response = await _client.GetAsync("/mcp/ui");
+        response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
+        response.Content.Headers.ContentType?.MediaType.Should().Be("text/html");
+        var html = await response.Content.ReadAsStringAsync();
+        html.Should().Contain("ZeroMCP Tool Inspector");
+        html.Should().Contain("/mcp");
+    }
 }
 
 /// <summary>WebApplicationFactory that disables the tool inspector endpoint for testing.</summary>

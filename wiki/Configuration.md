@@ -34,6 +34,7 @@ builder.Services.AddZeroMcp(options =>
 
     // Phase 3: Tool Inspector
     options.EnableToolInspector = true;         // GET {RoutePrefix}/tools returns full tool list as JSON
+    options.EnableToolInspectorUI = true;       // GET {RoutePrefix}/ui serves test invocation UI (Swagger-like)
 });
 ```
 
@@ -55,6 +56,7 @@ builder.Services.AddZeroMcp(options =>
 | **EnableStreamingToolResults** | `false` | Returns chunked content blocks (`chunkIndex`, `isFinal`) |
 | **StreamingChunkSize** | `4096` | Chunk size (characters) when streaming mode is enabled |
 | **EnableToolInspector** | `true` | When true, registers GET {RoutePrefix}/tools with full tool registry (JSON). Set false to disable. |
+| **EnableToolInspectorUI** | `true` | When true and inspector is enabled, registers GET {RoutePrefix}/ui with a Swagger-like test invocation UI. |
 
 ---
 

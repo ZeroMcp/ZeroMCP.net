@@ -106,6 +106,17 @@ public sealed class ZeroMCPOptions
     /// Does not apply per-request visibility (shows all registered tools). Default is true.
     /// </summary>
     public bool EnableToolInspector { get; set; } = true;
+
+    /// <summary>
+    /// When true will check XMLDoc descriptions if MCP Description is left blank. Default is true.
+    /// </summary>
+    public bool EnableXMLDocAnalysis { get; set; } = true;
+
+    /// <summary>
+    /// When true and <see cref="EnableToolInspector"/> is true, registers GET {RoutePrefix}/ui with a Swagger-like test invocation UI.
+    /// The UI lists tools, shows input schemas, and lets you invoke tools/call from the browser. Default is true.
+    /// </summary>
+    public bool EnableToolInspectorUI { get; set; } = true;
 }
 
 /// <summary>Suggested follow-up tool and rationale for AI clients.</summary>

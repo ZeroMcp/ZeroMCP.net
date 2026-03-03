@@ -487,3 +487,13 @@ After adding `AddEndpointsApiExplorer()`, restart the app; both controller and m
 - **Phase 2 Streaming**
   - **StreamingEnabledWebApplicationFactory** — IPostConfigureOptions sets `EnableStreamingToolResults = true`, `StreamingChunkSize = 64`.
   - **McpStreamingEnabledTests.Phase2_WhenStreamingEnabled_ContentHasChunkIndexAndIsFinal** — tools/call content is array of chunks with `chunkIndex`, `isFinal`, `text`; last chunk has `isFinal` true.
+
+---
+
+## 2026-03-03 – MCP Tool Inspector UI (Swagger-like test invocation)
+
+- **ZeroMcpOptions** — Added **EnableToolInspectorUI** (default `true`). When true and **EnableToolInspector** is true, GET {RoutePrefix}/ui is registered.
+- **ZeroMCP/Ui/McpInspectorUiHtml.cs** — New: embedded HTML page with inline CSS and JS. Fetches GET .../tools, renders collapsible list of tools (name, description, method, route), input schema (pre), and "Try it out" with textarea for JSON arguments and Invoke button; POSTs to MCP base with tools/call and displays JSON result. Base path injected via **GetHtml(mcpBasePath)**.
+- **EndpointRouteBuilderExtensions** — When **EnableToolInspector** and **EnableToolInspectorUI**, **MapGet(baseRoute + "/ui", ...)** returns the HTML with `text/html; charset=utf-8`.
+- **McpEndpointIntegrationTests** — **Phase3_InspectorUI_Get_ReturnsHtmlWithTitle** (GET /mcp/ui returns 200, text/html, body contains "ZeroMCP Tool Inspector" and "/mcp").
+- **Docs** — Configuration.md, Quick-Start.md, README.md: document **EnableToolInspectorUI** and GET /mcp/ui.

@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using ZeroMCP.Options;
+using ZeroMCP.Ui;
 using ZeroMCP.Transport;
 
 namespace ZeroMCP.Extensions;
@@ -53,10 +54,24 @@ public static class EndpointRouteBuilderExtensions
 
         if (options.EnableToolInspector)
         {
-            var toolsRoute = route.TrimEnd('/') + "/tools";
+            var baseRoute = route.TrimEnd('/');
+            var toolsRoute = baseRoute + "/tools";
             endpoints.MapGet(toolsRoute, (HttpContext ctx) => mcpHandler.HandleToolsInspectorAsync(ctx))
                 .WithName("mcp-tools-inspector")
                 .WithDisplayName("MCP Tool Inspector (ZeroMCP)");
+            if (options.EnableToolInspectorUI)
+            {
+                var uiRoute = baseRoute + "/ui";
+                var mcpBasePath = baseRoute;
+                endpoints.MapGet(uiRoute, (HttpContext ctx) =>
+                {
+                    ctx.Response.ContentType = "text/html; charset=utf-8";
+                    ctx.Response.StatusCode = 200;
+                    return ctx.Response.WriteAsync(McpInspectorUiHtml.GetHtml(mcpBasePath));
+                })
+                    .WithName("mcp-tools-ui")
+                    .WithDisplayName("MCP Tool Inspector UI (ZeroMCP)");
+            }
         }
 
         // The MCP streamable HTTP transport: GET returns endpoint info, POST handles JSON-RPC

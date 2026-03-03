@@ -249,13 +249,13 @@ public sealed class McpToolDiscoveryService
                     break;
             }
         }
-
         var descriptor = new McpToolDescriptor
         {
             Name = mcpAttr.Name,
+        // Use Description from the MCP Attribute, or, if EnableXMLDocAnalysis is set to true, read from XMLDoc
             Description = !string.IsNullOrWhiteSpace(mcpAttr.Description)
                 ? mcpAttr.Description
-                : XmlDocHelper.GetMethodSummary(controllerDescriptor.MethodInfo),
+                : (_options.EnableXMLDocAnalysis?XmlDocHelper.GetMethodSummary(controllerDescriptor.MethodInfo):""),
             Tags = mcpAttr.Tags,
             Category = mcpAttr.Category,
             Examples = mcpAttr.Examples,

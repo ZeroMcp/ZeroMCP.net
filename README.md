@@ -79,6 +79,7 @@ Point any MCP client at your app's `/mcp` URL; it will see your tagged controlle
 
 - **GET /mcp** — Server info and example JSON-RPC payload.
 - **GET /mcp/tools** — (Phase 3) JSON list of all registered tools and their schemas (when **EnableToolInspector** is true). Use for debugging or tooling.
+- **GET /mcp/ui** — (Phase 3) Swagger-like test invocation UI: list tools, view schemas, invoke tools from the browser (when **EnableToolInspectorUI** is true).
 - **POST /mcp** — JSON-RPC (`initialize`, `tools/list`, `tools/call`).
 
 For **versioning and breaking-change policy**, see [VERSIONING.md](VERSIONING.md).
@@ -111,6 +112,9 @@ builder.Services.AddZeroMcp(options =>
     options.EnableSuggestedFollowUps = true;          // when SuggestedFollowUpsProvider is set, result includes suggested next tools
     options.EnableStreamingToolResults = false;       // when true, content is returned as chunks (chunkIndex, isFinal, text)
     options.StreamingChunkSize = 4096;
+
+    // Phase 3: XML Doc Analysis (default true)
+    options.EnableXMLDocAnalysis = true;            // when true, will check XMLDoc descriptions if MCP Description is left blank
 
     // Phase 3: Tool Inspector (default true)
     options.EnableToolInspector = true;   // GET {RoutePrefix}/tools returns full tool list as JSON
@@ -163,7 +167,11 @@ Without `AddEndpointsApiExplorer()`, only minimal API tools will appear in `tool
 
 ## Tool Inspector (Phase 3)
 
-When **EnableToolInspector** is true (default), **GET {RoutePrefix}/tools** returns a JSON payload with `serverName`, `serverVersion`, `protocolVersion`, `toolCount`, and a `tools` array. Each tool entry includes `name`, `description`, `httpMethod`, `route`, `inputSchema`, and optional `category`, `tags`, `examples`, `hints`, `requiredRoles`, `requiredPolicy`. Use it for debugging or to build tooling. Set **EnableToolInspector** to `false` to disable the route (e.g. in production if the list is sensitive). See [wiki/Configuration](wiki/Configuration.md) and [wiki/Enterprise-Usage](wiki/Enterprise-Usage.md).
+When **EnableToolInspector** is true (default), **GET {RoutePrefix}/tools** returns a JSON payload with `serverName`, `serverVersion`, `protocolVersion`, `toolCount`, and a `tools` array. Each tool entry includes `name`, `description`, `httpMethod`, `route`, `inputSchema`, and optional `category`, `tags`, `examples`, `hints`, `requiredRoles`, `requiredPolicy`. Use it for debugging or to build tooling.
+
+When **EnableToolInspectorUI** is also true (default), **GET {RoutePrefix}/ui** serves a Swagger-like test invocation UI: you can browse tools, view input schemas, and invoke `tools/call` from the browser with editable JSON arguments.
+
+Set **EnableToolInspector** or **EnableToolInspectorUI** to `false` to disable the JSON endpoint or the UI (e.g. in production if sensitive). See [wiki/Configuration](wiki/Configuration.md) and [wiki/Enterprise-Usage](wiki/Enterprise-Usage.md).
 
 ---
 
