@@ -360,3 +360,34 @@ After adding `AddEndpointsApiExplorer()`, restart the app; both controller and m
 
 - **Docs**
   - README: added Phase 2 options snippet (EnableResultEnrichment, EnableSuggestedFollowUps, EnableStreamingToolResults, StreamingChunkSize); extended `[Mcp]` attribute example with Category, Examples, Hints.
+
+---
+
+## 2026-03-03 – Wiki updated for Phase 2
+
+- **wiki/Home.md**
+  - Updated page descriptions to include Phase 2 enrichment/streaming and expanded `[Mcp]` metadata fields (category/examples/hints).
+
+- **wiki/Configuration.md**
+  - Added Phase 2 option examples and option-table entries for:
+    - `EnableResultEnrichment`
+    - `EnableSuggestedFollowUps`
+    - `ResponseHintProvider`
+    - `SuggestedFollowUpsProvider`
+    - `EnableStreamingToolResults`
+    - `StreamingChunkSize`
+
+- **wiki/Quick-Start.md**
+  - Added optional Phase 2 config snippet.
+  - Updated “Next steps” descriptions to include enrichment/streaming and extended metadata fields.
+
+- **wiki/The-Mcp-Attribute.md**
+  - Added `Category`, `Examples`, and `Hints` to full attribute sample and parameter table.
+
+- **wiki/Controllers-and-Minimal-APIs.md**
+  - Expanded `.AsMcp(...)` example with category/examples/hints.
+  - Added those fields to the minimal API option list.
+
+- **wiki/Dispatch-and-Pipeline.md**
+  - Clarified auth context propagation wording.
+  - Added sections documenting Phase 2 enriched `tools/call` response fields and chunked response behavior.

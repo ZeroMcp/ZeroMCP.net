@@ -29,12 +29,21 @@ Use **`.AsMcp(...)`** when mapping the endpoint:
 
 ```csharp
 app.MapGet("/api/health", () => Results.Ok(new { status = "ok" }))
-   .AsMcp("health_check", "Returns API health status.", tags: new[] { "system" });
+   .AsMcp(
+       "health_check",
+       "Returns API health status.",
+       tags: new[] { "system" },
+       category: "system",
+       examples: new[] { "Check service health before calling business tools" },
+       hints: new[] { "read_only", "cost=low" });
 ```
 
 - **Name** (required) — Snake_case tool name.
 - **Description** (optional) — Shown to the LLM.
 - **Tags** (optional) — e.g. `new[] { "system" }`.
+- **Category** (optional) — Primary grouping/category for `tools/list`.
+- **Examples** (optional) — Free-form usage examples for AI clients.
+- **Hints** (optional) — AI-facing hint strings.
 - **Roles** (optional) — Only list tool if user is in one of these roles.
 - **Policy** (optional) — Only list tool if authorization policy succeeds.
 

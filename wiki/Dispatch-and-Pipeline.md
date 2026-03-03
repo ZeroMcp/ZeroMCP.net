@@ -16,12 +16,34 @@ When an MCP client calls a tool, ZeroMcp invokes your action or endpoint **in-pr
 
 ## What works out of the box
 
-- **`[Authorize]`** — Auth middleware and authorization run on the synthetic request; 401/403 are returned as MCP errors.
-- **Auth forwarding** — Headers listed in **ForwardHeaders** (e.g. `Authorization`) are copied from the MCP request to the synthetic request.
+- **Auth context propagation** — The synthetic request receives forwarded headers listed in **ForwardHeaders** (e.g. `Authorization`) and the request user context from the incoming MCP request.
 - **CreatedAtAction** — The synthetic request has endpoint and controller/action route values so link generation succeeds.
 - **ModelState / validation** — Validation errors (e.g. missing required body, invalid status) return as MCP error results (HTTP 4xx body in the result content).
 - **Exception filters** — Unhandled exceptions are caught and returned as MCP errors.
 - **DI** — Your services, repositories, and business logic are resolved and run as in a normal request.
+
+---
+
+## Phase 2 result shape
+
+When enabled in `ZeroMCPOptions`, `tools/call` can include enriched fields:
+
+- **`metadata`** — `statusCode`, `contentType`, `correlationId`, `durationMs`
+- **`suggestedNextActions`** — Follow-up tools with rationale
+- **`hints`** — Additional AI-facing hints from your provider
+
+By default these are off (`EnableResultEnrichment = false`) to preserve the legacy response shape.
+
+---
+
+## Chunked (partial-style) responses
+
+When `EnableStreamingToolResults` is true, tool result content is returned as chunks:
+
+- each `content` item includes `chunkIndex` and `isFinal`
+- chunk size is controlled by `StreamingChunkSize`
+
+This is compatibility-oriented chunking of the buffered response body (not live SSE/stdIO streaming).
 
 ---
 

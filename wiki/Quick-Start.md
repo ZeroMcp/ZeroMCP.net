@@ -23,6 +23,11 @@ builder.Services.AddZeroMcp(options =>
 {
     options.ServerName = "My Orders API";
     options.ServerVersion = "1.0.0";
+
+    // Phase 2 (optional)
+    options.EnableResultEnrichment = true;
+    options.EnableStreamingToolResults = true;
+    options.StreamingChunkSize = 4096;
 });
 ```
 
@@ -73,6 +78,6 @@ See [Connecting MCP Clients](Connecting-Clients) for Claude Desktop and Claude.a
 
 ## Next steps
 
-- [Configuration](Configuration) — Route prefix, tool filters, observability
-- [The [Mcp] Attribute](The-Mcp-Attribute) — Description, tags, roles, policy
+- [Configuration](Configuration) — Route prefix, tool filters, observability, enrichment, streaming
+- [The [Mcp] Attribute](The-Mcp-Attribute) — Description, tags, category, examples, hints, roles, policy
 - [Controllers and Minimal APIs](Controllers-and-Minimal-APIs) — Exposing minimal API endpoints as tools

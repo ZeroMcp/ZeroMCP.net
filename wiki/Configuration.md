@@ -25,6 +25,12 @@ builder.Services.AddZeroMcp(options =>
     // Observability
     options.CorrelationIdHeader = "X-Correlation-ID";
     options.EnableOpenTelemetryEnrichment = true;
+
+    // Phase 2 (optional, defaults shown)
+    options.EnableResultEnrichment = false;   // include tools/call metadata + optional hints
+    options.EnableSuggestedFollowUps = false; // include suggestedNextActions when provider is configured
+    options.EnableStreamingToolResults = false; // split content into chunks for streaming-aware clients
+    options.StreamingChunkSize = 4096;
 });
 ```
 
@@ -39,6 +45,12 @@ builder.Services.AddZeroMcp(options =>
 | **ToolVisibilityFilter** | `null` | Per-request filter `(name, HttpContext) => bool` |
 | **CorrelationIdHeader** | `"X-Correlation-ID"` | Header read/echoed; set to `null` to disable |
 | **EnableOpenTelemetryEnrichment** | `false` | Tag `Activity.Current` with MCP fields |
+| **EnableResultEnrichment** | `false` | Adds tools/call `metadata` and optional `hints` |
+| **EnableSuggestedFollowUps** | `false` | Adds `suggestedNextActions` when provider returns values |
+| **ResponseHintProvider** | `null` | Delegate for custom result hints |
+| **SuggestedFollowUpsProvider** | `null` | Delegate returning follow-up tool suggestions |
+| **EnableStreamingToolResults** | `false` | Returns chunked content blocks (`chunkIndex`, `isFinal`) |
+| **StreamingChunkSize** | `4096` | Chunk size (characters) when streaming mode is enabled |
 
 ---
 

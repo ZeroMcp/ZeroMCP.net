@@ -24,6 +24,9 @@ public ActionResult<Order> GetOrder(int id) { ... }
     name: "create_order",
     Description = "Creates an order. Returns the created order with its ID.",
     Tags = ["write", "orders"],
+    Category = "orders",
+    Examples = ["Create order for Alice with quantity 2"],
+    Hints = ["idempotent", "cost=low"],
     Roles = ["Editor", "Admin"],
     Policy = "RequireEditor"
 )]
@@ -34,6 +37,9 @@ public ActionResult<Order> GetOrder(int id) { ... }
 | **name** | Required. Snake_case tool name. |
 | **Description** | Optional. Shown to the LLM. |
 | **Tags** | Optional. For grouping/filtering (e.g. `["write", "orders"]`). |
+| **Category** | Optional. Primary grouping/category label in `tools/list`. |
+| **Examples** | Optional. Free-form usage examples for AI clients. |
+| **Hints** | Optional. AI-facing hints/metadata strings. |
 | **Roles** | Optional. Tool only in `tools/list` if user is in at least one role. Requires auth. |
 | **Policy** | Optional. Tool only in `tools/list` if `IAuthorizationService` authorizes the policy. |
 

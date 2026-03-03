@@ -36,13 +36,13 @@ MCP Client gets structured result
 | Page | Description |
 |------|-------------|
 | [Quick Start](Quick-Start) | Install, register, map endpoint, tag actions |
-| [Configuration](Configuration) | Options, route prefix, tool filters, observability |
-| [The [Mcp] Attribute](The-Mcp-Attribute) | Attribute usage, name, description, tags, roles, policy |
+| [Configuration](Configuration) | Options, route prefix, tool filters, observability, Phase 2 enrichment/streaming |
+| [The [Mcp] Attribute](The-Mcp-Attribute) | Attribute usage, name, description, tags, category, examples, hints, roles, policy |
 | [Parameters and Schemas](Parameters-and-Schemas) | How route/query/body map to MCP input schema |
 | [Controllers and Minimal APIs](Controllers-and-Minimal-APIs) | Using both together, minimal API `.AsMcp` |
 | [Governance and Security](Governance-and-Security) | Roles, policy, per-request visibility, auth |
 | [Observability](Observability) | Logging, correlation ID, metrics, OpenTelemetry |
-| [Dispatch and Pipeline](Dispatch-and-Pipeline) | In-process dispatch, auth forwarding, validation |
+| [Dispatch and Pipeline](Dispatch-and-Pipeline) | In-process dispatch, result enrichment, chunked responses |
 | [Connecting MCP Clients](Connecting-Clients) | Claude Desktop, Claude.ai, production auth |
 | [Versioning](Versioning) | SemVer, breaking-change policy, MCP protocol version |
 | [Project Structure](Project-Structure) | Repo layout, build, test commands |
