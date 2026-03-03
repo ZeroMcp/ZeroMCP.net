@@ -30,6 +30,7 @@ jobs:
       # 3. Sync wiki/ into the wiki repo
       - name: Sync wiki directory
         run: |
+          cp plan.md wiki/plan.md 
           rsync -av --exclude '.git' --delete wiki/ wiki-repo/
           cd wiki-repo
           git config user.name "github-actions[bot]"
