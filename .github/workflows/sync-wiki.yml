@@ -5,7 +5,8 @@ on:
     branches: [ main ]
     paths:
       - 'wiki/**'
-
+      - '.gitlab/workflows/sync-wiki.yml'
+      
 permissions:
   contents: write   # needed for pushing to wiki repo
 
