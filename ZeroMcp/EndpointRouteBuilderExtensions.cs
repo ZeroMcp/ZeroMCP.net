@@ -51,6 +51,14 @@ public static class EndpointRouteBuilderExtensions
             options,
             handlerLogger);
 
+        if (options.EnableToolInspector)
+        {
+            var toolsRoute = route.TrimEnd('/') + "/tools";
+            endpoints.MapGet(toolsRoute, (HttpContext ctx) => mcpHandler.HandleToolsInspectorAsync(ctx))
+                .WithName("mcp-tools-inspector")
+                .WithDisplayName("MCP Tool Inspector (ZeroMCP)");
+        }
+
         // The MCP streamable HTTP transport: GET returns endpoint info, POST handles JSON-RPC
         return endpoints.MapMethods(route, ["GET", "POST"], (HttpContext ctx) => mcpHandler.HandleAsync(ctx))
             .WithName("mcp-endpoint")

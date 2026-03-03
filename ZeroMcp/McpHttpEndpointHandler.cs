@@ -157,6 +157,21 @@ internal sealed class McpHttpEndpointHandler
         }
     }
 
+    /// <summary>
+    /// Handles GET {RoutePrefix}/tools — returns the full tool registry as JSON for developer inspection.
+    /// </summary>
+    public async Task HandleToolsInspectorAsync(HttpContext context)
+    {
+        var payload = _toolHandler.GetInspectorPayload();
+        context.Response.ContentType = "application/json";
+        context.Response.StatusCode = 200;
+        await context.Response.WriteAsync(JsonSerializer.Serialize(payload, new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            WriteIndented = true
+        }));
+    }
+
     private string? GetOrCreateCorrelationId(HttpContext context)
     {
         var headerName = _options.CorrelationIdHeader;

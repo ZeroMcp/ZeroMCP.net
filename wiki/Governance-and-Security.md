@@ -75,4 +75,5 @@ Return **true** to include the tool. Combined with roles/policy: the tool is lis
 
 - [The [Mcp] Attribute](The-Mcp-Attribute) — Roles and Policy parameters
 - [Configuration](Configuration) — ToolFilter and ToolVisibilityFilter
+- [Security Model](Security-Model) — Auth flow through synthetic dispatch, header forwarding, attack surfaces
 - [Connecting MCP Clients](Connecting-Clients) — Securing the /mcp endpoint in production

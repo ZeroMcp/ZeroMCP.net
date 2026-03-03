@@ -8,6 +8,7 @@ using ZeroMCP.Discovery;
 using ZeroMCP.Dispatch;
 using ZeroMCP.Observability;
 using ZeroMCP.Options;
+using ZeroMCP;
 
 namespace ZeroMCP.Transport;
 
@@ -85,6 +86,44 @@ internal sealed class McpToolHandler
             });
         }
         return list;
+    }
+
+    /// <summary>
+    /// Returns the full tool registry as a payload for the GET /mcp/tools inspector endpoint.
+    /// Respects ToolFilter (discovery-time) but does not apply per-request visibility.
+    /// </summary>
+    internal object GetInspectorPayload()
+    {
+        var tools = new List<object>();
+        foreach (var d in _discovery.GetTools())
+        {
+            var schema = d.InputSchemaJson is not null
+                ? JsonDocument.Parse(d.InputSchemaJson).RootElement
+                : DefaultEmptySchema();
+            var entry = new Dictionary<string, object?>
+            {
+                ["name"] = d.Name,
+                ["description"] = d.Description ?? "",
+                ["httpMethod"] = d.HttpMethod,
+                ["route"] = d.RelativeUrl,
+                ["category"] = d.Category,
+                ["tags"] = d.Tags,
+                ["examples"] = d.Examples,
+                ["hints"] = d.Hints,
+                ["inputSchema"] = schema,
+                ["requiredRoles"] = d.RequiredRoles,
+                ["requiredPolicy"] = d.RequiredPolicy
+            };
+            tools.Add(entry);
+        }
+        return new
+        {
+            serverName = _options.ServerName,
+            serverVersion = _options.ServerVersion,
+            protocolVersion = McpProtocolConstants.ProtocolVersion,
+            toolCount = tools.Count,
+            tools
+        };
     }
 
     private async Task<bool> IsVisibleAsync(McpToolDescriptor descriptor, HttpContext context, CancellationToken cancellationToken)

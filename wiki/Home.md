@@ -10,7 +10,7 @@ Tag controller actions with **`[Mcp]`** or minimal APIs with **`.AsMcp(...)`**. 
 
 1. **Discover** tools at startup from controller API descriptions (same source as Swagger) and from minimal API endpoints that use `AsMcp`
 2. **Generate** a JSON Schema for each tool's inputs (route, query, and body merged)
-3. **Expose** a single endpoint (GET and POST `/mcp`) that speaks the MCP Streamable HTTP transport
+3. **Expose** a single endpoint (GET and POST `/mcp`) that speaks the MCP Streamable HTTP transport; optionally **GET /mcp/tools** for a JSON tool inspector
 4. **Dispatch** tool calls in-process through your real action or endpoint pipeline — filters, validation, and authorization run normally
 
 ```
@@ -41,11 +41,15 @@ MCP Client gets structured result
 | [Parameters and Schemas](Parameters-and-Schemas) | How route/query/body map to MCP input schema |
 | [Controllers and Minimal APIs](Controllers-and-Minimal-APIs) | Using both together, minimal API `.AsMcp` |
 | [Governance and Security](Governance-and-Security) | Roles, policy, per-request visibility, auth |
+| [Enterprise Usage](Enterprise-Usage) | Production checklist, recommended options, health monitoring |
+| [Security Model](Security-Model) | Auth flow, synthetic dispatch, header forwarding, attack surfaces |
+| [Migration Guide](Migration-Guide) | Upgrading between phases, breaking changes, VERSIONING |
 | [Observability](Observability) | Logging, correlation ID, metrics, OpenTelemetry |
 | [Dispatch and Pipeline](Dispatch-and-Pipeline) | In-process dispatch, result enrichment, chunked responses |
 | [Connecting MCP Clients](Connecting-Clients) | Claude Desktop, Claude.ai, production auth |
 | [Versioning](Versioning) | SemVer, breaking-change policy, MCP protocol version |
 | [Project Structure](Project-Structure) | Repo layout, build, test commands |
+| [Performance](Performance) | Benchmarks, baseline numbers, how to reproduce |
 | [Limitations](Limitations) | Known limitations and workarounds |
 | [Contributing](Contributing) | How to contribute |
 

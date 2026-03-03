@@ -20,7 +20,7 @@ ZeroMcp Endpoint
     │
     │  in-process dispatch (controller or minimal endpoint)
     ▼
-Your Action / Endpoint  ← [Mcp] or .AsMCP(...)
+Your Action / Endpoint  ← [Mcp] or .AsMcp(...)
     │
     │  real response
     ▼
@@ -77,6 +77,10 @@ public class OrdersController : ControllerBase
 
 Point any MCP client at your app's `/mcp` URL; it will see your tagged controller actions and minimal endpoints as tools.
 
+- **GET /mcp** — Server info and example JSON-RPC payload.
+- **GET /mcp/tools** — (Phase 3) JSON list of all registered tools and their schemas (when **EnableToolInspector** is true). Use for debugging or tooling.
+- **POST /mcp** — JSON-RPC (`initialize`, `tools/list`, `tools/call`).
+
 For **versioning and breaking-change policy**, see [VERSIONING.md](VERSIONING.md).
 
 ---
@@ -107,6 +111,9 @@ builder.Services.AddZeroMcp(options =>
     options.EnableSuggestedFollowUps = true;          // when SuggestedFollowUpsProvider is set, result includes suggested next tools
     options.EnableStreamingToolResults = false;       // when true, content is returned as chunks (chunkIndex, isFinal, text)
     options.StreamingChunkSize = 4096;
+
+    // Phase 3: Tool Inspector (default true)
+    options.EnableToolInspector = true;   // GET {RoutePrefix}/tools returns full tool list as JSON
 });
 ```
 
@@ -151,6 +158,27 @@ app.MapZeroMcp();
 ```
 
 Without `AddEndpointsApiExplorer()`, only minimal API tools will appear in `tools/list`; controller actions will be missing because they are discovered from the same API description source as Swagger.
+
+---
+
+## Tool Inspector (Phase 3)
+
+When **EnableToolInspector** is true (default), **GET {RoutePrefix}/tools** returns a JSON payload with `serverName`, `serverVersion`, `protocolVersion`, `toolCount`, and a `tools` array. Each tool entry includes `name`, `description`, `httpMethod`, `route`, `inputSchema`, and optional `category`, `tags`, `examples`, `hints`, `requiredRoles`, `requiredPolicy`. Use it for debugging or to build tooling. Set **EnableToolInspector** to `false` to disable the route (e.g. in production if the list is sensitive). See [wiki/Configuration](wiki/Configuration.md) and [wiki/Enterprise-Usage](wiki/Enterprise-Usage.md).
+
+---
+
+## Examples
+
+The **examples/** folder contains four standalone projects:
+
+| Example | Description |
+|--------|-------------|
+| **Minimal** | Bare-minimum: one controller action, one minimal API, no auth |
+| **WithAuth** | API-key auth, role-based tool visibility, `[Authorize]` |
+| **WithEnrichment** | Phase 2 result enrichment, suggested follow-ups, streaming options |
+| **Enterprise** | Auth, enrichment, observability, ToolFilter, ToolVisibilityFilter |
+
+Run any example with `dotnet run` from its folder. See each project's **README.md** for details.
 
 ---
 
@@ -308,6 +336,7 @@ mcpAPI/
 │   ├── Options/                   ← ZeroMcpOptions
 │   └── ZeroMCP.csproj            (PackageId: ZeroMcp, Version: 1.0.2)
 ├── ZeroMCP.Sample/                ← Sample (Orders, Customer, Product APIs; nested route Customer/{id}/orders; health minimal endpoint, optional auth)
+├── examples/                     ← Phase 3: Minimal, WithAuth, WithEnrichment, Enterprise
 ├── ZeroMCP.Tests/                 ← Integration + schema tests
 ├── wiki/                          ← Wiki documentation (linked Markdown pages)
 ├── nupkgs/                        ← dotnet pack -o nupkgs

@@ -11,5 +11,6 @@
   </Folder>
   <Project Path="ZeroMCP.Sample/ZeroMCP.Sample.csproj" />
   <Project Path="ZeroMCP.Tests/ZeroMCP.Tests.csproj" />
+  <Project Path="ZeroMCP.Benchmarks/ZeroMCP.Benchmarks.csproj" />
   <Project Path="ZeroMcp/ZeroMCP.csproj" />
 </Solution>

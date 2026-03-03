@@ -98,6 +98,14 @@ public sealed class ZeroMCPOptions
     /// When <see cref="EnableStreamingToolResults"/> is true, response content is split into chunks of this size (characters). Default is 4096.
     /// </summary>
     public int StreamingChunkSize { get; set; } = 4096;
+
+    // --- Phase 3: Tool Inspector ---
+
+    /// <summary>
+    /// When true, registers a GET {RoutePrefix}/tools endpoint that returns the full tool registry as JSON for developer inspection.
+    /// Does not apply per-request visibility (shows all registered tools). Default is true.
+    /// </summary>
+    public bool EnableToolInspector { get; set; } = true;
 }
 
 /// <summary>Suggested follow-up tool and rationale for AI clients.</summary>

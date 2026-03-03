@@ -421,3 +421,53 @@ After adding `AddEndpointsApiExplorer()`, restart the app; both controller and m
     - **Phase 3 (Month 5)** is now **Developer Experience**.
     - **Phase 4 (Month 6)** is now **Enterprise Features**.
   - Preserved all task content; only phase ordering/timeline association changed.
+
+---
+
+## 2026-03-03 – Phase 3 Developer Experience (Increment 1: Examples)
+
+- **examples/** — Added four standalone example projects, all referencing ZeroMcp via ProjectReference, targeting net8.0;net9.0;net10.0.
+  - **Minimal** — MinimalExample.csproj, Program.cs, WeatherController with `[Mcp("get_weather")]`, health minimal API with `.AsMcp("health_check")`, README.md.
+  - **WithAuth** — WithAuthExample.csproj, ApiKey auth handler, SecureController (public/secure/admin actions), minimal APIs with roles, README.md.
+  - **WithEnrichment** — WithEnrichmentExample.csproj, EnableResultEnrichment, EnableSuggestedFollowUps, EnableStreamingToolResults, ResponseHintProvider, SuggestedFollowUpsProvider, CatalogController with Category/Examples/Hints, README.md.
+  - **Enterprise** — EnterpriseExample.csproj, full auth + enrichment + ToolFilter + ToolVisibilityFilter + CorrelationIdHeader + OpenTelemetry, ItemsController (CRUD + admin), README.md.
+- **ZeroMcp.slnx** — Added folder `/examples/` with all four example projects. Build verified with `dotnet build`.
+
+---
+
+## 2026-03-03 – Phase 3 Developer Experience (Increment 2: Tool Inspector)
+
+- **ZeroMcpOptions** — Added **EnableToolInspector** (default `true`). When true, GET {RoutePrefix}/tools is registered.
+- **McpToolHandler** — Added **GetInspectorPayload()** building JSON-shaped payload (serverName, serverVersion, protocolVersion, toolCount, tools[]) from discovery; each tool has name, description, httpMethod, route, inputSchema, category, tags, examples, hints, requiredRoles, requiredPolicy.
+- **McpHttpEndpointHandler** — Added **HandleToolsInspectorAsync(HttpContext)** writing the payload as application/json.
+- **EndpointRouteBuilderExtensions** — When **EnableToolInspector** is true, **MapGet(route + "/tools", ...)** registers the inspector endpoint. Inspector respects ToolFilter (discovery-time) only; no per-request visibility.
+
+---
+
+## 2026-03-03 – Phase 3 Developer Experience (Increment 2: Inspector tests)
+
+- **McpEndpointIntegrationTests** — Added **Phase3_Inspector_Get_ReturnsJsonWithTools** (GET /mcp/tools returns 200, serverName, protocolVersion, toolCount, tools with name/description/httpMethod/route/inputSchema). **Phase3_Inspector_EachToolHasSchemaShape** (each tool has inputSchema.type). **McpInspectorDisabledTests** with **DisabledInspectorWebApplicationFactory** (IPostConfigureOptions&lt;ZeroMCPOptions&gt; sets EnableToolInspector = false) and **Phase3_Inspector_WhenDisabled_Returns404**.
+
+---
+
+## 2026-03-03 – Phase 3 Developer Experience (Increment 3: Wiki and README)
+
+- **wiki/Enterprise-Usage.md** — New: deployment checklist (HTTPS, auth, CORS, rate limiting, correlation IDs, health), recommended production options, tool inspector in production, distributed tracing, see-also links.
+- **wiki/Security-Model.md** — New: overview, auth flow (tools/list visibility, tools/call synthetic context, User propagation, ForwardHeaders), role/policy visibility, securing MCP and inspector, attack surfaces table.
+- **wiki/Migration-Guide.md** — New: Phase 1→2 (McpToolHandler rename, attribute/options, new optional behavior), Phase 2→3 (inspector, examples), general upgrade checklist, link to VERSIONING.md.
+- **wiki/Home.md** — Added links to Enterprise Usage, Security Model, Migration Guide, Performance; noted GET /mcp/tools in “How it works.”
+- **wiki/Quick-Start.md** — Documented GET /mcp, GET /mcp/tools, POST /mcp; added Examples section (Minimal, WithAuth, WithEnrichment, Enterprise); next steps link to Enterprise Usage.
+- **wiki/Configuration.md** — Added **EnableToolInspector** to options snippet and options table.
+- **wiki/Governance-and-Security.md** — Cross-link to Security-Model.md.
+- **wiki/Limitations.md** — Added “Tool inspector” note (no per-request visibility; disable or protect in production).
+- **README.md** (root) — Tool Inspector section, Examples section (table), EnableToolInspector in config snippet, examples/ in project structure, wiki links (Enterprise Usage, Security Model, Migration Guide).
+- **ZeroMCP/README.md** — Mention of GET /mcp/tools, EnableToolInspector in config table, wiki link.
+
+---
+
+## 2026-03-03 – Phase 3 Developer Experience (Increment 4: Benchmarks and Performance wiki)
+
+- **ZeroMCP.Benchmarks** — New BenchmarkDotNet console project (net10.0), referencing ZeroMcp and ZeroMCP.Sample. **McpEndpointBenchmarks**: GET /mcp/tools, POST tools/list, POST tools/call list_orders, POST tools/call get_order (WebApplicationFactory&lt;OrdersController&gt;, MemoryDiagnoser). **Program.cs** runs BenchmarkSwitcher. **README.md** with run instructions and filter example.
+- **ZeroMcp.slnx** — Added ZeroMCP.Benchmarks project.
+- **wiki/Performance.md** — New: how to run benchmarks, what is benchmarked, baseline/reference numbers (orders of magnitude), reproducibility notes.
+- **wiki/Home.md** — Added Performance to wiki pages table.

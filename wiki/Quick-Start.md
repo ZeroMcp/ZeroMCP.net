@@ -72,12 +72,28 @@ Use **snake_case** for the tool name (e.g. `get_order`, `create_order`). Omit `[
 
 Point any MCP client at your app's `/mcp` URL (e.g. `http://localhost:5000/mcp`). The client will see your tagged actions as tools.
 
+- **GET /mcp** — Server info and example JSON-RPC payload.
+- **GET /mcp/tools** — (Phase 3) JSON list of all registered tools and their schemas (when **EnableToolInspector** is true). Useful for debugging and tooling.
+- **POST /mcp** — JSON-RPC (`initialize`, `tools/list`, `tools/call`).
+
 See [Connecting MCP Clients](Connecting-Clients) for Claude Desktop and Claude.ai.
+
+---
+
+## Examples
+
+The repository includes **examples/** for different scenarios:
+
+- **Minimal** — Bare-minimum setup (one controller, one minimal API).
+- **WithAuth** — API-key auth, role-based tool visibility, `[Authorize]`.
+- **WithEnrichment** — Result enrichment, suggested follow-ups, streaming options.
+- **Enterprise** — Auth, enrichment, observability, ToolFilter, ToolVisibilityFilter.
 
 ---
 
 ## Next steps
 
-- [Configuration](Configuration) — Route prefix, tool filters, observability, enrichment, streaming
+- [Configuration](Configuration) — Route prefix, tool filters, observability, enrichment, streaming, tool inspector
 - [The [Mcp] Attribute](The-Mcp-Attribute) — Description, tags, category, examples, hints, roles, policy
 - [Controllers and Minimal APIs](Controllers-and-Minimal-APIs) — Exposing minimal API endpoints as tools
+- [Enterprise Usage](Enterprise-Usage) — Production deployment checklist

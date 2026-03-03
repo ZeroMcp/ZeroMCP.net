@@ -3,7 +3,10 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using ZeroMCP;
+using ZeroMCP.Options;
 using Xunit;
 using Microsoft.AspNetCore.Http;
 using System.Net.Http.Headers;
@@ -497,5 +500,89 @@ public sealed class McpEndpointIntegrationTests : IClassFixture<WebApplicationFa
     {
         return response["result"]!.AsObject()["content"]!.AsArray()[0]!
             .AsObject()["text"]!.GetValue<string>();
+    }
+
+    // --- Phase 3: Tool Inspector ---
+
+    [Fact]
+    public async Task Phase3_Inspector_Get_ReturnsJsonWithTools()
+    {
+        var response = await _client.GetAsync("/mcp/tools");
+        response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
+        response.Content.Headers.ContentType?.MediaType.Should().Be("application/json");
+        var json = await response.Content.ReadAsStringAsync();
+        var root = JsonNode.Parse(json)!.AsObject();
+        root.Should().HaveProperty("serverName");
+        root["serverName"]!.GetValue<string>().Should().Be("Orders API");
+        root.Should().HaveProperty("serverVersion");
+        root.Should().HaveProperty("protocolVersion");
+        root["protocolVersion"]!.GetValue<string>().Should().Be(McpProtocolConstants.ProtocolVersion);
+        root.Should().HaveProperty("toolCount");
+        root.Should().HaveProperty("tools");
+        var tools = root["tools"]!.AsArray();
+        tools.Should().NotBeEmpty();
+        var first = tools[0]!.AsObject();
+        first.Should().HaveProperty("name");
+        first.Should().HaveProperty("description");
+        first.Should().HaveProperty("httpMethod");
+        first.Should().HaveProperty("route");
+        first.Should().HaveProperty("inputSchema");
+        var names = tools.Select(t => t!.AsObject()["name"]!.GetValue<string>()).ToList();
+        names.Should().Contain("health_check");
+        names.Should().Contain("list_orders");
+    }
+
+    [Fact]
+    public async Task Phase3_Inspector_EachToolHasSchemaShape()
+    {
+        var response = await _client.GetAsync("/mcp/tools");
+        response.EnsureSuccessStatusCode();
+        var json = await response.Content.ReadAsStringAsync();
+        var root = JsonNode.Parse(json)!.AsObject();
+        var tools = root["tools"]!.AsArray();
+        foreach (var t in tools)
+        {
+            var tool = t!.AsObject();
+            tool.Should().HaveProperty("inputSchema");
+            var schema = tool["inputSchema"]!.AsObject();
+            schema.Should().HaveProperty("type");
+        }
+    }
+}
+
+/// <summary>WebApplicationFactory that disables the tool inspector endpoint for testing.</summary>
+public sealed class DisabledInspectorWebApplicationFactory : WebApplicationFactory<Program>
+{
+    protected override void ConfigureWebHost(Microsoft.AspNetCore.Hosting.IWebHostBuilder builder)
+    {
+        builder.ConfigureServices(services =>
+        {
+            services.AddSingleton<IPostConfigureOptions<ZeroMCPOptions>, DisableToolInspectorPostConfig>();
+        });
+    }
+}
+
+internal sealed class DisableToolInspectorPostConfig : IPostConfigureOptions<ZeroMCPOptions>
+{
+    public void PostConfigure(string? name, ZeroMCPOptions options)
+    {
+        options.EnableToolInspector = false;
+    }
+}
+
+public sealed class McpInspectorDisabledTests : IClassFixture<DisabledInspectorWebApplicationFactory>
+{
+    private readonly HttpClient _client;
+
+    public McpInspectorDisabledTests(DisabledInspectorWebApplicationFactory factory)
+    {
+        _client = factory.CreateClient();
+    }
+
+    [Fact]
+    public async Task Phase3_Inspector_WhenDisabled_Returns404()
+    {
+        var response = await _client.GetAsync("/mcp/tools");
+        response.StatusCode.Should().Be(System.Net.HttpStatusCode.NotFound);
     }
 }

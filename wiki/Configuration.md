@@ -31,6 +31,9 @@ builder.Services.AddZeroMcp(options =>
     options.EnableSuggestedFollowUps = false; // include suggestedNextActions when provider is configured
     options.EnableStreamingToolResults = false; // split content into chunks for streaming-aware clients
     options.StreamingChunkSize = 4096;
+
+    // Phase 3: Tool Inspector
+    options.EnableToolInspector = true;         // GET {RoutePrefix}/tools returns full tool list as JSON
 });
 ```
 
@@ -51,6 +54,7 @@ builder.Services.AddZeroMcp(options =>
 | **SuggestedFollowUpsProvider** | `null` | Delegate returning follow-up tool suggestions |
 | **EnableStreamingToolResults** | `false` | Returns chunked content blocks (`chunkIndex`, `isFinal`) |
 | **StreamingChunkSize** | `4096` | Chunk size (characters) when streaming mode is enabled |
+| **EnableToolInspector** | `true` | When true, registers GET {RoutePrefix}/tools with full tool registry (JSON). Set false to disable. |
 
 ---
 

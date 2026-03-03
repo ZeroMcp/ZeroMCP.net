@@ -36,6 +36,12 @@ Known limitations and workarounds.
 
 ---
 
+## Tool inspector
+
+- **GET /mcp/tools** returns all *registered* tools (subject to **ToolFilter** only). It does not apply per-request visibility (roles, policy, **ToolVisibilityFilter**). In production, disable **EnableToolInspector** or protect the route if the list is sensitive. See [Enterprise Usage](Enterprise-Usage) and [Security Model](Security-Model).
+
+---
+
 ## See also
 
 - [Dispatch and Pipeline](Dispatch-and-Pipeline) — How dispatch works
