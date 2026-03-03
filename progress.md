@@ -391,3 +391,23 @@ After adding `AddEndpointsApiExplorer()`, restart the app; both controller and m
 - **wiki/Dispatch-and-Pipeline.md**
   - Clarified auth context propagation wording.
   - Added sections documenting Phase 2 enriched `tools/call` response fields and chunked response behavior.
+
+---
+
+## 2026-03-03 – README cleanup (naming + examples)
+
+- **README.md (repo root)**
+  - Fixed malformed controller sample attributes (`[ApiController]`, `[Route("api/[controller]")]`).
+  - Replaced stale naming and usage references:
+    - `[McpTool]` → `[Mcp]`
+    - `.WithMcpTool(...)` → `.AsMcp(...)`
+  - Updated project structure bullets to use current symbols (`[Mcp]`, `AsMcp`).
+
+- **ZeroMCP/README.md (NuGet/package README)**
+  - Replaced stale API casing and names:
+    - `AddZeroMCP`/`MapZeroMCP` → `AddZeroMcp`/`MapZeroMcp`
+    - `[McpTool(...)]`/`.WithMcpTool(...)` → `[Mcp(...)]`/`.AsMcp(...)`
+  - Updated metrics note to current registration method (`AddZeroMcp()`).
+
+- **Verification**
+  - `dotnet build ZeroMCP.slnx -v detailed` — succeeds after README corrections.

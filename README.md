@@ -57,8 +57,8 @@ app.MapZeroMcp(); // registers GET and POST /mcp
 ### 4. Tag your actions
 
 ```csharp
-ApiController]
-Route("api/controller]")]
+[ApiController]
+[Route("api/[controller]")]
 public class OrdersController : ControllerBase
 {
     [HttpGet("{id}")]
@@ -70,7 +70,7 @@ public class OrdersController : ControllerBase
     public ActionResult<Order> CreateOrder([FromBody] CreateOrderRequest request) { ... }
 
     [HttpDelete("{id}")]
-    // No [McpTool] — invisible to MCP clients
+    // No [Mcp] — invisible to MCP clients
     public IActionResult Delete(int id) { ... }
 }
 ```
@@ -122,11 +122,11 @@ builder.Services.AddZeroMcp(options =>
 
 You can control which tools appear in `tools/list` per request:
 
-- **Role-based exposure** — On `[McpTool]` set `Roles = new[] { "Admin" }`. The tool is only listed if the current user is in at least one of the roles. Requires `AddAuthentication()` and `AddAuthorization()`.
+- **Role-based exposure** — On `[Mcp]` set `Roles = new[] { "Admin" }`. The tool is only listed if the current user is in at least one of the roles. Requires `AddAuthentication()` and `AddAuthorization()`.
 - **Policy-based exposure** — Set `Policy = "RequireEditor"` (or any policy name). The tool is only listed if `IAuthorizationService.AuthorizeAsync(user, null, policy)` succeeds.
 - **Environment / custom filter** — Use **`ToolFilter`** for discovery-time filtering by name (e.g. exclude `admin_*` in non-production). Use **`ToolVisibilityFilter`** for per-request filtering: `(toolName, httpContext) => bool` (e.g. hide tools based on user, headers, or feature flags).
 
-Minimal APIs support the same via `.WithMcpTool("name", "description", tags: null, roles: new[] { "Admin" }, policy: "RequireEditor")`.
+Minimal APIs support the same via `.AsMcp("name", "description", tags: null, roles: new[] { "Admin" }, policy: "RequireEditor")`.
 
 Tools that are hidden from `tools/list` are also not callable: a direct `tools/call` for that tool name will still be rejected (unknown tool). Authorization on the underlying action/endpoint is still enforced when the tool is invoked.
 
@@ -138,7 +138,7 @@ app.MapZeroMcp("/api/mcp");  // overrides options.RoutePrefix
 
 ### Using controllers and minimal APIs together
 
-If you expose **both** controller actions (with `[McpTool]`) and minimal API endpoints (with `.WithMcpTool(...)`), you must register the API explorer so controller actions are discovered:
+If you expose **both** controller actions (with `[Mcp]`) and minimal API endpoints (with `.AsMcp(...)`), you must register the API explorer so controller actions are discovered:
 
 ```csharp
 builder.Services.AddControllers();
@@ -146,7 +146,7 @@ builder.Services.AddEndpointsApiExplorer();   // required for controller tool di
 // ... AddZeroMcp(...) ...
 
 app.MapControllers();
-// minimal APIs with .WithMcpTool(...)
+// minimal APIs with .AsMcp(...)
 app.MapZeroMcp();
 ```
 
@@ -171,7 +171,7 @@ Without `AddEndpointsApiExplorer()`, only minimal API tools will appear in `tool
 
 ### Placement rules
 
-- **Per-action only** — `[McpTool]` goes on individual action methods, not controllers
+- **Per-action only** — `[Mcp]` goes on individual action methods, not controllers
 - **One name per application** — duplicate names are logged as warnings and skipped
 - **Any HTTP method** — GET, POST, PATCH, DELETE all work
 - **Description** — If you omit `Description`, ZeroMcp uses the method's XML doc `<summary>` when available.
@@ -192,7 +192,7 @@ ZeroMcp merges all parameter sources into a single flat JSON Schema object that 
 
 ```csharp
 [HttpPatch("{id}/status")]
-[McpTool("update_order_status", Description = "Updates an order's status.")]
+[Mcp("update_order_status", Description = "Updates an order's status.")]
 public IActionResult UpdateStatus(int id, [FromBody] UpdateStatusRequest req) { ... }
 
 public class UpdateStatusRequest
@@ -240,11 +240,11 @@ This means:
 
 ## Minimal API endpoints
 
-You can expose minimal API endpoints as MCP tools by calling `.WithMcpTool(...)` when mapping:
+You can expose minimal API endpoints as MCP tools by calling `.AsMcp(...)` when mapping:
 
 ```csharp
 app.MapGet("/api/health", () => Results.Ok(new { status = "ok" }))
-   .WithMcpTool("health_check", "Returns API health status.", tags: new[] { "system" });
+   .AsMcp("health_check", "Returns API health status.", tags: new[] { "system" });
 ```
 
 - **Name** (required) — snake_case tool name for the LLM
@@ -299,12 +299,12 @@ When you add features or options, update both: details and examples here, short 
 mcpAPI/
 ├── ZeroMcp/                       ← Library (NuGet package ZeroMcp)
 │   ├── README.md                  ← Package README (NuGet)
-│   ├── Attributes/                ← [McpTool]
+│   ├── Attributes/                ← [Mcp]
 │   ├── Discovery/                 ← Controller + minimal API tool discovery
 │   ├── Schema/                    ← JSON Schema for tool inputs (NJsonSchema)
 │   ├── Dispatch/                  ← Synthetic HttpContext, controller/minimal invoke
 │   ├── Metadata/                  ← McpToolEndpointMetadata for minimal APIs
-│   ├── Extensions/                ← AddZeroMcp, MapZeroMcp, WithMcpTool
+│   ├── Extensions/                ← AddZeroMcp, MapZeroMcp, AsMcp
 │   ├── Options/                   ← ZeroMcpOptions
 │   └── ZeroMCP.csproj            (PackageId: ZeroMcp, Version: 1.0.2)
 ├── ZeroMCP.Sample/                ← Sample (Orders, Customer, Product APIs; nested route Customer/{id}/orders; health minimal endpoint, optional auth)
@@ -322,7 +322,7 @@ mcpAPI/
 ## Known Limitations
 
 - **Streamable HTTP only** — stdio and SSE transports are not supported
-- **Minimal APIs** — supported via `WithMcpTool`; route params are bound; query/body binding is limited
+- **Minimal APIs** — supported via `AsMcp`; route params are bound; query/body binding is limited
 - **[FromForm] and file uploads** — not supported; JSON-only body binding
 - **Streaming responses** — `IAsyncEnumerable<T>` and SSE action results are not captured correctly
 - If **CreatedAtAction** or link generation ever fails in your environment, use `return Created(Url.Action(nameof(OtherAction), new { id = entity.Id })!, entity);` as a fallback

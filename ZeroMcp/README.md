@@ -20,14 +20,14 @@ Expose your ASP.NET Core API as an **MCP (Model Context Protocol)** server. Tag 
 
 ```csharp
 // Program.cs
-builder.Services.AddZeroMCP(options =>
+builder.Services.AddZeroMcp(options =>
 {
     options.ServerName = "My API";
     options.ServerVersion = "1.0.0";
 });
 
 // After UseRouting(), UseAuthorization()
-app.MapZeroMCP();  // GET and POST /mcp
+app.MapZeroMcp();  // GET and POST /mcp
 ```
 
 **2. Tag controller actions**
@@ -67,9 +67,9 @@ Point any MCP client (e.g. Claude Desktop) at your app’s `/mcp` URL.
 | `CorrelationIdHeader` | `"X-Correlation-ID"` | Request/response correlation ID |
 | `EnableOpenTelemetryEnrichment` | `false` | Tag `Activity.Current` with MCP tool details |
 
-**Governance:** Use `[McpTool(..., Roles = new[] { "Admin" }, Policy = "RequireEditor")]` or `.WithMcpTool(..., roles: ..., policy: ...)` to restrict which tools appear in `tools/list` per user.
+**Governance:** Use `[Mcp(..., Roles = new[] { "Admin" }, Policy = "RequireEditor")]` or `.AsMcp(..., roles: ..., policy: ...)` to restrict which tools appear in `tools/list` per user.
 
-**Metrics:** Implement `IMcpMetricsSink` and register it after `AddZeroMCP()` to record tool invocations (name, status code, duration, success/failure).
+**Metrics:** Implement `IMcpMetricsSink` and register it after `AddZeroMcp()` to record tool invocations (name, status code, duration, success/failure).
 
 ---
 
