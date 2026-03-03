@@ -5,5 +5,5 @@
   </Folder>
   <Project Path="ZeroMCP.Sample/ZeroMCP.Sample.csproj" />
   <Project Path="ZeroMCP.Tests/ZeroMCP.Tests.csproj" />
-  <Project Path="ZeroMCP/ZeroMCP.csproj" />
+  <Project Path="ZeroMcp/ZeroMCP.csproj" />
 </Solution>
