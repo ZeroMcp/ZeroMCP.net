@@ -10,7 +10,7 @@ Tag controller actions with **`[Mcp]`** or minimal APIs with **`.AsMcp(...)`**. 
 
 1. **Discover** tools at startup from controller API descriptions (same source as Swagger) and from minimal API endpoints that use `AsMcp`
 2. **Generate** a JSON Schema for each tool's inputs (route, query, and body merged)
-3. **Expose** a single endpoint (GET and POST `/mcp`) that speaks the MCP Streamable HTTP transport; optionally **GET /mcp/tools** for a JSON tool inspector
+3. **Expose** a single endpoint (GET and POST `/mcp`) that speaks the MCP Streamable HTTP transport; optionally **GET /mcp/tools** (JSON tool list) and **GET /mcp/ui** (Swagger-like test invocation UI)
 4. **Dispatch** tool calls in-process through your real action or endpoint pipeline — filters, validation, and authorization run normally
 
 ```
@@ -36,7 +36,7 @@ MCP Client gets structured result
 | Page | Description |
 |------|-------------|
 | [Quick Start](Quick-Start) | Install, register, map endpoint, tag actions |
-| [Configuration](Configuration) | Options, route prefix, tool filters, observability, Phase 2 enrichment/streaming |
+| [Configuration](Configuration) | Options, route prefix, tool filters, observability, Phase 2 enrichment/streaming, Phase 3 inspector/UI, EnableXMLDocAnalysis |
 | [The [Mcp] Attribute](The-Mcp-Attribute) | Attribute usage, name, description, tags, category, examples, hints, roles, policy |
 | [Parameters and Schemas](Parameters-and-Schemas) | How route/query/body map to MCP input schema |
 | [Controllers and Minimal APIs](Controllers-and-Minimal-APIs) | Using both together, minimal API `.AsMcp` |

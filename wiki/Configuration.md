@@ -13,6 +13,7 @@ builder.Services.AddZeroMcp(options =>
     options.ServerVersion = "2.0.0";           // shown during MCP handshake
     options.RoutePrefix = "/mcp";              // where the endpoint is mounted
     options.IncludeInputSchemas = true;         // attach JSON Schema to tools (helps LLM)
+    options.EnableXMLDocAnalysis = true;       // when true, use XML doc summary as tool description if [Mcp] Description is blank
     options.ForwardHeaders = ["Authorization"]; // copy from MCP request to tool dispatch
 
     // Optional: filter which tagged tools are exposed at discovery time (by name)
@@ -56,7 +57,19 @@ builder.Services.AddZeroMcp(options =>
 | **EnableStreamingToolResults** | `false` | Returns chunked content blocks (`chunkIndex`, `isFinal`) |
 | **StreamingChunkSize** | `4096` | Chunk size (characters) when streaming mode is enabled |
 | **EnableToolInspector** | `true` | When true, registers GET {RoutePrefix}/tools with full tool registry (JSON). Set false to disable. |
-| **EnableToolInspectorUI** | `true` | When true and inspector is enabled, registers GET {RoutePrefix}/ui with a Swagger-like test invocation UI. |
+| **EnableToolInspectorUI** | `true` | When true and inspector is enabled, registers GET {RoutePrefix}/ui with a Swagger-like test invocation UI (list tools, view schemas, invoke from browser). |
+| **EnableXMLDocAnalysis** | `true` | When true, controller actions with `[Mcp]` but no explicit Description use the method's XML doc `<summary>` as the tool description. |
+
+---
+
+## Tool Inspector and UI
+
+When **EnableToolInspector** is true:
+
+- **GET {RoutePrefix}/tools** — Returns JSON with all registered tools (name, description, httpMethod, route, inputSchema, category, tags, examples, hints, requiredRoles, requiredPolicy). Use for debugging or tooling.
+- **GET {RoutePrefix}/ui** — (When **EnableToolInspectorUI** is also true) Serves a Swagger-like test invocation page: browse tools, view input schemas, edit JSON arguments, and invoke `tools/call` from the browser. Link to "JSON (tools)" goes to the `/tools` endpoint.
+
+Set **EnableToolInspector** or **EnableToolInspectorUI** to `false` to disable the JSON endpoint or the UI (e.g. in production if the list is sensitive).
 
 ---
 

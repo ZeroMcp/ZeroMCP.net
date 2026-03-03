@@ -13,7 +13,7 @@ public ActionResult<Order> GetOrder(int id) { ... }
 ```
 
 - **Name** (first argument) — Required. Snake_case tool name for the LLM (e.g. `get_order`, `create_customer`).
-- **Description** — Optional. Shown to the LLM; if omitted, ZeroMcp uses the method's XML doc `<summary>` when available.
+- **Description** — Optional. Shown to the LLM; if omitted, ZeroMcp uses the method's XML doc `<summary>` when available (requires `EnableXMLDocAnalysis` in [Configuration](Configuration.md)).
 
 ---
 
@@ -50,7 +50,7 @@ public ActionResult<Order> GetOrder(int id) { ... }
 - **Per-action only** — `[Mcp]` goes on individual action methods, not on the controller class.
 - **One name per application** — Duplicate tool names are logged as warnings and skipped.
 - **Any HTTP method** — GET, POST, PATCH, DELETE all work.
-- **Description** — Prefer setting `Description` explicitly; otherwise XML `<summary>` is used when present.
+- **Description** — Prefer setting `Description` explicitly; otherwise XML `<summary>` is used when present (see `EnableXMLDocAnalysis` in [Configuration](Configuration.md)).
 
 ---
 

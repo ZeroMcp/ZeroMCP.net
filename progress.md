@@ -1,5 +1,15 @@
 # Progress
 
+## 2026-03-03 – Docs: UI, EnableXMLDocAnalysis, options in READMEs
+
+- **wiki/Configuration.md** — Already had full options table and Tool Inspector/UI section; confirmed `EnableXMLDocAnalysis` and GET {RoutePrefix}/ui are documented.
+- **wiki/Home.md** — How-it-works and index updated to mention GET /mcp/tools and GET /mcp/ui; Configuration page blurb mentions Phase 3 inspector/UI and EnableXMLDocAnalysis.
+- **wiki/The-Mcp-Attribute.md** — Description bullet and placement rules now cross-reference `EnableXMLDocAnalysis` in Configuration.
+- **README.md** — Configuration snippet: added `EnableToolInspectorUI = true` with comment; kept `EnableXMLDocAnalysis` and `EnableToolInspector`; options block is complete.
+- **ZeroMCP/README.md** — Configuration summary table expanded: added `IncludeInputSchemas`, `EnableXMLDocAnalysis`, Phase 2 options (`EnableResultEnrichment`, `EnableSuggestedFollowUps`, `EnableStreamingToolResults`, `StreamingChunkSize`), and `EnableToolInspectorUI`; MapZeroMcp line updated to mention GET /mcp/ui.
+
+---
+
 ## 2026-02-24 – Wiki pages
 
 - **wiki/** — Added a full set of wiki pages for in-repo or GitLab/GitHub wiki use.

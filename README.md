@@ -113,11 +113,10 @@ builder.Services.AddZeroMcp(options =>
     options.EnableStreamingToolResults = false;       // when true, content is returned as chunks (chunkIndex, isFinal, text)
     options.StreamingChunkSize = 4096;
 
-    // Phase 3: XML Doc Analysis (default true)
-    options.EnableXMLDocAnalysis = true;            // when true, will check XMLDoc descriptions if MCP Description is left blank
-
-    // Phase 3: Tool Inspector (default true)
+    // Phase 3: XML Doc and Inspector (defaults)
+    options.EnableXMLDocAnalysis = true;   // when true, use XML doc <summary> as tool description if [Mcp] Description is blank
     options.EnableToolInspector = true;   // GET {RoutePrefix}/tools returns full tool list as JSON
+    options.EnableToolInspectorUI = true; // GET {RoutePrefix}/ui serves Swagger-like test invocation UI
 });
 ```
 

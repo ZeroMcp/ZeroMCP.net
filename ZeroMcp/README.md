@@ -27,7 +27,7 @@ builder.Services.AddZeroMcp(options =>
 });
 
 // After UseRouting(), UseAuthorization()
-app.MapZeroMcp();  // GET and POST /mcp; GET /mcp/tools when EnableToolInspector is true
+app.MapZeroMcp();  // GET and POST /mcp; GET /mcp/tools and GET /mcp/ui when inspector/UI are enabled
 ```
 
 **2. Tag controller actions**
@@ -61,12 +61,19 @@ Point any MCP client (e.g. Claude Desktop) at your app’s `/mcp` URL.
 |--------|---------|-------------|
 | `RoutePrefix` | `"/mcp"` | Endpoint path |
 | `ServerName` / `ServerVersion` | — | Shown in MCP handshake |
+| `IncludeInputSchemas` | `true` | Include JSON Schema in tools/list |
+| `EnableXMLDocAnalysis` | `true` | Use XML doc summary as tool description when [Mcp] Description is blank |
 | `ForwardHeaders` | `["Authorization"]` | Headers copied to tool dispatch |
 | `ToolFilter` | `null` | Discovery-time filter by tool name |
 | `ToolVisibilityFilter` | `null` | Per-request filter `(name, ctx) => bool` |
 | `CorrelationIdHeader` | `"X-Correlation-ID"` | Request/response correlation ID |
 | `EnableOpenTelemetryEnrichment` | `false` | Tag `Activity.Current` with MCP tool details |
-| `EnableToolInspector` | `true` | When true, GET {RoutePrefix}/tools returns full tool list as JSON |
+| `EnableResultEnrichment` | `false` | tools/call result includes metadata, optional hints |
+| `EnableSuggestedFollowUps` | `false` | Include suggestedNextActions when provider is set |
+| `EnableStreamingToolResults` | `false` | Return content as chunks (chunkIndex, isFinal) |
+| `StreamingChunkSize` | `4096` | Chunk size when streaming enabled |
+| `EnableToolInspector` | `true` | GET {RoutePrefix}/tools returns full tool list as JSON |
+| `EnableToolInspectorUI` | `true` | GET {RoutePrefix}/ui serves Swagger-like test invocation UI |
 
 **Governance:** Use `[Mcp(..., Roles = new[] { "Admin" }, Policy = "RequireEditor")]` or `.AsMcp(..., roles: ..., policy: ...)` to restrict which tools appear in `tools/list` per user.
 
