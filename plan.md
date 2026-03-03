@@ -1,4 +1,4 @@
-## 🚀 SwaggerMCP – 6 Month Growth Plan
+## ZeroMCP – 6 Month Growth Plan
 
 | Phase | Timeline | Focus Area | Key Features / Tasks | Outcome | Status|
 |-------|----------|------------|----------------------|----------|------|
@@ -17,17 +17,6 @@
 
 ---
 
-## 🎯 Strategic Positioning Goal
+## Strategic Positioning Goal
 **“Zero-duplication AI enablement for ASP.NET Core APIs.”**
 
----
-
-## 📊 Success Metrics
-
-| Metric | Why It Matters |
-|--------|----------------|
-| NuGet downloads | Real adoption indicator |
-| GitHub stars/forks | Community traction |
-| Enterprise usage inquiries | Market validation |
-| Invocation performance benchmarks | Production viability |
-| Community contributions | Ecosystem growth |
