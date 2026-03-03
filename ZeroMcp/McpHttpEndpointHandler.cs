@@ -24,21 +24,19 @@ internal sealed class McpHttpEndpointHandler
     internal const string CorrelationIdItemKey = "McpCorrelationId";
 
     private readonly McpSwaggerToolHandler _toolHandler;
-    private readonly string _serverName;
-    private readonly string _serverVersion;
+   // private readonly string _serverName;
+  //  private readonly string _serverVersion;
     private readonly ZeroMCPOptions _options;
     private readonly ILogger<McpHttpEndpointHandler> _logger;
 
     public McpHttpEndpointHandler(
         McpSwaggerToolHandler toolHandler,
-        string serverName,
-        string serverVersion,
         ZeroMCPOptions options,
         ILogger<McpHttpEndpointHandler> logger)
     {
         _toolHandler = toolHandler;
-        _serverName = serverName;
-        _serverVersion = serverVersion;
+      //  _serverName = options.ServerName;
+      //  _serverVersion = options.ServerVersion;
         _options = options;
         _logger = logger;
     }
@@ -54,8 +52,8 @@ internal sealed class McpHttpEndpointHandler
                 protocol = "MCP",
                 transport = "streamable HTTP",
                 message = "Send POST requests with JSON-RPC 2.0 body. Methods: initialize, tools/list, tools/call.",
-                server = _serverName,
-                version = _serverVersion,
+                server = _options.ServerName,
+                version = _options.ServerVersion,
                 example = new
                 {
                     jsonrpc = "2.0",
@@ -173,7 +171,7 @@ internal sealed class McpHttpEndpointHandler
         return new
         {
             protocolVersion = McpProtocolConstants.ProtocolVersion,
-            serverInfo = new { name = _serverName, version = _serverVersion },
+            serverInfo = new { name = _options.ServerName, version = _options.ServerVersion },
             capabilities = new
             {
                 tools = new { listChanged = false }

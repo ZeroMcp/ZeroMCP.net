@@ -13,7 +13,7 @@
     <Authors>KaladinStorm84</Authors>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <Description>MCP (Model Context Protocol) server from existing API with Zero duplication, Zero friction</Description>
-    <PackageTags>mcp;model-context-protocol;aspnetcore;openapi;swagger;llm;claude</PackageTags>
+    <PackageTags>mcp;model-context-protocol;aspnetcore;openapi;brownfield;api;llm;http</PackageTags>
     <PackageProjectUrl>https://github.com/ZeroMcp/ZeroMCP.net</PackageProjectUrl>
     <RepositoryUrl>https://github.com/ZeroMcp/ZeroMCP.net</RepositoryUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>

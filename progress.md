@@ -1,5 +1,27 @@
 # Progress
 
+## 2026-02-24 – Wiki pages
+
+- **wiki/** — Added a full set of wiki pages for in-repo or GitLab/GitHub wiki use.
+- **wiki/README.md** — Index and quick links for the wiki.
+- **wiki/Home.md** — Overview, how it works, and table of all pages.
+- **wiki/Quick-Start.md** — Install, register, map, tag actions.
+- **wiki/Configuration.md** — Options, route prefix, ToolFilter, ToolVisibilityFilter, observability.
+- **wiki/The-Mcp-Attribute.md** — [Mcp] attribute: name, description, tags, roles, policy.
+- **wiki/Parameters-and-Schemas.md** — Route/query/body → JSON Schema.
+- **wiki/Controllers-and-Minimal-APIs.md** — Using controllers and minimal APIs together, .AsMcp().
+- **wiki/Governance-and-Security.md** — Roles, policy, ToolFilter, ToolVisibilityFilter, auth.
+- **wiki/Observability.md** — Logging, correlation ID, metrics, OpenTelemetry.
+- **wiki/Dispatch-and-Pipeline.md** — In-process dispatch, auth forwarding, CreatedAtAction.
+- **wiki/Connecting-Clients.md** — Claude Desktop, Claude.ai, production auth.
+- **wiki/Versioning.md** — SemVer summary and link to VERSIONING.md.
+- **wiki/Project-Structure.md** — Repo layout, build, test commands.
+- **wiki/Limitations.md** — Known limitations and workarounds.
+- **wiki/Contributing.md** — How to contribute, high-impact ideas.
+- **README.md** — Add a short "Wiki" bullet under Project Structure or a dedicated line pointing to wiki/ for detailed docs.
+
+---
+
 ## 2026-02-24 – Build fix after Order/Repository drift
 
 - **Order** (OrdersController): Restored `int? CustomerId`; removed string `CustomerID` / `ProductID` that had been added (and caused SampleData/CustomerController to fail). Order shape is again: Id, CustomerId, CustomerName, Product, Quantity, Status.

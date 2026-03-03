@@ -48,8 +48,6 @@ public static class EndpointRouteBuilderExtensions
 
         var mcpHandler = new McpHttpEndpointHandler(
             toolHandler,
-            options.ServerName!,
-            options.ServerVersion,
             options,
             handlerLogger);
 

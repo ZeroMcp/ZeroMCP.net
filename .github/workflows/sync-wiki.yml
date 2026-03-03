@@ -1,0 +1,37 @@
+name: Sync wiki from /wiki
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'wiki/**'
+
+permissions:
+  contents: write   # needed for pushing to wiki repo
+
+jobs:
+  sync-wiki:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout main repo
+        uses: actions/checkout@v4
+
+      - name: Clone wiki repo
+        run: |
+          git clone "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.wiki.git" wiki-repo
+          cd wiki-repo
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Sync wiki directory
+        run: |
+          rsync -av --delete wiki/ wiki-repo/
+          cd wiki-repo
+          if git status --porcelain | grep .; then
+            git add .
+            git commit -m "Sync wiki from /wiki on $(date -u +'%Y-%m-%d %H:%M:%S')"
+            git push
+          else
+            echo "No wiki changes to push"
+          fi

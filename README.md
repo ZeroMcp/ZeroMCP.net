@@ -302,10 +302,13 @@ mcpAPI/
 │   └── ZeroMCP.csproj            (PackageId: ZeroMcp, Version: 1.0.2)
 ├── ZeroMCP.Sample/                ← Sample (Orders, Customer, Product APIs; nested route Customer/{id}/orders; health minimal endpoint, optional auth)
 ├── ZeroMCP.Tests/                 ← Integration + schema tests
+├── wiki/                          ← Wiki documentation (linked Markdown pages)
 ├── nupkgs/                        ← dotnet pack -o nupkgs
 ├── progress.md
 └── README.md
 ```
+
+**Wiki:** Detailed documentation is in the **[wiki/](wiki/)** folder (e.g. [wiki/Home.md](wiki/Home.md)). You can use it in-repo or copy pages into a GitLab/GitHub wiki.
 
 ---
 
