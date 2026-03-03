@@ -170,7 +170,7 @@ When **EnableToolInspector** is true (default), **GET {RoutePrefix}/tools** retu
 
 When **EnableToolInspectorUI** is also true (default), **GET {RoutePrefix}/ui** serves a Swagger-like test invocation UI: you can browse tools, view input schemas, and invoke `tools/call` from the browser with editable JSON arguments.
 
-Set **EnableToolInspector** or **EnableToolInspectorUI** to `false` to disable the JSON endpoint or the UI (e.g. in production if sensitive). See [wiki/Configuration](wiki/Configuration.md) and [wiki/Enterprise-Usage](wiki/Enterprise-Usage.md).
+Set **EnableToolInspector** or **EnableToolInspectorUI** to `false` to disable the JSON endpoint or the UI (e.g. in production if sensitive). The sample app (**ZeroMCP.Sample**) enables them only when `builder.Environment.IsDevelopment()` is true. See [wiki/Configuration](wiki/Configuration.md) and [wiki/Enterprise-Usage](wiki/Enterprise-Usage.md).
 
 ---
 

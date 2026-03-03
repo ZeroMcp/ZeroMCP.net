@@ -41,7 +41,7 @@ So: **auth runs on the MCP request first**; that identity is **propagated** into
 - **RequiredPolicy** — Tool appears only if **IAuthorizationService.AuthorizeAsync(context.User, null, policy)** succeeds.
 - **ToolVisibilityFilter** — Optional extra per-request filter; return **false** to hide the tool from **tools/list** even if roles/policy passed.
 
-Tools that are **hidden** from **tools/list** are not callable by name: a direct **tools/call** for that name returns an "unknown tool" error.
+**tools/call** enforces the same visibility as **tools/list**: if the caller is not allowed to see the tool (roles, policy, or ToolVisibilityFilter), **tools/call** returns an error (e.g. "Tool 'x' is not available (roles or policy not satisfied).") and does not invoke the tool. So the Tool Inspector UI and other clients cannot bypass role-based access.
 
 ---
 

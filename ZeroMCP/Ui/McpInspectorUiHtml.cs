@@ -51,6 +51,8 @@ internal static class McpInspectorUiHtml
         .response-error { border-left: 4px solid #dc2626; }
         .loading { color: #6b7280; padding: 24px; text-align: center; }
         .error { color: #dc2626; padding: 12px; background: #fef2f2; border-radius: 4px; }
+        .category-group { margin-bottom: 28px; }
+        .category-group h2 { margin: 0 0 12px; font-size: 1.1rem; font-weight: 600; color: #374151; text-transform: capitalize; letter-spacing: 0.02em; padding-bottom: 6px; border-bottom: 1px solid #e5e7eb; }
     </style>
 </head>
 <body>
@@ -78,33 +80,49 @@ internal static class McpInspectorUiHtml
             loading.style.display = 'none';
             container.style.display = 'block';
             container.innerHTML = '';
-            for (const tool of data.tools) {
-                const el = document.createElement('div');
-                el.className = 'tool';
-                el.innerHTML = `
-                    <div class="tool-header">
-                        <span><span class="tool-method">${escapeHtml(tool.httpMethod || '')}</span><span class="tool-name">${escapeHtml(tool.name)}</span></span>
-                    </div>
-                    <div class="tool-body" style="display:none;">
-                        <div class="tool-desc">${escapeHtml(tool.description || '')}</div>
-                        <div class="tool-section">
-                            <h4>Input schema</h4>
-                            <pre>${escapeHtml(JSON.stringify(tool.inputSchema || {}, null, 2))}</pre>
+            const UNCAT = '(Uncategorized)';
+            const groups = {};
+            for (const tool of data.tools || []) {
+                const cat = (tool.category && String(tool.category).trim()) ? String(tool.category).trim() : UNCAT;
+                if (!groups[cat]) groups[cat] = [];
+                groups[cat].push(tool);
+            }
+            const sortedCats = Object.keys(groups).sort((a, b) => (a === UNCAT ? 1 : b === UNCAT ? -1 : a.localeCompare(b)));
+            for (const category of sortedCats) {
+                const groupDiv = document.createElement('div');
+                groupDiv.className = 'category-group';
+                groupDiv.innerHTML = '<h2>' + escapeHtml(category) + '</h2>';
+                const listDiv = document.createElement('div');
+                groupDiv.appendChild(listDiv);
+                for (const tool of groups[category]) {
+                    const el = document.createElement('div');
+                    el.className = 'tool';
+                    el.innerHTML = `
+                        <div class="tool-header">
+                            <span><span class="tool-method">${escapeHtml(tool.httpMethod || '')}</span><span class="tool-name">${escapeHtml(tool.name)}</span></span>
                         </div>
-                        <div class="tool-section">
-                            <h4>Try it out</h4>
-                            <textarea placeholder='{"key": "value"}' class="args-input">${defaultArgs(tool.inputSchema)}</textarea>
-                            <br/><br/>
-                            <button type="button" class="invoke-btn">Invoke</button>
-                            <div class="response" style="display:none;"></div>
+                        <div class="tool-body" style="display:none;">
+                            <div class="tool-desc">${escapeHtml(tool.description || '')}</div>
+                            <div class="tool-section">
+                                <h4>Input schema</h4>
+                                <pre>${escapeHtml(JSON.stringify(tool.inputSchema || {}, null, 2))}</pre>
+                            </div>
+                            <div class="tool-section">
+                                <h4>Try it out</h4>
+                                <textarea placeholder='{"key": "value"}' class="args-input">${defaultArgs(tool.inputSchema)}</textarea>
+                                <br/><br/>
+                                <button type="button" class="invoke-btn">Invoke</button>
+                                <div class="response" style="display:none;"></div>
+                            </div>
                         </div>
-                    </div>
-                `;
-                container.appendChild(el);
-                const header = el.querySelector('.tool-header');
-                const body = el.querySelector('.tool-body');
-                header.addEventListener('click', () => { body.style.display = body.style.display ? '' : 'block'; });
-                el.querySelector('.invoke-btn').addEventListener('click', () => invoke(tool.name, el));
+                    `;
+                    listDiv.appendChild(el);
+                    const header = el.querySelector('.tool-header');
+                    const body = el.querySelector('.tool-body');
+                    header.addEventListener('click', () => { body.style.display = body.style.display ? '' : 'block'; });
+                    el.querySelector('.invoke-btn').addEventListener('click', () => invoke(tool.name, el));
+                }
+                container.appendChild(groupDiv);
             }
         }
 

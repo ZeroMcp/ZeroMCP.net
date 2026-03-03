@@ -75,6 +75,8 @@ Point any MCP client (e.g. Claude Desktop) at your app’s `/mcp` URL.
 | `EnableToolInspector` | `true` | GET {RoutePrefix}/tools returns full tool list as JSON |
 | `EnableToolInspectorUI` | `true` | GET {RoutePrefix}/ui serves Swagger-like test invocation UI |
 
+Set `EnableToolInspector` or `EnableToolInspectorUI` to `false` to disable the JSON endpoint or the UI (e.g. in production if the list is sensitive). The sample app uses `builder.Environment.IsDevelopment()` to enable them only in Development.
+
 **Governance:** Use `[Mcp(..., Roles = new[] { "Admin" }, Policy = "RequireEditor")]` or `.AsMcp(..., roles: ..., policy: ...)` to restrict which tools appear in `tools/list` per user.
 
 **Metrics:** Implement `IMcpMetricsSink` and register it after `AddZeroMcp()` to record tool invocations (name, status code, duration, success/failure).

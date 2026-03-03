@@ -67,9 +67,9 @@ builder.Services.AddZeroMcp(options =>
 When **EnableToolInspector** is true:
 
 - **GET {RoutePrefix}/tools** — Returns JSON with all registered tools (name, description, httpMethod, route, inputSchema, category, tags, examples, hints, requiredRoles, requiredPolicy). Use for debugging or tooling.
-- **GET {RoutePrefix}/ui** — (When **EnableToolInspectorUI** is also true) Serves a test invocation page: browse tools, view input schemas, edit JSON arguments, and invoke `tools/call` from the browser. Link to "JSON (tools)" goes to the `/tools` endpoint.
+- **GET {RoutePrefix}/ui** — (When **EnableToolInspectorUI** is also true) Serves a test invocation page: browse tools (grouped by **category** when set), view input schemas, edit JSON arguments, and invoke `tools/call` from the browser. Link to "JSON (tools)" goes to the `/tools` endpoint.
 
-Set **EnableToolInspector** or **EnableToolInspectorUI** to `false` to disable the JSON endpoint or the UI (e.g. in production if the list is sensitive).
+Set **EnableToolInspector** or **EnableToolInspectorUI** to `false` to disable the JSON endpoint or the UI (e.g. in production if the list is sensitive). You can tie them to the environment: the sample app (**ZeroMCP.Sample**) enables both only when `builder.Environment.IsDevelopment()` is true.
 
 ---
 

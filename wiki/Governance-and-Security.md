@@ -66,8 +66,9 @@ Return **true** to include the tool. Combined with roles/policy: the tool is lis
 
 ## Call behavior
 
-- Tools **hidden** from `tools/list` are not callable: a direct **tools/call** for that name returns "unknown tool".
+- **tools/call** enforces the same visibility as **tools/list**: before invoking a tool, the server checks roles, policy, and **ToolVisibilityFilter**. If the caller is not allowed to see the tool, **tools/call** returns an error (e.g. "Tool 'x' is not available (roles or policy not satisfied).") and the tool is not invoked. So the Tool Inspector UI and MCP clients cannot bypass role-based access by calling a tool by name.
 - **Authorization** on the underlying action or endpoint is still enforced when the tool is invoked (e.g. `[Authorize]` returns 401).
+- When using the **Tool Inspector UI** (GET /mcp/ui), invocations use the same HTTP context as the browser (cookies, Authorization header). To test role-restricted tools from the UI, open the UI while authenticated with the required role.
 
 ---
 

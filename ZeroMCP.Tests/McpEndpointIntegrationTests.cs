@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using FluentAssertions;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -13,11 +14,20 @@ using System.Net.Http.Headers;
 
 namespace ZeroMCP.Tests;
 
-public sealed class McpEndpointIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
+/// <summary>WebApplicationFactory that runs the sample app in Development so EnableToolInspector/EnableToolInspectorUI stay on.</summary>
+public sealed class SampleAppWebApplicationFactory : WebApplicationFactory<Program>
+{
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    {
+        builder.UseEnvironment("Development");
+    }
+}
+
+public sealed class McpEndpointIntegrationTests : IClassFixture<SampleAppWebApplicationFactory>
 {
     private readonly HttpClient _client;
 
-    public McpEndpointIntegrationTests(WebApplicationFactory<Program> factory)
+    public McpEndpointIntegrationTests(SampleAppWebApplicationFactory factory)
     {
         _client = factory.CreateClient();
         
@@ -177,6 +187,24 @@ public sealed class McpEndpointIntegrationTests : IClassFixture<WebApplicationFa
             .Select(t => t!.AsObject()["name"]!.GetValue<string>())
             .ToList();
         toolNames.Should().Contain("admin_health", "admin-key adds Admin role so admin_health is visible");
+    }
+
+    [Fact]
+    public async Task Governance_ToolsCall_WithoutAuth_ToRoleRequiredTool_ReturnsError()
+    {
+        // tools/call must enforce visibility: without Admin role, admin_health must not be invokable (e.g. from Tool Inspector UI).
+        var response = await PostMcpAsync(new
+        {
+            jsonrpc = "2.0",
+            id = 202,
+            method = "tools/call",
+            @params = new { name = "admin_health", arguments = new { } }
+        });
+        response.Should().HaveProperty("result");
+        var result = response["result"]!.AsObject();
+        result["isError"]!.GetValue<bool>().Should().BeTrue("caller has no Admin role so tools/call must deny");
+        var text = ExtractTextContent(response);
+        text.Should().Contain("not available", "error message should indicate roles/policy not satisfied");
     }
 
     // --- Observability (Phase 1) ---

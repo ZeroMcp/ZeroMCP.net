@@ -190,6 +190,13 @@ internal sealed class McpToolHandler
             return McpToolResult.Error($"Unknown tool: {toolName}");
         }
 
+        // Enforce roles/policy/visibility for tools/call so UI and MCP clients cannot invoke tools they are not allowed to see.
+        if (sourceContext is not null && !await IsVisibleAsync(descriptor, sourceContext, cancellationToken).ConfigureAwait(false))
+        {
+            _logger.LogWarning("MCP tools/call denied: tool not visible to caller. ToolName={ToolName}, CorrelationId={CorrelationId}", toolName, correlationId ?? "");
+            return McpToolResult.Error($"Tool '{toolName}' is not available (roles or policy not satisfied).");
+        }
+
         var stopwatch = Stopwatch.StartNew();
         var result = await _dispatcher.DispatchAsync(descriptor, args, cancellationToken, sourceContext);
         stopwatch.Stop();

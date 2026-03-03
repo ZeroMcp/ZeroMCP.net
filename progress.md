@@ -1,5 +1,29 @@
 # Progress
 
+## 2026-03-03 – tools/call enforces roles/policy (no UI bypass)
+
+- **ZeroMCP/McpToolHandler.cs** — Before dispatching **tools/call**, the handler now calls **IsVisibleAsync** when **sourceContext** is present. If the caller does not satisfy the tool’s RequiredRoles, RequiredPolicy, or ToolVisibilityFilter, **HandleCallAsync** returns an error and does not invoke the tool. This prevents the Tool Inspector UI (and any MCP client) from bypassing role-based access by calling a tool by name.
+- **wiki/Governance-and-Security.md** — Call behavior updated: tools/call enforces same visibility as tools/list; added note that the UI uses the request’s HTTP context (cookies/headers) and to test role-restricted tools from the UI you must be authenticated with the required role.
+- **wiki/Security-Model.md** — Role/policy section updated to state that tools/call enforces visibility and returns an error when not allowed (no bypass).
+- **ZeroMCP.Tests/McpEndpointIntegrationTests.cs** — **Governance_ToolsCall_WithoutAuth_ToRoleRequiredTool_ReturnsError**: asserts that tools/call for `admin_health` without auth returns `result.isError` true and message contains "not available".
+
+---
+
+## 2026-03-03 – Tool Inspector UI: group tools by category
+
+- **ZeroMCP/Ui/McpInspectorUiHtml.cs** — UI now groups tools by `category`: tools with the same category appear under a section heading; tools without a category appear under "(Uncategorized)". Category sections are sorted alphabetically with "(Uncategorized)" last. Added CSS for `.category-group` and `.category-group h2`.
+
+---
+
+## 2026-03-03 – Inspector/UI: production note and sample env switch
+
+- **ZeroMCP.Sample/Program.cs** — EnableToolInspector and EnableToolInspectorUI set from `builder.Environment.IsDevelopment()` so /mcp/tools and /mcp/ui are only available in Development.
+- **wiki/Configuration.md** — Tool Inspector section: added sentence that sample app enables both only when IsDevelopment().
+- **README.md** — Tool Inspector: added sentence referencing sample’s Development-based switch.
+- **ZeroMCP/README.md** — After options table: added “Set … to false (e.g. in production)” and reference to sample’s IsDevelopment() pattern.
+
+---
+
 ## 2026-03-03 – Docs: UI, EnableXMLDocAnalysis, options in READMEs
 
 - **wiki/Configuration.md** — Already had full options table and Tool Inspector/UI section; confirmed `EnableXMLDocAnalysis` and GET {RoutePrefix}/ui are documented.
