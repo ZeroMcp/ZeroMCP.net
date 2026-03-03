@@ -1,5 +1,13 @@
 # Progress
 
+## 2026-03-03 – Wiki: dedicated Tool Inspector UI page
+
+- **wiki/Tool-Inspector-UI.md** — New page describing the Tool Inspector UI: URL (GET {RoutePrefix}/ui), when it’s available (EnableToolInspector + EnableToolInspectorUI), what you can do (browse, group by category, view schema, try it out), auth/roles (same HTTP context; test role-restricted tools while authenticated), JSON tool list link, production (disable or protect). See also links to Configuration, Governance, Security Model, Enterprise Usage.
+- **wiki/Home.md** — Added [Tool Inspector UI](Tool-Inspector-UI) to wiki pages table.
+- **wiki/README.md** — Added Tool Inspector UI to quick links table.
+
+---
+
 ## 2026-03-03 – tools/call enforces roles/policy (no UI bypass)
 
 - **ZeroMCP/McpToolHandler.cs** — Before dispatching **tools/call**, the handler now calls **IsVisibleAsync** when **sourceContext** is present. If the caller does not satisfy the tool’s RequiredRoles, RequiredPolicy, or ToolVisibilityFilter, **HandleCallAsync** returns an error and does not invoke the tool. This prevents the Tool Inspector UI (and any MCP client) from bypassing role-based access by calling a tool by name.

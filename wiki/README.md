@@ -16,6 +16,7 @@ This folder contains the **wiki** for the ZeroMcp project — a set of linked Ma
 |------|-------------|
 | [Quick Start](Quick-Start) | Get running in a few steps |
 | [Configuration](Configuration) | Options and tool filters |
+| [Tool Inspector UI](Tool-Inspector-UI) | Browse tools, view schemas, invoke from the browser |
 | [The [Mcp] Attribute](The-Mcp-Attribute) | Exposing controller actions as tools |
 | [Parameters and Schemas](Parameters-and-Schemas) | Route/query/body → JSON Schema |
 | [Controllers and Minimal APIs](Controllers-and-Minimal-APIs) | Using both in one app |

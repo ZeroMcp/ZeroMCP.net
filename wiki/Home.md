@@ -37,6 +37,7 @@ MCP Client gets structured result
 |------|-------------|
 | [Quick Start](Quick-Start) | Install, register, map endpoint, tag actions |
 | [Configuration](Configuration) | Options, route prefix, tool filters, observability, Phase 2 enrichment/streaming, Phase 3 inspector/UI, EnableXMLDocAnalysis |
+| [Tool Inspector UI](Tool-Inspector-UI) | GET /mcp/ui: browse tools (by category), view schemas, invoke tools/call from the browser; auth and production |
 | [The [Mcp] Attribute](The-Mcp-Attribute) | Attribute usage, name, description, tags, category, examples, hints, roles, policy |
 | [Parameters and Schemas](Parameters-and-Schemas) | How route/query/body map to MCP input schema |
 | [Controllers and Minimal APIs](Controllers-and-Minimal-APIs) | Using both together, minimal API `.AsMcp` |
