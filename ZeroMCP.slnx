@@ -3,6 +3,12 @@
     <File Path="README.md" />
     <File Path="VERSIONING.md" />
   </Folder>
+  <Folder Name="/examples/">
+    <Project Path="examples/Enterprise/EnterpriseExample.csproj" />
+    <Project Path="examples/Minimal/MinimalExample.csproj" />
+    <Project Path="examples/WithAuth/WithAuthExample.csproj" />
+    <Project Path="examples/WithEnrichment/WithEnrichmentExample.csproj" />
+  </Folder>
   <Project Path="ZeroMCP.Sample/ZeroMCP.Sample.csproj" />
   <Project Path="ZeroMCP.Tests/ZeroMCP.Tests.csproj" />
   <Project Path="ZeroMcp/ZeroMCP.csproj" />

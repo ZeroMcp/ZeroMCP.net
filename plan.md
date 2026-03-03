@@ -8,12 +8,12 @@
 | **Phase 2** | Month 3–4 | AI-Native Enhancements | - Custom tool metadata (name, description, examples)<br>- Tool grouping/categories<br>- LLM-optimized descriptions | Better AI reasoning & control |Completed|
 |  |  | Streaming Support | - Support `IAsyncEnumerable<T>`<br>- Chunked/streaming responses<br>- Partial tool responses | Future-ready for agents |Completed|
 |  |  | Result Enrichment | - Metadata wrapper for responses<br>- Suggested follow-up actions<br>- AI-specific response hints | AI-optimized output layer |Completed|
-| **Phase 3** | Month 5 | Enterprise Features | - Rate limiting (per-tool / per-user / per-agent)<br>- Quota enforcement | Safe at scale ||
-|  |  | Tool Versioning | - Versioned tool names<br>- Deprecation flags<br>- Backwards compatibility strategy | Long-lived agent stability ||
-|  |  | Security Hardening | - Audit logging<br>- Payload limits<br>- Strict schema validation<br>- Optional signature validation | Enterprise-grade security ||
-| **Phase 4** | Month 6 | Developer Experience | - Starter templates (minimal, enterprise, auth, streaming)<br>- GitHub examples<br>- NuGet examples | Low adoption friction ||
+| **Phase 3** | Month 5 | Developer Experience | - Starter templates (minimal, enterprise, auth, streaming)<br>- GitHub examples<br>- NuGet examples | Low adoption friction ||
 |  |  | Tool Inspector UI | - `/mcp/tools` inspection endpoint<br>- Schema preview<br>- Test invocation UI | Improved developer experience ||
 |  |  | Documentation & Positioning | - Enterprise usage guides<br>- Security model documentation<br>- Performance benchmarks<br>- Migration guide | Strong ecosystem positioning ||
+| **Phase 4** | Month 6 | Enterprise Features | - Rate limiting (per-tool / per-user / per-agent)<br>- Quota enforcement | Safe at scale ||
+|  |  | Tool Versioning | - Versioned tool names<br>- Deprecation flags<br>- Backwards compatibility strategy | Long-lived agent stability ||
+|  |  | Security Hardening | - Audit logging<br>- Payload limits<br>- Strict schema validation<br>- Optional signature validation | Enterprise-grade security ||
 
 ---
 

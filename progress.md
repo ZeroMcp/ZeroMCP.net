@@ -411,3 +411,13 @@ After adding `AddEndpointsApiExplorer()`, restart the app; both controller and m
 
 - **Verification**
   - `dotnet build ZeroMCP.slnx -v detailed` — succeeds after README corrections.
+
+---
+
+## 2026-03-03 – plan.md phase order update
+
+- **plan.md**
+  - Swapped the order of Phase 3 and Phase 4 per request:
+    - **Phase 3 (Month 5)** is now **Developer Experience**.
+    - **Phase 4 (Month 6)** is now **Enterprise Features**.
+  - Preserved all task content; only phase ordering/timeline association changed.
