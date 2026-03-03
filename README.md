@@ -1,7 +1,5 @@
 # ZeroMcp
 
-**This is the repository (GitLab/project) README** — full documentation, build, contributing, and project structure. The **NuGet package** ships with a shorter, consumer-focused README in `ZeroMCP/README.md`.
-
 Expose your existing ASP.NET Core API as an MCP (Model Context Protocol) server with a single attribute and two lines of setup. No separate process. No code duplication.
 
 ## How It Works
@@ -59,8 +57,8 @@ app.MapZeroMcp(); // registers GET and POST /mcp
 ### 4. Tag your actions
 
 ```csharp
-[ApiController]
-[Route("api/[controller]")]
+ApiController]
+Route("api/controller]")]
 public class OrdersController : ControllerBase
 {
     [HttpGet("{id}")]
@@ -317,7 +315,7 @@ mcpAPI/
 └── README.md
 ```
 
-**Wiki:** Detailed documentation is in the **[wiki/](wiki/)** folder (e.g. [wiki/Home.md](wiki/Home.md)). You can use it in-repo or copy pages into a GitLab/GitHub wiki.
+**Wiki:** Detailed documentation can be found on [Our Wiki pages](https://github.com/ZeroMcp/ZeroMCP.net/wiki). 
 
 ---
 
