@@ -14,6 +14,8 @@
 | **Phase 4** | Month 6 | Enterprise Features | - Rate limiting (per-tool / per-user / per-agent)<br>- Quota enforcement | Safe at scale ||
 |  |  | Tool Versioning | - Versioned tool names<br>- Deprecation flags<br>- Backwards compatibility strategy | Long-lived agent stability ||
 |  |  | Security Hardening | - Audit logging<br>- Payload limits<br>- Strict schema validation<br>- Optional signature validation | Enterprise-grade security ||
+|**Phase 5** | Month 7 | Form Fields | - Support for form fields in tool calls | Support for form fields in tool calls ||
+||| File Uploads | - Support for file uploads in tool calls | Support for file uploads in tool calls ||
 
 ---
 
