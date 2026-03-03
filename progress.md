@@ -471,3 +471,19 @@ After adding `AddEndpointsApiExplorer()`, restart the app; both controller and m
 - **ZeroMcp.slnx** — Added ZeroMCP.Benchmarks project.
 - **wiki/Performance.md** — New: how to run benchmarks, what is benchmarked, baseline/reference numbers (orders of magnitude), reproducibility notes.
 - **wiki/Home.md** — Added Performance to wiki pages table.
+
+---
+
+## 2026-03-03 – Additional tests for Phase 2 and Phase 3 features
+
+- **Phase 3 Inspector**
+  - **Phase3_Inspector_ToolCount_MatchesToolsArrayLength** — Asserts `toolCount` equals `tools` array length.
+  - **Phase3_Inspector_WhenToolHasTags_IncludesTagsInResponse** — Asserts `health_check` in inspector response has `tags` including "system".
+  - **Phase3_Inspector_WhenToolHasRequiredRoles_IncludesRequiredRoles** — Asserts `admin_health` in inspector has `requiredRoles` including "Admin".
+  - **Phase3_Inspector_PostToTools_Returns405MethodNotAllowed** — Asserts POST /mcp/tools returns 405 (inspector is GET only).
+- **Phase 2 Enrichment**
+  - **EnrichmentEnabledWebApplicationFactory** — IPostConfigureOptions sets `EnableResultEnrichment = true`.
+  - **McpEnrichmentEnabledTests.Phase2_WhenEnrichmentEnabled_ResultIncludesMetadata** — tools/call result has `metadata` with `statusCode` and `durationMs`.
+- **Phase 2 Streaming**
+  - **StreamingEnabledWebApplicationFactory** — IPostConfigureOptions sets `EnableStreamingToolResults = true`, `StreamingChunkSize = 64`.
+  - **McpStreamingEnabledTests.Phase2_WhenStreamingEnabled_ContentHasChunkIndexAndIsFinal** — tools/call content is array of chunks with `chunkIndex`, `isFinal`, `text`; last chunk has `isFinal` true.

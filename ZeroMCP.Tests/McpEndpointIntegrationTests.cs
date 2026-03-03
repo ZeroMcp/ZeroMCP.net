@@ -548,6 +548,57 @@ public sealed class McpEndpointIntegrationTests : IClassFixture<WebApplicationFa
             schema.Should().HaveProperty("type");
         }
     }
+
+    [Fact]
+    public async Task Phase3_Inspector_ToolCount_MatchesToolsArrayLength()
+    {
+        var response = await _client.GetAsync("/mcp/tools");
+        response.EnsureSuccessStatusCode();
+        var json = await response.Content.ReadAsStringAsync();
+        var root = JsonNode.Parse(json)!.AsObject();
+        var toolCount = root["toolCount"]!.GetValue<int>();
+        var tools = root["tools"]!.AsArray();
+        toolCount.Should().Be(tools.Count, "toolCount must equal tools array length");
+    }
+
+    [Fact]
+    public async Task Phase3_Inspector_WhenToolHasTags_IncludesTagsInResponse()
+    {
+        var response = await _client.GetAsync("/mcp/tools");
+        response.EnsureSuccessStatusCode();
+        var json = await response.Content.ReadAsStringAsync();
+        var root = JsonNode.Parse(json)!.AsObject();
+        var tools = root["tools"]!.AsArray();
+        var healthCheck = tools.FirstOrDefault(t => t!.AsObject()["name"]!.GetValue<string>() == "health_check")?.AsObject();
+        healthCheck.Should().NotBeNull("health_check should be in inspector");
+        healthCheck!.Should().HaveProperty("tags");
+        var tags = healthCheck["tags"]!.AsArray().Select(n => n!.GetValue<string>()).ToList();
+        tags.Should().Contain("system");
+    }
+
+    [Fact]
+    public async Task Phase3_Inspector_WhenToolHasRequiredRoles_IncludesRequiredRoles()
+    {
+        var response = await _client.GetAsync("/mcp/tools");
+        response.EnsureSuccessStatusCode();
+        var json = await response.Content.ReadAsStringAsync();
+        var root = JsonNode.Parse(json)!.AsObject();
+        var tools = root["tools"]!.AsArray();
+        var adminHealth = tools.FirstOrDefault(t => t!.AsObject()["name"]!.GetValue<string>() == "admin_health")?.AsObject();
+        adminHealth.Should().NotBeNull("admin_health should be in inspector (shows all registered tools)");
+        adminHealth!.Should().HaveProperty("requiredRoles");
+        var roles = adminHealth["requiredRoles"]!.AsArray().Select(n => n!.GetValue<string>()).ToList();
+        roles.Should().Contain("Admin");
+    }
+
+    [Fact]
+    public async Task Phase3_Inspector_PostToTools_Returns405MethodNotAllowed()
+    {
+        var content = new StringContent("""{"jsonrpc":"2.0","id":1,"method":"tools/list"}""", Encoding.UTF8, "application/json");
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/mcp/tools") { Content = content };
+        var response = await _client.SendAsync(request);
+        response.StatusCode.Should().Be(System.Net.HttpStatusCode.MethodNotAllowed, "inspector endpoint is GET only; POST /mcp/tools returns 405");
+    }
 }
 
 /// <summary>WebApplicationFactory that disables the tool inspector endpoint for testing.</summary>
@@ -584,5 +635,109 @@ public sealed class McpInspectorDisabledTests : IClassFixture<DisabledInspectorW
     {
         var response = await _client.GetAsync("/mcp/tools");
         response.StatusCode.Should().Be(System.Net.HttpStatusCode.NotFound);
+    }
+}
+
+/// <summary>WebApplicationFactory with result enrichment enabled.</summary>
+public sealed class EnrichmentEnabledWebApplicationFactory : WebApplicationFactory<Program>
+{
+    protected override void ConfigureWebHost(Microsoft.AspNetCore.Hosting.IWebHostBuilder builder)
+    {
+        builder.ConfigureServices(services =>
+        {
+            services.AddSingleton<IPostConfigureOptions<ZeroMCPOptions>, EnableResultEnrichmentPostConfig>();
+        });
+    }
+}
+
+internal sealed class EnableResultEnrichmentPostConfig : IPostConfigureOptions<ZeroMCPOptions>
+{
+    public void PostConfigure(string? name, ZeroMCPOptions options)
+    {
+        options.EnableResultEnrichment = true;
+    }
+}
+
+public sealed class McpEnrichmentEnabledTests : IClassFixture<EnrichmentEnabledWebApplicationFactory>
+{
+    private readonly HttpClient _client;
+
+    public McpEnrichmentEnabledTests(EnrichmentEnabledWebApplicationFactory factory)
+    {
+        _client = factory.CreateClient();
+    }
+
+    [Fact]
+    public async Task Phase2_WhenEnrichmentEnabled_ResultIncludesMetadata()
+    {
+        var response = await _client.PostAsync("/mcp", new StringContent(
+            """{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"get_order","arguments":{"id":1}}}""",
+            Encoding.UTF8,
+            "application/json"));
+        response.EnsureSuccessStatusCode();
+        var json = await response.Content.ReadAsStringAsync();
+        var root = JsonNode.Parse(json)!.AsObject();
+        root.Should().HaveProperty("result");
+        var result = root["result"]!.AsObject();
+        result.Should().HaveProperty("metadata", "enrichment adds metadata to tools/call result");
+        var metadata = result["metadata"]!.AsObject();
+        metadata.Should().HaveProperty("statusCode");
+        metadata["statusCode"]!.GetValue<int>().Should().Be(200);
+        metadata.Should().HaveProperty("durationMs");
+    }
+}
+
+/// <summary>WebApplicationFactory with streaming tool results enabled.</summary>
+public sealed class StreamingEnabledWebApplicationFactory : WebApplicationFactory<Program>
+{
+    protected override void ConfigureWebHost(Microsoft.AspNetCore.Hosting.IWebHostBuilder builder)
+    {
+        builder.ConfigureServices(services =>
+        {
+            services.AddSingleton<IPostConfigureOptions<ZeroMCPOptions>, EnableStreamingPostConfig>();
+        });
+    }
+}
+
+internal sealed class EnableStreamingPostConfig : IPostConfigureOptions<ZeroMCPOptions>
+{
+    public void PostConfigure(string? name, ZeroMCPOptions options)
+    {
+        options.EnableStreamingToolResults = true;
+        options.StreamingChunkSize = 64; // small chunks so we get multiple chunks for list_orders
+    }
+}
+
+public sealed class McpStreamingEnabledTests : IClassFixture<StreamingEnabledWebApplicationFactory>
+{
+    private readonly HttpClient _client;
+
+    public McpStreamingEnabledTests(StreamingEnabledWebApplicationFactory factory)
+    {
+        _client = factory.CreateClient();
+    }
+
+    [Fact]
+    public async Task Phase2_WhenStreamingEnabled_ContentHasChunkIndexAndIsFinal()
+    {
+        var response = await _client.PostAsync("/mcp", new StringContent(
+            """{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"list_orders","arguments":{}}}""",
+            Encoding.UTF8,
+            "application/json"));
+        response.EnsureSuccessStatusCode();
+        var json = await response.Content.ReadAsStringAsync();
+        var root = JsonNode.Parse(json)!.AsObject();
+        root.Should().HaveProperty("result");
+        var result = root["result"]!.AsObject();
+        result.Should().HaveProperty("content");
+        var content = result["content"]!.AsArray();
+        content.Should().NotBeEmpty("streaming returns at least one content chunk");
+        var firstChunk = content[0]!.AsObject();
+        firstChunk.Should().HaveProperty("chunkIndex");
+        firstChunk.Should().HaveProperty("isFinal");
+        firstChunk.Should().HaveProperty("text");
+        firstChunk["chunkIndex"]!.GetValue<int>().Should().BeGreaterThanOrEqualTo(0);
+        var lastChunk = content[^1]!.AsObject();
+        lastChunk["isFinal"]!.GetValue<bool>().Should().BeTrue("last chunk must have isFinal true");
     }
 }
