@@ -3,9 +3,9 @@ name: Sync wiki from /wiki
 on:
   push:
     branches: [ main ]
-    paths:
-      - 'wiki/**'
-      - '.gitlab/workflows/sync-wiki.yml'
+  #  paths:
+  #    - 'wiki/**'
+  #    - '.gitlab/workflows/sync-wiki.yml'
       
 permissions:
   contents: write   # needed for pushing to wiki repo
