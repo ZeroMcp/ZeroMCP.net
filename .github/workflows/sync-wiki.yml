@@ -16,22 +16,18 @@ jobs:
     steps:
       - name: Checkout main repo
         uses: actions/checkout@v4
-        
-      - name: Configure git identity
-        run: |
-          cd wiki-repo
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Clone wiki repo
         run: |
-          git clone "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.wiki.git" wiki-repo
-          cd wiki-repo
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git clone "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.wiki.git" wiki-repo
+          cd wiki-repo
 
       - name: Sync wiki directory
         run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           rsync -av --delete wiki/ wiki-repo/
           cd wiki-repo
           if git status --porcelain | grep .; then
