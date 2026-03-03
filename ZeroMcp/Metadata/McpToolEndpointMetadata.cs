@@ -13,8 +13,19 @@ public sealed class McpToolEndpointMetadata
     public string[]? Tags { get; }
     public string[]? Roles { get; }
     public string? Policy { get; }
+    public string? Category { get; }
+    public string[]? Examples { get; }
+    public string[]? Hints { get; }
 
-    public McpToolEndpointMetadata(string name, string? description = null, string[]? tags = null, string[]? roles = null, string? policy = null)
+    public McpToolEndpointMetadata(
+        string name,
+        string? description = null,
+        string[]? tags = null,
+        string[]? roles = null,
+        string? policy = null,
+        string? category = null,
+        string[]? examples = null,
+        string[]? hints = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         Name = name;
@@ -22,5 +33,8 @@ public sealed class McpToolEndpointMetadata
         Tags = tags;
         Roles = roles;
         Policy = policy;
+        Category = category;
+        Examples = examples;
+        Hints = hints;
     }
 }

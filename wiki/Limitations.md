@@ -20,7 +20,7 @@ Known limitations and workarounds.
 ## Body and uploads
 
 - **[FromForm] and file uploads** — Not supported; JSON-only body binding for tool calls.
-- **Streaming responses** — **IAsyncEnumerable&lt;T&gt;** and SSE action results are not captured correctly; the client receives the final response shape, not a stream.
+- **Streaming responses** — **IAsyncEnumerable&lt;T&gt;** and SSE action results from the action are not captured as a live stream. When **EnableStreamingToolResults** is true, the (buffered) response body is split into chunks (chunkIndex, isFinal, text) in a single JSON response for streaming-aware clients.
 
 ---
 

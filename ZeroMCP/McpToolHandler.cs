@@ -15,20 +15,20 @@ namespace ZeroMCP.Transport;
 /// Handles MCP tool listing and invocation by bridging the MCP SDK
 /// to our internal discovery and dispatch infrastructure.
 /// </summary>
-internal sealed class McpSwaggerToolHandler
+internal sealed class McpToolHandler
 {
     private readonly McpToolDiscoveryService _discovery;
     private readonly McpToolDispatcher _dispatcher;
     private readonly ZeroMCPOptions _options;
     private readonly IMcpMetricsSink _metricsSink;
-    private readonly ILogger<McpSwaggerToolHandler> _logger;
+    private readonly ILogger<McpToolHandler> _logger;
 
-    public McpSwaggerToolHandler(
+    public McpToolHandler(
         McpToolDiscoveryService discovery,
         McpToolDispatcher dispatcher,
         IOptions<ZeroMCPOptions> options,
         IMcpMetricsSink metricsSink,
-        ILogger<McpSwaggerToolHandler> logger)
+        ILogger<McpToolHandler> logger)
     {
         _discovery = discovery;
         _dispatcher = dispatcher;
@@ -51,7 +51,11 @@ internal sealed class McpSwaggerToolHandler
                 Description = BuildDescription(descriptor),
                 InputSchema = descriptor.InputSchemaJson is not null
                     ? JsonDocument.Parse(descriptor.InputSchemaJson).RootElement
-                    : DefaultEmptySchema()
+                    : DefaultEmptySchema(),
+                Category = descriptor.Category,
+                Tags = descriptor.Tags,
+                Examples = descriptor.Examples,
+                Hints = descriptor.Hints
             };
         }
     }
@@ -73,7 +77,11 @@ internal sealed class McpSwaggerToolHandler
                 Description = BuildDescription(descriptor),
                 InputSchema = descriptor.InputSchemaJson is not null
                     ? JsonDocument.Parse(descriptor.InputSchemaJson).RootElement
-                    : DefaultEmptySchema()
+                    : DefaultEmptySchema(),
+                Category = descriptor.Category,
+                Tags = descriptor.Tags,
+                Examples = descriptor.Examples,
+                Hints = descriptor.Hints
             });
         }
         return list;
@@ -167,6 +175,35 @@ internal sealed class McpSwaggerToolHandler
                 activity.SetTag("mcp.correlation_id", correlationId);
         }
 
+        IReadOnlyList<McpSuggestedAction>? suggestedActions = null;
+        if (_options.EnableSuggestedFollowUps && _options.SuggestedFollowUpsProvider is not null)
+        {
+            var suggested = _options.SuggestedFollowUpsProvider(toolName, statusCode, result.Content, isError, sourceContext);
+            suggestedActions = suggested?.Select(s => new McpSuggestedAction(s.ToolName, s.Rationale)).ToList();
+        }
+
+        IReadOnlyList<string>? hints = null;
+        if (_options.EnableResultEnrichment && _options.ResponseHintProvider is not null)
+            hints = _options.ResponseHintProvider(toolName, statusCode, result.Content, isError, sourceContext);
+
+        if (_options.EnableResultEnrichment)
+        {
+            if (result.IsSuccess)
+                return McpToolResult.SuccessWithEnrichment(result.Content, result.ContentType, statusCode, durationMs, correlationId, suggestedActions, hints);
+            return McpToolResult.ErrorWithEnrichment(
+                $"Tool '{toolName}' failed with HTTP {result.StatusCode}: {result.Content}",
+                statusCode, durationMs, correlationId, suggestedActions, hints);
+        }
+
+        if (suggestedActions is { Count: > 0 })
+        {
+            if (result.IsSuccess)
+                return McpToolResult.SuccessWithSuggested(result.Content, result.ContentType, suggestedActions);
+            return McpToolResult.ErrorWithSuggested(
+                $"Tool '{toolName}' failed with HTTP {result.StatusCode}: {result.Content}",
+                suggestedActions);
+        }
+
         if (result.IsSuccess)
             return McpToolResult.Success(result.Content, result.ContentType);
 
@@ -182,10 +219,37 @@ internal sealed class McpSwaggerToolHandler
             sb.Append(descriptor.Description);
 
         // Append HTTP method and route so the LLM has additional context
-        sb.Append($" [{descriptor.HttpMethod} /{descriptor.RelativeUrl}]");
+        if (!string.IsNullOrWhiteSpace(descriptor.HttpMethod) || !string.IsNullOrWhiteSpace(descriptor.RelativeUrl))
+        {
+            sb.Append(" [");
+            if (!string.IsNullOrWhiteSpace(descriptor.HttpMethod))
+            {
+                sb.Append(descriptor.HttpMethod.ToUpperInvariant());
+                if (!string.IsNullOrWhiteSpace(descriptor.RelativeUrl))
+                    sb.Append(' ');
+            }
+            if (!string.IsNullOrWhiteSpace(descriptor.RelativeUrl))
+            {
+                sb.Append('/');
+                sb.Append(descriptor.RelativeUrl);
+            }
+            sb.Append(']');
+        }
+
+        if (!string.IsNullOrWhiteSpace(descriptor.Category))
+        {
+            sb.Append($" Category: {descriptor.Category}.");
+        }
 
         if (descriptor.Tags is { Length: > 0 })
-            sb.Append($" (tags: {string.Join(", ", descriptor.Tags)})");
+        {
+            sb.Append($" Tags: {string.Join(", ", descriptor.Tags)}.");
+        }
+
+        if (descriptor.Hints is { Length: > 0 })
+        {
+            sb.Append($" Hints: {string.Join("; ", descriptor.Hints)}.");
+        }
 
         return sb.ToString().Trim();
     }
@@ -202,6 +266,10 @@ public sealed class McpToolDefinition
     public string Name { get; init; } = default!;
     public string Description { get; init; } = default!;
     public JsonElement InputSchema { get; init; }
+    public string? Category { get; init; }
+    public string[]? Tags { get; init; }
+    public string[]? Examples { get; init; }
+    public string[]? Hints { get; init; }
 }
 
 /// <summary>Result returned from a tool invocation.</summary>
@@ -211,9 +279,68 @@ public sealed class McpToolResult
     public string Content { get; private init; } = default!;
     public string ContentType { get; private init; } = "application/json";
 
+    /// <summary>When result enrichment is enabled: HTTP status code of the dispatched action.</summary>
+    public int? StatusCode { get; private init; }
+    /// <summary>When result enrichment is enabled: invocation duration in milliseconds.</summary>
+    public double? DurationMs { get; private init; }
+    /// <summary>When result enrichment is enabled: correlation ID from the request.</summary>
+    public string? CorrelationId { get; private init; }
+    /// <summary>When suggested follow-ups are enabled: suggested next tools with rationale.</summary>
+    public IReadOnlyList<McpSuggestedAction>? SuggestedNextActions { get; private init; }
+    /// <summary>When result enrichment is enabled: optional client-facing hints from ResponseHintProvider.</summary>
+    public IReadOnlyList<string>? Hints { get; private init; }
+
     public static McpToolResult Success(string content, string contentType = "application/json") =>
         new() { IsError = false, Content = content, ContentType = contentType };
 
     public static McpToolResult Error(string message) =>
         new() { IsError = true, Content = message, ContentType = "text/plain" };
+
+    internal static McpToolResult SuccessWithEnrichment(
+        string content,
+        string contentType,
+        int statusCode,
+        double durationMs,
+        string? correlationId,
+        IReadOnlyList<McpSuggestedAction>? suggestedNextActions,
+        IReadOnlyList<string>? hints) =>
+        new()
+        {
+            IsError = false,
+            Content = content,
+            ContentType = contentType,
+            StatusCode = statusCode,
+            DurationMs = durationMs,
+            CorrelationId = correlationId,
+            SuggestedNextActions = suggestedNextActions,
+            Hints = hints
+        };
+
+    internal static McpToolResult ErrorWithEnrichment(
+        string message,
+        int statusCode,
+        double durationMs,
+        string? correlationId,
+        IReadOnlyList<McpSuggestedAction>? suggestedNextActions,
+        IReadOnlyList<string>? hints) =>
+        new()
+        {
+            IsError = true,
+            Content = message,
+            ContentType = "text/plain",
+            StatusCode = statusCode,
+            DurationMs = durationMs,
+            CorrelationId = correlationId,
+            SuggestedNextActions = suggestedNextActions,
+            Hints = hints
+        };
+
+    internal static McpToolResult SuccessWithSuggested(string content, string contentType, IReadOnlyList<McpSuggestedAction> suggestedNextActions) =>
+        new() { IsError = false, Content = content, ContentType = contentType, SuggestedNextActions = suggestedNextActions };
+
+    internal static McpToolResult ErrorWithSuggested(string message, IReadOnlyList<McpSuggestedAction> suggestedNextActions) =>
+        new() { IsError = true, Content = message, ContentType = "text/plain", SuggestedNextActions = suggestedNextActions };
 }
+
+/// <summary>Suggested follow-up tool and rationale for AI clients.</summary>
+public sealed record McpSuggestedAction(string ToolName, string Rationale);

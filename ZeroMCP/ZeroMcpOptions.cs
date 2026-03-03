@@ -60,4 +60,45 @@ public sealed class ZeroMCPOptions
     /// (mcp.tool, mcp.status_code, mcp.is_error, mcp.duration_ms). Use with OpenTelemetry or similar. Default is false.
     /// </summary>
     public bool EnableOpenTelemetryEnrichment { get; set; }
+
+    // --- Phase 2: Result enrichment ---
+
+    /// <summary>
+    /// When true, tools/call results include a metadata object (statusCode, contentType, correlationId, durationMs)
+    /// and optional suggestedNextActions and hints for AI clients. Default is false.
+    /// </summary>
+    public bool EnableResultEnrichment { get; set; }
+
+    /// <summary>
+    /// When true and <see cref="SuggestedFollowUpsProvider"/> is set, tools/call results include suggested next tool calls with rationale. Default is false.
+    /// </summary>
+    public bool EnableSuggestedFollowUps { get; set; }
+
+    /// <summary>
+    /// Optional. When <see cref="EnableResultEnrichment"/> is true, invoked after each tool call to supply client-facing hints (e.g. "consider retry", "rate limited").
+    /// Parameters: tool name, HTTP status code, response content, isError, HTTP context. Return null or empty to omit hints.
+    /// </summary>
+    public Func<string, int, string, bool, HttpContext?, IReadOnlyList<string>?>? ResponseHintProvider { get; set; }
+
+    /// <summary>
+    /// Optional. When <see cref="EnableSuggestedFollowUps"/> is true, invoked after each tool call to suggest follow-up tools.
+    /// Parameters: tool name, HTTP status code, response content, isError, HTTP context. Return null or empty to omit suggestions.
+    /// </summary>
+    public Func<string, int, string, bool, HttpContext?, IReadOnlyList<ZeroMCPOptionsSuggestedAction>?>? SuggestedFollowUpsProvider { get; set; }
+
+    // --- Phase 2: Streaming / partial responses ---
+
+    /// <summary>
+    /// When true, tools/call may return content as a sequence of chunks (chunkIndex, isFinal, text) for long responses.
+    /// Default is false (single content block). When true, response content is split by <see cref="StreamingChunkSize"/> for compatibility with streaming-aware clients.
+    /// </summary>
+    public bool EnableStreamingToolResults { get; set; }
+
+    /// <summary>
+    /// When <see cref="EnableStreamingToolResults"/> is true, response content is split into chunks of this size (characters). Default is 4096.
+    /// </summary>
+    public int StreamingChunkSize { get; set; } = 4096;
 }
+
+/// <summary>Suggested follow-up tool and rationale for AI clients.</summary>
+public sealed record ZeroMCPOptionsSuggestedAction(string ToolName, string Rationale);

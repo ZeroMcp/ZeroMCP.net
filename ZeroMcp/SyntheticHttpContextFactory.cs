@@ -158,6 +158,11 @@ public sealed class SyntheticHttpContextFactory
             context.Items[Transport.McpHttpEndpointHandler.CorrelationIdItemKey] = correlationId;
         }
 
+        // Copy the authenticated user from the MCP request so [Authorize] and authorization filters see the same identity.
+        // Auth middleware runs on the MCP request before we get here; the synthetic request bypasses middleware, so we must propagate User.
+        if (sourceContext is not null)
+            context.User = sourceContext.User;
+
         return context;
     }
 

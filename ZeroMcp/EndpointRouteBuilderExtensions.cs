@@ -42,7 +42,7 @@ public static class EndpointRouteBuilderExtensions
         logger.LogInformation("ZeroMCP MCP endpoint registered at POST {Route}", route);
 
         // Pre-build the handler once — it's expensive to construct per-request
-        var toolHandler = endpoints.ServiceProvider.GetRequiredService<McpSwaggerToolHandler>();
+        var toolHandler = endpoints.ServiceProvider.GetRequiredService<McpToolHandler>();
         var loggerFactory = endpoints.ServiceProvider.GetRequiredService<ILoggerFactory>();
         var handlerLogger = loggerFactory.CreateLogger<McpHttpEndpointHandler>();
 

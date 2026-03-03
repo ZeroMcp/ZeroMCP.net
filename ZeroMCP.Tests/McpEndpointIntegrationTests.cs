@@ -5,6 +5,8 @@ using FluentAssertions;
 using Microsoft.AspNetCore.Mvc.Testing;
 using ZeroMCP;
 using Xunit;
+using Microsoft.AspNetCore.Http;
+using System.Net.Http.Headers;
 
 namespace ZeroMCP.Tests;
 
@@ -15,6 +17,7 @@ public sealed class McpEndpointIntegrationTests : IClassFixture<WebApplicationFa
     public McpEndpointIntegrationTests(WebApplicationFactory<Program> factory)
     {
         _client = factory.CreateClient();
+        
     }
 
     [Fact]
@@ -376,8 +379,8 @@ public sealed class McpEndpointIntegrationTests : IClassFixture<WebApplicationFa
             id = 25,
             method = "tools/call",
             @params = new { name = "get_secure_order", arguments = new { id = 1 } }
-        });
-
+        }, new Dictionary<string, string> { { "Bearer: ", "INVALID" } } );
+         
         var result = response["result"]!.AsObject();
         TestContext.Current?.TestOutputHelper?.WriteLine(response.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
         result["isError"]!.GetValue<bool>().Should().BeTrue();
@@ -435,6 +438,39 @@ public sealed class McpEndpointIntegrationTests : IClassFixture<WebApplicationFa
         var error = response["error"]!.AsObject();
         error["code"]!.GetValue<int>().Should().Be(-32700);
         error["message"]!.GetValue<string>().Should().Be("Parse error");
+    }
+
+    // --- Phase 2: metadata, enrichment, backward compatibility ---
+
+    [Fact]
+    public async Task Phase2_ToolsList_WhenToolHasTags_IncludesTagsInResponse()
+    {
+        var response = await PostMcpAsync(new { jsonrpc = "2.0", id = 400, method = "tools/list" });
+        response.Should().HaveProperty("result");
+        var tools = response["result"]!.AsObject()["tools"]!.AsArray();
+        var healthCheck = tools.FirstOrDefault(t => t!.AsObject()["name"]!.GetValue<string>() == "health_check")?.AsObject();
+        healthCheck.Should().NotBeNull("health_check tool should be present");
+        healthCheck!.Should().HaveProperty("tags");
+        var tags = healthCheck["tags"]!.AsArray().Select(n => n!.GetValue<string>()).ToList();
+        tags.Should().Contain("system");
+    }
+
+    [Fact]
+    public async Task Phase2_ToolsCall_WithoutEnrichment_ResultHasOnlyContentAndIsError()
+    {
+        var response = await PostMcpAsync(new
+        {
+            jsonrpc = "2.0",
+            id = 401,
+            method = "tools/call",
+            @params = new { name = "get_order", arguments = new { id = 1 } }
+        });
+        response.Should().HaveProperty("result");
+        var result = response["result"]!.AsObject();
+        result.Should().HaveProperty("content");
+        result.Should().HaveProperty("isError");
+        result["isError"]!.GetValue<bool>().Should().BeFalse();
+        result.Should().NotHaveProperty("metadata", "legacy shape has no metadata when enrichment is off");
     }
 
     private async Task<JsonObject> PostMcpAsync(object body, IReadOnlyDictionary<string, string>? headers = null)

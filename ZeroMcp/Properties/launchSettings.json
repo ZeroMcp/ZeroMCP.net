@@ -1,6 +1,6 @@
 {
   "profiles": {
-    "MCPSwagger": {
+    "ZeroMcp": {
       "commandName": "Project",
       "launchBrowser": true,
       "environmentVariables": {

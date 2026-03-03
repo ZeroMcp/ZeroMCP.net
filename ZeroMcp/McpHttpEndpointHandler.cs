@@ -23,14 +23,14 @@ internal sealed class McpHttpEndpointHandler
 {
     internal const string CorrelationIdItemKey = "McpCorrelationId";
 
-    private readonly McpSwaggerToolHandler _toolHandler;
+    private readonly McpToolHandler _toolHandler;
    // private readonly string _serverName;
   //  private readonly string _serverVersion;
     private readonly ZeroMCPOptions _options;
     private readonly ILogger<McpHttpEndpointHandler> _logger;
 
     public McpHttpEndpointHandler(
-        McpSwaggerToolHandler toolHandler,
+        McpToolHandler toolHandler,
         ZeroMCPOptions options,
         ILogger<McpHttpEndpointHandler> logger)
     {
@@ -182,12 +182,21 @@ internal sealed class McpHttpEndpointHandler
     private async Task<object> HandleToolsListAsync(HttpContext context)
     {
         var list = await _toolHandler.GetToolDefinitionsAsync(context, context.RequestAborted);
-        var tools = list.Select(t => new
+        var tools = list.Select(t =>
         {
-            name = t.Name,
-            description = t.Description,
-            inputSchema = t.InputSchema
-        });
+            // MCP standard: name, description, inputSchema. Phase 2: optional category, tags, examples, hints
+            var obj = new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                ["name"] = t.Name,
+                ["description"] = t.Description,
+                ["inputSchema"] = t.InputSchema
+            };
+            if (!string.IsNullOrEmpty(t.Category)) obj["category"] = t.Category;
+            if (t.Tags is { Length: > 0 }) obj["tags"] = t.Tags;
+            if (t.Examples is { Length: > 0 }) obj["examples"] = t.Examples;
+            if (t.Hints is { Length: > 0 }) obj["hints"] = t.Hints;
+            return (object)obj;
+        }).ToList();
         return new { tools };
     }
 
@@ -211,17 +220,69 @@ internal sealed class McpHttpEndpointHandler
 
         var result = await _toolHandler.HandleCallAsync(toolName, args, httpContext.RequestAborted, httpContext);
 
-        // MCP tool result format
-        return new
+        // MCP tool result format (content + isError always; optional metadata/suggestedNextActions/hints when enrichment enabled)
+        // When streaming enabled, content is split into chunks with chunkIndex and isFinal for partial-response clients
+        object contentArray;
+        if (_options.EnableStreamingToolResults && !string.IsNullOrEmpty(result.Content))
         {
-            content = new[]
+            var chunkSize = _options.StreamingChunkSize > 0 ? _options.StreamingChunkSize : 4096;
+            var chunks = new List<object>();
+            for (var i = 0; i < result.Content.Length; i += chunkSize)
+            {
+                var chunk = result.Content.Length - i <= chunkSize
+                    ? result.Content.Substring(i)
+                    : result.Content.Substring(i, chunkSize);
+                chunks.Add(new
+                {
+                    type = "text",
+                    text = chunk,
+                    chunkIndex = chunks.Count,
+                    isFinal = i + chunk.Length >= result.Content.Length
+                });
+            }
+            if (chunks.Count == 0)
+                chunks.Add(new { type = "text", text = "", chunkIndex = 0, isFinal = true });
+            contentArray = chunks;
+        }
+        else
+        {
+            contentArray = new[]
             {
                 new
                 {
                     type = result.ContentType.StartsWith("application/json") ? "text" : "text",
                     text = result.Content
                 }
-            },
+            };
+        }
+
+        if (result.StatusCode.HasValue || result.SuggestedNextActions is { Count: > 0 } || result.Hints is { Count: > 0 })
+        {
+            var payload = new Dictionary<string, object>(StringComparer.Ordinal)
+            {
+                ["content"] = contentArray,
+                ["isError"] = result.IsError
+            };
+            if (result.StatusCode.HasValue)
+            {
+                payload["metadata"] = new
+                {
+                    statusCode = result.StatusCode.Value,
+                    contentType = result.ContentType,
+                    correlationId = result.CorrelationId ?? (object?)null,
+                    durationMs = result.DurationMs
+                };
+            }
+            if (result.SuggestedNextActions is { Count: > 0 })
+                payload["suggestedNextActions"] = result.SuggestedNextActions.Select(a => new { toolName = a.ToolName, rationale = a.Rationale }).ToList();
+            if (result.Hints is { Count: > 0 })
+                payload["hints"] = result.Hints;
+            return payload;
+        }
+
+        return new
+        {
+            content = contentArray,
             isError = result.IsError
         };
     }

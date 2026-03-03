@@ -54,7 +54,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IMcpMetricsSink, NoOpMcpMetricsSink>();
 
         // Transport
-        services.AddSingleton<McpSwaggerToolHandler>();
+        services.AddSingleton<McpToolHandler>();
 
         // IHttpContextFactory is needed for synthetic context creation
         services.AddSingleton<IHttpContextFactory, DefaultHttpContextFactory>();

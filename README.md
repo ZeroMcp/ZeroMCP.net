@@ -103,6 +103,12 @@ builder.Services.AddZeroMcp(options =>
     // Observability (Phase 1)
     options.CorrelationIdHeader = "X-Correlation-ID";  // read from request, echo in response and logs; default
     options.EnableOpenTelemetryEnrichment = true;     // tag Activity.Current with mcp.tool, mcp.duration_ms, etc.
+
+    // Phase 2: result enrichment and streaming (all optional, default off)
+    options.EnableResultEnrichment = true;            // tools/call result includes metadata (statusCode, durationMs, correlationId) and optional hints
+    options.EnableSuggestedFollowUps = true;          // when SuggestedFollowUpsProvider is set, result includes suggested next tools
+    options.EnableStreamingToolResults = false;       // when true, content is returned as chunks (chunkIndex, isFinal, text)
+    options.StreamingChunkSize = 4096;
 });
 ```
 
@@ -150,13 +156,16 @@ Without `AddEndpointsApiExplorer()`, only minimal API tools will appear in `tool
 
 ---
 
-## The `[McpTool]` Attribute
+## The `[Mcp]` Attribute
 
 ```csharp
-[McpTool(
+[Mcp(
     name: "create_order",               // Required. Snake_case tool name for the LLM.
     Description = "Creates an order.",  // Shown to the LLM. Be descriptive.
     Tags = ["write", "orders"],         // Optional. For grouping/filtering.
+    Category = "orders",                // Optional (Phase 2). Primary category for tools/list.
+    Examples = ["Create order for Alice, 2 Widgets"], // Optional (Phase 2). Usage examples.
+    Hints = ["idempotent", "cost=low"], // Optional (Phase 2). AI-facing hints.
     Roles = ["Editor", "Admin"],        // Optional. Tool only in tools/list if user in one of these roles.
     Policy = "RequireEditor"            // Optional. Tool only in tools/list if user satisfies this policy.
 )]

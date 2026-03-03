@@ -20,6 +20,15 @@ public sealed class McpToolDescriptor
     /// <summary>Optional tags from McpAttribute.</summary>
     public string[]? Tags { get; init; }
 
+    /// <summary>Optional primary category for grouping tools.</summary>
+    public string? Category { get; init; }
+
+    /// <summary>Optional free-form usage examples for this tool.</summary>
+    public string[]? Examples { get; init; }
+
+    /// <summary>Optional AI-facing hints/metadata strings (e.g. \"cost=high\", \"side_effects=writes_data\").</summary>
+    public string[]? Hints { get; init; }
+
     /// <summary>When set, tool is only visible in tools/list if the user is in at least one of these roles.</summary>
     public string[]? RequiredRoles { get; init; }
 

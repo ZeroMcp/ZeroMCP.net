@@ -1,13 +1,14 @@
-using System.Text;
-using System.Text.Json;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization.Policy;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using System.Text;
+using System.Text.Json;
 using ZeroMCP.Discovery;
 
 namespace ZeroMCP.Dispatch;
@@ -87,6 +88,11 @@ public sealed class McpToolDispatcher
         if (descriptor.Endpoint is not null)
             context.SetEndpoint(descriptor.Endpoint);
 
+        var authResult = await EnforceAuthorizationAsync(descriptor, context, scope.ServiceProvider);
+        if (authResult is not null)
+            return authResult; 
+
+
         if (descriptor.Endpoint is not null && descriptor.ActionDescriptor is null)
         {
             return await DispatchMinimalEndpointAsync(descriptor, context);
@@ -139,6 +145,41 @@ public sealed class McpToolDispatcher
             return DispatchResult.Failure(500, $"Internal error: {ex.Message}");
         }
         return await ExtractResponseAsync(context, descriptor.Name);
+    }
+
+    private static async Task<DispatchResult?> EnforceAuthorizationAsync(
+    McpToolDescriptor descriptor,
+    HttpContext context,
+    IServiceProvider sp)
+    {
+        var endpoint = descriptor.Endpoint;
+        var authorizeData = endpoint?.Metadata.GetOrderedMetadata<IAuthorizeData>()?.ToList()
+                            ?? new List<IAuthorizeData>();
+
+        var allowAnonymous = endpoint?.Metadata.GetMetadata<IAllowAnonymous>() is not null;
+        if (allowAnonymous || authorizeData.Count == 0)
+            return null;
+
+        var policyProvider = sp.GetRequiredService<IAuthorizationPolicyProvider>();
+        var policyEvaluator = sp.GetRequiredService<IPolicyEvaluator>();
+
+        var policy = await AuthorizationPolicy.CombineAsync(policyProvider, authorizeData);
+        if (policy is null) return null;
+
+        var authenticateResult = await policyEvaluator.AuthenticateAsync(policy, context);
+        var authorizeResult = await policyEvaluator.AuthorizeAsync(
+                    policy,
+                    authenticateResult,
+                    context,
+                    descriptor.Endpoint is not null ? descriptor.Endpoint : descriptor.ActionDescriptor);
+
+        if (authorizeResult.Challenged)
+            return DispatchResult.Failure(StatusCodes.Status401Unauthorized, "Unauthorized");
+
+        if (authorizeResult.Forbidden)
+            return DispatchResult.Failure(StatusCodes.Status403Forbidden, "Forbidden");
+
+        return null;
     }
 
     private async Task<DispatchResult> ExtractResponseAsync(HttpContext context, string toolName)

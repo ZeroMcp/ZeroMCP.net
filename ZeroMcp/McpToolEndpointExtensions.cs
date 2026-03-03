@@ -18,18 +18,24 @@ public static class McpToolEndpointExtensions
     /// <param name="tags">Optional tags for grouping.</param>
     /// <param name="roles">Optional role names; tool is only listed if the user is in at least one role.</param>
     /// <param name="policy">Optional authorization policy name; tool is only listed if the user satisfies the policy.</param>
+    /// <param name="category">Optional primary category for this tool (e.g. \"orders\", \"customers\", \"system\").</param>
+    /// <param name="examples">Optional free-form usage examples for this tool.</param>
+    /// <param name="hints">Optional AI-facing hints or metadata strings.</param>
     public static TBuilder AsMcp<TBuilder>(
         this TBuilder builder,
         string name,
         string? description = null,
         string[]? tags = null,
         string[]? roles = null,
-        string? policy = null)
+        string? policy = null,
+        string? category = null,
+        string[]? examples = null,
+        string[]? hints = null)
         where TBuilder : IEndpointConventionBuilder
     {
         builder.Add(endpointBuilder =>
         {
-            endpointBuilder.Metadata.Add(new McpToolEndpointMetadata(name, description, tags, roles, policy));
+            endpointBuilder.Metadata.Add(new McpToolEndpointMetadata(name, description, tags, roles, policy, category, examples, hints));
         });
         return builder;
     }
