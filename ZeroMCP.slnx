@@ -35,5 +35,5 @@
   <Project Path="ZeroMCP.Benchmarks/ZeroMCP.Benchmarks.csproj" />
   <Project Path="ZeroMCP.Sample/ZeroMCP.Sample.csproj" />
   <Project Path="ZeroMCP.Tests/ZeroMCP.Tests.csproj" />
-  <Project Path="ZeroMcp/ZeroMCP.csproj" />
+  <Project Path="ZeroMCP/ZeroMCP.csproj" />
 </Solution>
