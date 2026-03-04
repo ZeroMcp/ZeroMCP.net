@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Routing;
 
 
-namespace ZeroMcp.Discovery;
+namespace ZeroMCP.Discovery;
 
 /// <summary>
 /// Holds all the metadata needed to describe and invoke a single MCP tool.

@@ -1,10 +1,10 @@
-# ZeroMcp Wiki
+# ZeroMCP Wiki
 
-This folder contains the **wiki** for the ZeroMcp project — a set of linked Markdown pages you can use in-repo or copy into a GitLab/GitHub wiki.
+This folder contains the **wiki** for the ZeroMCP project — a set of linked Markdown pages you can use in-repo or copy into a GitLab/GitHub wiki.
 
 ---
 ## About
-**[The Story](TheStory)** - The story of ZeroMcp and why it was created.
+**[The Story](TheStory)** - The story of ZeroMCP and why it was created.
 
 ## Start here
 

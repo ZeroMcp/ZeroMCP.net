@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Http;
 
-namespace ZeroMcp.Options;
+namespace ZeroMCP.Options;
 
 /// <summary>
 /// Configuration options for the ZeroMCP middleware.

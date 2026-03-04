@@ -3,12 +3,12 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using ZeroMCP.Observability;
 using ZeroMCP.Transport;
-using ZeroMcp.Schema;
-using ZeroMcp.Discovery;
-using ZeroMcp.Dispatch;
-using ZeroMcp.Options;
+using ZeroMCP.Schema;
+using ZeroMCP.Discovery;
+using ZeroMCP.Dispatch;
+using ZeroMCP.Options;
 
-namespace ZeroMcp.Extensions;
+namespace ZeroMCP.Extensions;
 
 /// <summary>
 /// Extension methods for registering ZeroMCP services with the DI container.
@@ -27,7 +27,7 @@ public static class ServiceCollectionExtensions
     /// });
     /// </code>
     /// </example>
-    public static IServiceCollection AddZeroMcp(
+    public static IServiceCollection AddZeroMCP(
         this IServiceCollection services,
         Action<ZeroMCPOptions>? configure = null)
     {

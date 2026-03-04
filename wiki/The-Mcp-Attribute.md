@@ -13,7 +13,7 @@ public ActionResult<Order> GetOrder(int id) { ... }
 ```
 
 - **Name** (first argument) — Required. Snake_case tool name for the LLM (e.g. `get_order`, `create_customer`).
-- **Description** — Optional. Shown to the LLM; if omitted, ZeroMcp uses the method's XML doc `<summary>` when available (requires `EnableXMLDocAnalysis` in [Configuration](Configuration.md)).
+- **Description** — Optional. Shown to the LLM; if omitted, ZeroMCP uses the method's XML doc `<summary>` when available (requires `EnableXMLDocAnalysis` in [Configuration](Configuration.md)).
 
 ---
 

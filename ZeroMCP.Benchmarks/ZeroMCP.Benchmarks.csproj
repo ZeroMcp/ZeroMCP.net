@@ -9,7 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\ZeroMcp\ZeroMCP.csproj" />
+    <ProjectReference Include="..\ZeroMCP\ZeroMCP.csproj" />
     <ProjectReference Include="..\ZeroMCP.Sample\ZeroMCP.Sample.csproj" />
     <PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.3" />

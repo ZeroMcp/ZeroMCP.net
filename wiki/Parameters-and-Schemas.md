@@ -1,6 +1,6 @@
 # Parameters and Schemas
 
-ZeroMcp merges all parameter sources into a single flat JSON Schema object that the LLM fills in when calling a tool.
+ZeroMCP merges all parameter sources into a single flat JSON Schema object that the LLM fills in when calling a tool.
 
 ---
 

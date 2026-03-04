@@ -10,7 +10,7 @@ ZeroMCP follows [Semantic Versioning](https://semver.org/) (SemVer) for the **Nu
 
 ## What we consider breaking
 
-- Removing or renaming public types, methods, or options (e.g. `ZeroMCPOptions`, `AddZeroMcp`, `MapZeroMcp`, `[Mcp]`, `.AsMcp()`).
+- Removing or renaming public types, methods, or options (e.g. `ZeroMCPOptions`, `AddZeroMCP`, `MapZeroMCP`, `[Mcp]`, `.AsMcp()`).
 - Changing the meaning of existing options in a way that changes runtime behavior for current callers.
 - Changing the **MCP protocol version** we advertise (see below) or the shape of JSON-RPC responses (e.g. `initialize`, `tools/list`, `tools/call` result/error format) in a way that breaks existing MCP clients.
 - Changing the default value of an option in a way that alters behavior (we may do this only in a MAJOR release, or document it as a rare exception with migration notes).

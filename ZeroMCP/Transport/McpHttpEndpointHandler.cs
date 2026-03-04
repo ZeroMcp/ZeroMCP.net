@@ -4,11 +4,11 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using ZeroMcp.Options;
+using ZeroMCP.Options;
 using ZeroMCP;
 using ZeroMCP.Transport;
 
-namespace ZeroMcp.Transport;
+namespace ZeroMCP.Transport;
 
 /// <summary>
 /// Handles the streamable HTTP MCP transport protocol.

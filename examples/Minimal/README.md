@@ -4,8 +4,8 @@ Bare-minimum ZeroMCP setup: one controller action and one minimal API exposed as
 
 ## What this demonstrates
 
-- **AddControllers** + **AddEndpointsApiExplorer** + **AddZeroMcp** — required for controller tool discovery
-- **MapControllers** then **MapZeroMcp** — order matters; map MCP after your API endpoints
+- **AddControllers** + **AddEndpointsApiExplorer** + **AddZeroMCP** — required for controller tool discovery
+- **MapControllers** then **MapZeroMCP** — order matters; map MCP after your API endpoints
 - **`[Mcp("get_weather")]`** on a controller action — exposes the action as the MCP tool `get_weather`
 - **`.AsMcp("health_check", "Returns API health status.")`** on a minimal API — exposes the endpoint as the MCP tool `health_check`
 

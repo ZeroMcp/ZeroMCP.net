@@ -3,13 +3,13 @@ using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using ZeroMcp.Attributes;
-using ZeroMcp.Options;
-using ZeroMcp.Schema;
+using ZeroMCP.Attributes;
+using ZeroMCP.Options;
+using ZeroMCP.Schema;
 using ZeroMCP.Discovery;
 using ZeroMCP.Metadata;
 
-namespace ZeroMcp.Discovery;
+namespace ZeroMCP.Discovery;
 
 /// <summary>
 /// Discovers all [McpTool]-tagged controller actions at startup and builds the tool registry.

@@ -1,13 +1,13 @@
 # Configuration
 
-ZeroMcp is configured via **AddZeroMcp** options and **MapZeroMcp** (and optional route override).
+ZeroMCP is configured via **AddZeroMCP** options and **MapZeroMCP** (and optional route override).
 
 ---
 
-## Options (AddZeroMcp)
+## Options (AddZeroMCP)
 
 ```csharp
-builder.Services.AddZeroMcp(options =>
+builder.Services.AddZeroMCP(options =>
 {
     options.ServerName = "My API";              // shown during MCP handshake
     options.ServerVersion = "2.0.0";           // shown during MCP handshake
@@ -79,9 +79,9 @@ ZeroMCP does not add its own rate limiter. Use **ASP.NET Core rate limiting** an
 
 1. **Add a policy** — e.g. fixed window or sliding window, with a partition key (per-IP, per-user, or custom).
 2. **Enable middleware** — Call `app.UseRateLimiter()` after `app.UseRouting()`.
-3. **Apply to MCP** — Chain `.RequireRateLimiting("YourPolicyName")` on the endpoint: `app.MapZeroMcp().RequireRateLimiting("McpPolicy")`.
+3. **Apply to MCP** — Chain `.RequireRateLimiting("YourPolicyName")` on the endpoint: `app.MapZeroMCP().RequireRateLimiting("McpPolicy")`.
 
-The **inspector** routes (GET {RoutePrefix}/tools and GET {RoutePrefix}/ui) are registered separately; the convention builder returned by `MapZeroMcp()` applies only to the main GET/POST MCP route. To rate-limit or protect the inspector, disable it in production or add middleware/auth that applies to those paths.
+The **inspector** routes (GET {RoutePrefix}/tools and GET {RoutePrefix}/ui) are registered separately; the convention builder returned by `MapZeroMCP()` applies only to the main GET/POST MCP route. To rate-limit or protect the inspector, disable it in production or add middleware/auth that applies to those paths.
 
 **Example:** See the **WithRateLimiting** example in the repository (`examples/WithRateLimiting`). It uses a fixed-window policy (10 requests per 10 seconds) and returns HTTP 429 with a JSON-RPC–style error body when the limit is exceeded.
 
@@ -94,7 +94,7 @@ The **inspector** routes (GET {RoutePrefix}/tools and GET {RoutePrefix}/ui) are 
 Override the route when mapping:
 
 ```csharp
-app.MapZeroMcp("/api/mcp");   // overrides options.RoutePrefix
+app.MapZeroMCP("/api/mcp");   // overrides options.RoutePrefix
 ```
 
 ---
@@ -106,11 +106,11 @@ If you expose **both** controller actions with `[Mcp]` and minimal API endpoints
 ```csharp
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();   // required for controller tool discovery
-// ... AddZeroMcp(...) ...
+// ... AddZeroMCP(...) ...
 
 app.MapControllers();
 // minimal APIs with .AsMcp(...)
-app.MapZeroMcp();
+app.MapZeroMCP();
 ```
 
 Without `AddEndpointsApiExplorer()`, only minimal API tools appear in `tools/list`.

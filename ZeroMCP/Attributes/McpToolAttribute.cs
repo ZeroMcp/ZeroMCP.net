@@ -1,4 +1,4 @@
-namespace ZeroMcp.Attributes;
+namespace ZeroMCP.Attributes;
 
 /// <summary>
 /// Marks an ASP.NET Core controller action as an MCP tool.

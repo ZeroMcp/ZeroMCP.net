@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Routing;
 using ZeroMCP.Metadata;
 
-namespace ZeroMcp.Extensions;
+namespace ZeroMCP.Extensions;
 
 /// <summary>
 /// Extension methods for exposing minimal API endpoints as MCP tools.

@@ -3,9 +3,9 @@ using System.Reflection;
 using System.Text.Json;
 using NJsonSchema;
 using NJsonSchema.Generation;
-using ZeroMcp.Discovery;
+using ZeroMCP.Discovery;
 
-namespace ZeroMcp.Schema;
+namespace ZeroMCP.Schema;
 
 /// <summary>
 /// Builds a merged JSON Schema for an MCP tool's input, combining route params,

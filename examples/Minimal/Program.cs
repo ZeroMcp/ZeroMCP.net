@@ -1,10 +1,10 @@
-using ZeroMcp.Extensions;
+using ZeroMCP.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddZeroMcp(options =>
+builder.Services.AddZeroMCP(options =>
 {
     options.ServerName = "Minimal Example";
     options.ServerVersion = "1.0.0";
@@ -19,6 +19,6 @@ app.MapControllers();
 app.MapGet("/api/health", () => Results.Ok(new { status = "ok", timestamp = DateTime.UtcNow }))
    .AsMcp("health_check", "Returns API health status.");
 
-app.MapZeroMcp();
+app.MapZeroMCP();
 
 app.Run();

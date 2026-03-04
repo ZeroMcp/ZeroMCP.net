@@ -29,7 +29,7 @@ Logging, correlation IDs, metrics, and optional OpenTelemetry integration.
 
 ## Metrics sink
 
-Implement **IMcpMetricsSink** and register it after **AddZeroMcp()** to record tool invocations:
+Implement **IMcpMetricsSink** and register it after **AddZeroMCP()** to record tool invocations:
 
 ```csharp
 public interface IMcpMetricsSink

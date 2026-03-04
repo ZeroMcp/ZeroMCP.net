@@ -56,8 +56,8 @@ Discovery uses **EndpointDataSource**. Route parameters on minimal APIs are supp
 If you expose **both** controller tools and minimal API tools:
 
 1. Register **AddControllers()** and **AddEndpointsApiExplorer()**.
-2. Register **AddZeroMcp(...)**.
-3. Call **app.MapControllers()** then map your minimal APIs with **.AsMcp(...)**, then **app.MapZeroMcp()**.
+2. Register **AddZeroMCP(...)**.
+3. Call **app.MapControllers()** then map your minimal APIs with **.AsMcp(...)**, then **app.MapZeroMCP()**.
 
 Without **AddEndpointsApiExplorer()**, controller actions are not discovered and only minimal API tools will appear in `tools/list`.
 

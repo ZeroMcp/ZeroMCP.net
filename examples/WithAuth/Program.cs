@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Authentication;
 using WithAuthExample.Auth;
-using ZeroMcp.Extensions;
+using ZeroMCP.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,7 +12,7 @@ builder.Services
         ApiKeyAuthenticationHandler.SchemeName,
         _ => { });
 builder.Services.AddAuthorization();
-builder.Services.AddZeroMcp(options =>
+builder.Services.AddZeroMCP(options =>
 {
     options.ServerName = "WithAuth Example";
     options.ServerVersion = "1.0.0";
@@ -32,6 +32,6 @@ app.MapGet("/api/health", () => Results.Ok(new { status = "ok" }))
 app.MapGet("/api/admin/health", () => Results.Ok(new { status = "admin-ok" }))
    .AsMcp("admin_health", "Admin-only health. Visible only when user has Admin role.", roles: new[] { "Admin" });
 
-app.MapZeroMcp();
+app.MapZeroMCP();
 
 app.Run();

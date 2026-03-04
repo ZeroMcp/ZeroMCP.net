@@ -8,15 +8,15 @@ Layout of the **mcpAPI** repository and how to build and test.
 
 ```
 mcpAPI/
-├── ZeroMcp/                       ← Library (NuGet package ZeroMcp)
+├── ZeroMCP/                       ← Library (NuGet package ZeroMCP)
 │   ├── README.md                  ← Package README (NuGet)
 │   ├── Attributes/                ← [Mcp] (McpAttribute)
 │   ├── Discovery/                 ← Controller + minimal API tool discovery
 │   ├── Schema/                    ← JSON Schema for tool inputs (NJsonSchema)
 │   ├── Dispatch/                  ← Synthetic HttpContext, controller/minimal invoke
 │   ├── Metadata/                  ← McpToolEndpointMetadata for minimal APIs
-│   ├── Extensions/                ← AddZeroMcp, MapZeroMcp, AsMcp
-│   ├── Options/                   ← ZeroMcpOptions
+│   ├── Extensions/                ← AddZeroMCP, MapZeroMCP, AsMcp
+│   ├── Options/                   ← ZeroMCPOptions
 │   └── ZeroMCP.csproj
 ├── ZeroMCP.Sample/                ← Sample app (Orders, Customer, Product APIs; nested route Customer/{id}/orders; health minimal endpoint; optional auth)
 ├── ZeroMCP.Tests/                 ← Integration + schema tests
@@ -32,7 +32,7 @@ mcpAPI/
 ## Build commands
 
 - **Targets** — Library targets .NET 9.0 and .NET 10.0; sample and tests may target a single framework.
-- **Library:** `dotnet build ZeroMcp\ZeroMCP.csproj`
+- **Library:** `dotnet build ZeroMCP\ZeroMCP.csproj`
 - **Sample:** `dotnet build ZeroMCP.Sample\ZeroMCP.Sample.csproj`
 - **Tests:** `dotnet build ZeroMCP.Tests\ZeroMCP.Tests.csproj` then `dotnet test ZeroMCP.Tests\ZeroMCP.Tests.csproj`
 

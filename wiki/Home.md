@@ -1,8 +1,8 @@
-# ZeroMcp Wiki
+# ZeroMCP Wiki
 
-**ZeroMcp** exposes your existing ASP.NET Core API as an [MCP](https://modelcontextprotocol.io/) (Model Context Protocol) server with a single attribute and two lines of setup. No separate process. No code duplication.
+**ZeroMCP** exposes your existing ASP.NET Core API as an [MCP](https://modelcontextprotocol.io/) (Model Context Protocol) server with a single attribute and two lines of setup. No separate process. No code duplication.
 
-Read [The ZeroMcp Story](TheStory) to understand why ZeroMcp exists
+Read [The ZeroMCP Story](TheStory) to understand why ZeroMCP exists
 
 ---
 
@@ -35,5 +35,5 @@ Read [The ZeroMcp Story](TheStory) to understand why ZeroMcp exists
 
 - **README.md** (repo root) — Full documentation; same content expanded in this wiki.
 - **VERSIONING.md** — Versioning and breaking-change policy (summary in [Versioning](Versioning)).
-- **ZeroMcp/README.md** — NuGet package README (shipped inside the package).
+- **ZeroMCP/README.md** — NuGet package README (shipped inside the package).
 - **progress.md** — Change log for development sessions.

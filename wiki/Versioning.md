@@ -1,6 +1,6 @@
 # Versioning
 
-ZeroMcp follows [Semantic Versioning](https://semver.org/) (SemVer) for the **NuGet package**. Full policy is in **[VERSIONING.md](../VERSIONING.md)** in the repo root.
+ZeroMCP follows [Semantic Versioning](https://semver.org/) (SemVer) for the **NuGet package**. Full policy is in **[VERSIONING.md](../VERSIONING.md)** in the repo root.
 
 ---
 
@@ -14,7 +14,7 @@ ZeroMcp follows [Semantic Versioning](https://semver.org/) (SemVer) for the **Nu
 
 ## What we consider breaking
 
-- Removing or renaming public types, methods, or options (e.g. **AddZeroMcp**, **MapZeroMcp**, **\[Mcp\]**, **.AsMcp()**).
+- Removing or renaming public types, methods, or options (e.g. **AddZeroMCP**, **MapZeroMCP**, **\[Mcp\]**, **.AsMcp()**).
 - Changing the meaning of existing options so current callers behave differently.
 - Changing the **MCP protocol version** we advertise or the shape of JSON-RPC responses (`initialize`, `tools/list`, `tools/call`) in a way that breaks existing MCP clients.
 - Changing default option values in a way that alters behavior (reserved for MAJOR or documented exceptions).

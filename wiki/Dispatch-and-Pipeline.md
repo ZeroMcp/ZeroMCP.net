@@ -1,6 +1,6 @@
 # Dispatch and Pipeline
 
-When an MCP client calls a tool, ZeroMcp invokes your action or endpoint **in-process** through the normal ASP.NET Core pipeline.
+When an MCP client calls a tool, ZeroMCP invokes your action or endpoint **in-process** through the normal ASP.NET Core pipeline.
 
 ---
 

@@ -1,6 +1,6 @@
 # Migration Guide
 
-How to upgrade from earlier phases of ZeroMcp (e.g. Phase 1 to Phase 2) and handle breaking or notable changes.
+How to upgrade from earlier phases of ZeroMCP (e.g. Phase 1 to Phase 2) and handle breaking or notable changes.
 
 ---
 
@@ -40,17 +40,17 @@ How to upgrade from earlier phases of ZeroMcp (e.g. Phase 1 to Phase 2) and hand
 
 ## General upgrade checklist
 
-1. **Pull latest** — Ensure you have the target version of ZeroMcp.
+1. **Pull latest** — Ensure you have the target version of ZeroMCP.
 2. **Update references** — Replace any **McpSwaggerToolHandler** / **SwaggerMcp** naming with **McpToolHandler** / **ZeroMCP**.
 3. **Build and test** — Run **dotnet build** and your test suite.
-4. **Options** — Review [Configuration](Configuration) and [VERSIONING.md](https://github.com/ZeroMcp/ZeroMCP.net/blob/main/VERSIONING.md) for new options and default values.
+4. **Options** — Review [Configuration](Configuration) and [VERSIONING.md](https://github.com/ZeroMCP/ZeroMCP.net/blob/main/VERSIONING.md) for new options and default values.
 5. **Docs** — Check the [wiki](Home) and release notes for the version you are upgrading to.
 
 ---
 
 ## Breaking change policy
 
-ZeroMcp follows [SemVer](https://semver.org/). See **VERSIONING.md** in the repository for:
+ZeroMCP follows [SemVer](https://semver.org/). See **VERSIONING.md** in the repository for:
 
 - What we consider a breaking change
 - How we version the NuGet package

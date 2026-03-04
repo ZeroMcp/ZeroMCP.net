@@ -6,10 +6,10 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using ZeroMCP.Ui;
 using ZeroMCP.Transport;
-using ZeroMcp.Transport;
-using ZeroMcp.Options;
+using ZeroMCP.Transport;
+using ZeroMCP.Options;
 
-namespace ZeroMcp.Extensions;
+namespace ZeroMCP.Extensions;
 
 /// <summary>
 /// Extension methods for mapping the MCP endpoint in the ASP.NET Core routing pipeline.
@@ -27,7 +27,7 @@ public static class EndpointRouteBuilderExtensions
     /// app.MapZeroMCP("/api/mcp");
     /// </code>
     /// </example>
-    public static IEndpointConventionBuilder MapZeroMcp(
+    public static IEndpointConventionBuilder MapZeroMCP(
         this IEndpointRouteBuilder endpoints,
         string? routePrefix = null)
     {

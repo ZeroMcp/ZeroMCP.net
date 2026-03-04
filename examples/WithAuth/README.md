@@ -5,7 +5,7 @@ ZeroMCP with authentication and authorization: API-key auth, role-based tool vis
 ## What this demonstrates
 
 - **AddAuthentication** / **AddAuthorization** — API-key handler (`X-Api-Key`: `dev-key` or `admin-key`); `admin-key` adds the Admin role
-- **UseAuthentication** / **UseAuthorization** before **MapControllers** and **MapZeroMcp**
+- **UseAuthentication** / **UseAuthorization** before **MapControllers** and **MapZeroMCP**
 - **`[Authorize]`** on an action — tool call returns 401 when unauthenticated
 - **`[Mcp(..., Roles = ["Admin"])]`** — tool appears in `tools/list` only when the user is in the Admin role
 - **`.AsMcp(..., roles: new[] { "Admin" })`** — same for minimal APIs

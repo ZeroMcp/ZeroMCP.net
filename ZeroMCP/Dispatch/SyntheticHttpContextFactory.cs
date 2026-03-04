@@ -4,11 +4,11 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Options;
-using ZeroMcp.Discovery;
-using ZeroMcp.Options;
-using ZeroMcp.Transport;
+using ZeroMCP.Discovery;
+using ZeroMCP.Options;
+using ZeroMCP.Transport;
 
-namespace ZeroMcp.Dispatch;
+namespace ZeroMCP.Dispatch;
 
 /// <summary>
 /// Constructs synthetic HttpContext instances for in-process action dispatch.

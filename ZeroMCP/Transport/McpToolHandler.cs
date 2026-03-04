@@ -6,10 +6,10 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using ZeroMCP.Observability;
 using ZeroMCP;
-using ZeroMcp.Transport;
-using ZeroMcp.Discovery;
-using ZeroMcp.Dispatch;
-using ZeroMcp.Options;
+using ZeroMCP.Transport;
+using ZeroMCP.Discovery;
+using ZeroMCP.Dispatch;
+using ZeroMCP.Options;
 
 namespace ZeroMCP.Transport;
 

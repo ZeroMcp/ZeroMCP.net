@@ -1,6 +1,6 @@
 # Connecting MCP Clients
 
-Point MCP clients at your app's **/mcp** endpoint (or the route you set in **MapZeroMcp**).
+Point MCP clients at your app's **/mcp** endpoint (or the route you set in **MapZeroMCP**).
 
 ---
 
@@ -25,10 +25,10 @@ Use the URL of your running app (e.g. after `dotnet run` or in production your d
 
 ## Claude.ai (remote MCP)
 
-Use your deployed API's `/mcp` URL. For production, add authentication — ZeroMcp does not add auth to the `/mcp` route; use standard ASP.NET Core middleware or endpoint auth:
+Use your deployed API's `/mcp` URL. For production, add authentication — ZeroMCP does not add auth to the `/mcp` route; use standard ASP.NET Core middleware or endpoint auth:
 
 ```csharp
-app.MapZeroMcp().RequireAuthorization("McpPolicy");
+app.MapZeroMCP().RequireAuthorization("McpPolicy");
 ```
 
 Configure your MCP client with the same auth (e.g. API key header) if required.

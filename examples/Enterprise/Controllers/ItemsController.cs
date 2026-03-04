@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using ZeroMcp.Attributes;
+using ZeroMCP.Attributes;
 
 namespace EnterpriseExample.Controllers;
 

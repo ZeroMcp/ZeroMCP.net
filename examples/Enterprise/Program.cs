@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Authentication;
 using EnterpriseExample.Auth;
-using ZeroMcp.Extensions;
-using ZeroMcp.Options;
+using ZeroMCP.Extensions;
+using ZeroMCP.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,7 +13,7 @@ builder.Services
         ApiKeyAuthenticationHandler.SchemeName,
         _ => { });
 builder.Services.AddAuthorization();
-builder.Services.AddZeroMcp(options =>
+builder.Services.AddZeroMCP(options =>
 {
     options.ServerName = "Enterprise Example";
     options.ServerVersion = "1.0.0";
@@ -48,6 +48,6 @@ app.MapGet("/api/health", () => Results.Ok(new { status = "ok" }))
 app.MapGet("/api/admin/health", () => Results.Ok(new { status = "admin" }))
    .AsMcp("admin_health", "Admin health.", tags: new[] { "system", "admin" }, roles: new[] { "Admin" });
 
-app.MapZeroMcp();
+app.MapZeroMCP();
 
 app.Run();

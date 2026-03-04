@@ -20,14 +20,14 @@ Expose your ASP.NET Core API as an **MCP (Model Context Protocol)** server. Tag 
 
 ```csharp
 // Program.cs
-builder.Services.AddZeroMcp(options =>
+builder.Services.AddZeroMCP(options =>
 {
     options.ServerName = "My API";
     options.ServerVersion = "1.0.0";
 });
 
 // After UseRouting(), UseAuthorization()
-app.MapZeroMcp();  // GET and POST /mcp; GET /mcp/tools and GET /mcp/ui when inspector/UI are enabled
+app.MapZeroMCP();  // GET and POST /mcp; GET /mcp/tools and GET /mcp/ui when inspector/UI are enabled
 ```
 
 **2. Tag controller actions**
@@ -79,7 +79,7 @@ Set `EnableToolInspector` or `EnableToolInspectorUI` to `false` to disable the J
 
 **Governance:** Use `[Mcp(..., Roles = new[] { "Admin" }, Policy = "RequireEditor")]` or `.AsMcp(..., roles: ..., policy: ...)` to restrict which tools appear in `tools/list` per user.
 
-**Metrics:** Implement `IMcpMetricsSink` and register it after `AddZeroMcp()` to record tool invocations (name, status code, duration, success/failure).
+**Metrics:** Implement `IMcpMetricsSink` and register it after `AddZeroMCP()` to record tool invocations (name, status code, duration, success/failure).
 
 ---
 

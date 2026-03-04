@@ -5,7 +5,7 @@ BenchmarkDotNet-based performance benchmarks for ZeroMCP endpoints using the Sam
 ## Prerequisites
 
 - .NET 10 SDK (or the framework the Sample targets)
-- ZeroMCP.Sample and ZeroMcp built
+- ZeroMCP.Sample and ZeroMCP built
 
 ## Run all benchmarks
 
@@ -40,4 +40,4 @@ Results include timing (mean, error) and memory allocation. Run in **Release** f
 
 ## See also
 
-- [wiki/Performance](https://github.com/ZeroMcp/ZeroMCP.net/wiki/Performance) — Baseline numbers and how to reproduce
+- [wiki/Performance](https://github.com/ZeroMCP/ZeroMCP.net/wiki/Performance) — Baseline numbers and how to reproduce

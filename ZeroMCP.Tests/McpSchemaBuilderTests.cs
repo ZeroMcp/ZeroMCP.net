@@ -3,8 +3,8 @@ using System.Text.Json;
 using FluentAssertions;
 using ZeroMCP.Discovery;
 using Xunit;
-using ZeroMcp.Schema;
-using ZeroMcp.Discovery;
+using ZeroMCP.Schema;
+using ZeroMCP.Discovery;
 
 namespace ZeroMCP.Tests;
 

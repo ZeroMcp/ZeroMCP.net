@@ -1,6 +1,6 @@
 {
   "profiles": {
-    "ZeroMcp": {
+    "ZeroMCP": {
       "commandName": "Project",
       "launchBrowser": true,
       "environmentVariables": {

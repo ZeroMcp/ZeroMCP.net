@@ -48,7 +48,7 @@ Note: **GET /mcp/tools** does **not** apply per-request visibility (roles/policy
 ## Production
 
 - **Disable when not needed** — If the tool list or test UI is sensitive, set **EnableToolInspector** or **EnableToolInspectorUI** to `false` (e.g. only in non-Development). See [Enterprise Usage](Enterprise-Usage) and [Configuration](Configuration).
-- **Protecting the route** — The inspector and UI routes are registered by **MapZeroMcp** when the options are true. To require authentication on them, use middleware or a custom setup that applies to the inspector path; see [Security Model](Security-Model) and [Enterprise Usage](Enterprise-Usage).
+- **Protecting the route** — The inspector and UI routes are registered by **MapZeroMCP** when the options are true. To require authentication on them, use middleware or a custom setup that applies to the inspector path; see [Security Model](Security-Model) and [Enterprise Usage](Enterprise-Usage).
 
 ---
 

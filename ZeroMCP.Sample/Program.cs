@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Authentication;
 using SampleApi.Auth;
-using ZeroMcp.Extensions;
+using ZeroMCP.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,7 +13,7 @@ builder.Services
         ApiKeyAuthenticationHandler.SchemeName,
         _ => { });
 builder.Services.AddAuthorization();
-builder.Services.AddZeroMcp(options =>
+builder.Services.AddZeroMCP(options =>
 {
     options.ServerName = "Orders API";
     options.ServerVersion = "1.0.0";
@@ -41,7 +41,7 @@ app.MapGet("/api/health", () => Results.Ok(new { status = "ok", timestamp = Date
 app.MapGet("/api/admin/health", () => Results.Ok(new { status = "admin-ok", timestamp = DateTime.UtcNow }))
    .AsMcp("admin_health", "Admin-only health. Visible only to callers with Admin role.", tags: new[] { "system", "admin" }, roles: new[] { "Admin" }, category: "admin");
 
-app.MapZeroMcp();
+app.MapZeroMCP();
 
 app.Run();
 

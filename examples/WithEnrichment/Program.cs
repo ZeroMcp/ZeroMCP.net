@@ -1,11 +1,11 @@
-using ZeroMcp.Extensions;
-using ZeroMcp.Options;
+using ZeroMCP.Extensions;
+using ZeroMCP.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddZeroMcp(options =>
+builder.Services.AddZeroMCP(options =>
 {
     options.ServerName = "WithEnrichment Example";
     options.ServerVersion = "1.0.0";
@@ -40,6 +40,6 @@ app.MapControllers();
 app.MapGet("/api/health", () => Results.Ok(new { status = "ok" }))
    .AsMcp("health_check", "Health check.", category: "system");
 
-app.MapZeroMcp();
+app.MapZeroMCP();
 
 app.Run();

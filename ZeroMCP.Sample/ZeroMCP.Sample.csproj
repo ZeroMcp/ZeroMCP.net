@@ -8,7 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\ZeroMcp\ZeroMCP.csproj" />
+    <ProjectReference Include="..\ZeroMCP\ZeroMCP.csproj" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.0.1" />
   </ItemGroup>
 

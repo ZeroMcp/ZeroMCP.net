@@ -10,7 +10,7 @@ using ZeroMCP;
 using Xunit;
 using Microsoft.AspNetCore.Http;
 using System.Net.Http.Headers;
-using ZeroMcp.Options;
+using ZeroMCP.Options;
 
 namespace ZeroMCP.Tests;
 

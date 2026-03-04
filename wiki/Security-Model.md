@@ -1,13 +1,13 @@
 # Security Model
 
-How authentication and authorization work with ZeroMcp and how to secure the MCP endpoint and tool dispatch.
+How authentication and authorization work with ZeroMCP and how to secure the MCP endpoint and tool dispatch.
 
 ---
 
 ## Overview
 
-- ZeroMcp does **not** add authentication or authorization by itself. You configure **AddAuthentication** and **AddAuthorization** and (optionally) endpoint-level requirements on the MCP route.
-- The **MCP endpoint** (GET/POST at **RoutePrefix**, e.g. `/mcp`) is the only HTTP surface ZeroMcp registers by default; when **EnableToolInspector** is true, **GET {RoutePrefix}/tools** is also registered.
+- ZeroMCP does **not** add authentication or authorization by itself. You configure **AddAuthentication** and **AddAuthorization** and (optionally) endpoint-level requirements on the MCP route.
+- The **MCP endpoint** (GET/POST at **RoutePrefix**, e.g. `/mcp`) is the only HTTP surface ZeroMCP registers by default; when **EnableToolInspector** is true, **GET {RoutePrefix}/tools** is also registered.
 - **Tool visibility** (who sees which tools in `tools/list`) is controlled by **Roles**, **Policy** on `[Mcp]` / `.AsMcp(...)`, and **ToolVisibilityFilter**.
 - **Tool invocation** runs inside your app via a **synthetic HttpContext**. The same auth identity and headers you forward are used so that **`[Authorize]`** and authorization policies on the underlying action or endpoint are enforced.
 
@@ -15,13 +15,13 @@ How authentication and authorization work with ZeroMcp and how to secure the MCP
 
 ## Auth flow
 
-1. **Request hits the MCP endpoint** — Your ASP.NET Core pipeline runs (routing, authentication, authorization if you added them before **MapZeroMcp**).
+1. **Request hits the MCP endpoint** — Your ASP.NET Core pipeline runs (routing, authentication, authorization if you added them before **MapZeroMCP**).
 2. **Authentication** runs on the incoming request (e.g. API key or Bearer). The resulting **ClaimsPrincipal** is set on **HttpContext.User**.
-3. **tools/list** — ZeroMcp calls **GetToolDefinitionsAsync(HttpContext)**. For each tool it checks **RequiredRoles** (user must be in at least one role), **RequiredPolicy** (IAuthorizationService), and **ToolVisibilityFilter**. Only tools that pass are returned. So the client only sees tools it is allowed to see.
-4. **tools/call** — ZeroMcp looks up the tool by name, builds a **synthetic HttpContext** for the underlying action or minimal endpoint, and invokes it in-process. The synthetic context gets:
+3. **tools/list** — ZeroMCP calls **GetToolDefinitionsAsync(HttpContext)**. For each tool it checks **RequiredRoles** (user must be in at least one role), **RequiredPolicy** (IAuthorizationService), and **ToolVisibilityFilter**. Only tools that pass are returned. So the client only sees tools it is allowed to see.
+4. **tools/call** — ZeroMCP looks up the tool by name, builds a **synthetic HttpContext** for the underlying action or minimal endpoint, and invokes it in-process. The synthetic context gets:
    - **User** — Copied from the MCP request's **HttpContext.User** so the dispatched action sees the same identity.
    - **Headers** — Those in **ForwardHeaders** (e.g. **Authorization**) are copied so the action can use the same token if needed.
-5. **Authorization on the action** — When the action or endpoint has **`[Authorize]`** or policy requirements, the framework evaluates them against the synthetic context's **User**. If authorization fails, the action returns 401/403 and ZeroMcp turns that into an MCP error result.
+5. **Authorization on the action** — When the action or endpoint has **`[Authorize]`** or policy requirements, the framework evaluates them against the synthetic context's **User**. If authorization fails, the action returns 401/403 and ZeroMCP turns that into an MCP error result.
 
 So: **auth runs on the MCP request first**; that identity is **propagated** into the synthetic request used for dispatch, and **authorization on the action/endpoint** is enforced as usual.
 
@@ -47,13 +47,13 @@ So: **auth runs on the MCP request first**; that identity is **propagated** into
 
 ## Securing the MCP endpoint
 
-- **Option 1 — Middleware:** Place **UseAuthentication** and **UseAuthorization** before **MapZeroMcp**. Then use **RequireAuthorization** on the mapped endpoint so only authenticated (and optionally authorized) callers can hit GET/POST `/mcp`:
+- **Option 1 — Middleware:** Place **UseAuthentication** and **UseAuthorization** before **MapZeroMCP**. Then use **RequireAuthorization** on the mapped endpoint so only authenticated (and optionally authorized) callers can hit GET/POST `/mcp`:
 
   ```csharp
-  app.MapZeroMcp().RequireAuthorization("McpPolicy");
+  app.MapZeroMCP().RequireAuthorization("McpPolicy");
   ```
 
-  (The convention builder returned by **MapZeroMcp** applies to the main MCP route; the inspector route, when enabled, is registered separately and does not automatically get this. You can disable the inspector in production or add custom logic to protect it.)
+  (The convention builder returned by **MapZeroMCP** applies to the main MCP route; the inspector route, when enabled, is registered separately and does not automatically get this. You can disable the inspector in production or add custom logic to protect it.)
 
 - **Option 2 — Reverse proxy / API gateway:** Put the MCP endpoint behind a gateway that enforces auth and rate limiting.
 
@@ -71,10 +71,10 @@ So: **auth runs on the MCP request first**; that identity is **propagated** into
 | Surface | Mitigation |
 |--------|------------|
 | Unauthenticated access to MCP | Use **RequireAuthorization** on the MCP endpoint or enforce auth in front (gateway/middleware). |
-| Rate limiting / abuse | Use **ASP.NET Core rate limiting**: `AddRateLimiter`, `UseRateLimiter()`, and `MapZeroMcp().RequireRateLimiting("Policy")`. See [Configuration](Configuration) and the **WithRateLimiting** example. |
+| Rate limiting / abuse | Use **ASP.NET Core rate limiting**: `AddRateLimiter`, `UseRateLimiter()`, and `MapZeroMCP().RequireRateLimiting("Policy")`. See [Configuration](Configuration) and the **WithRateLimiting** example. |
 | Unauthenticated access to inspector | Disable **EnableToolInspector** or protect **GET /mcp/tools**. |
 | Tool list reveals internal tools | Use **ToolFilter** and **ToolVisibilityFilter**; use **Roles** / **Policy** so only allowed users see sensitive tools. |
-| Invocation without auth | Identity is propagated to the synthetic request; **`[Authorize]`** on the action still runs. Ensure auth middleware runs before **MapZeroMcp**. |
+| Invocation without auth | Identity is propagated to the synthetic request; **`[Authorize]`** on the action still runs. Ensure auth middleware runs before **MapZeroMCP**. |
 | Header injection | Only headers listed in **ForwardHeaders** are copied; do not forward untrusted headers that could override security-related headers. |
 
 ---

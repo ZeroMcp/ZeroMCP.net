@@ -1,6 +1,6 @@
 # Quick Start
 
-Get ZeroMcp running in a few steps.
+Get ZeroMCP running in a few steps.
 
 ---
 
@@ -9,7 +9,7 @@ Get ZeroMcp running in a few steps.
 Add the package to your ASP.NET Core project:
 
 ```xml
-<PackageReference Include="ZeroMcp" Version="1.*" />
+<PackageReference Include="ZeroMCP" Version="1.*" />
 ```
 
 ---
@@ -19,7 +19,7 @@ Add the package to your ASP.NET Core project:
 In `Program.cs`:
 
 ```csharp
-builder.Services.AddZeroMcp(options =>
+builder.Services.AddZeroMCP(options =>
 {
     options.ServerName = "My Orders API";
     options.ServerVersion = "1.0.0";
@@ -36,7 +36,7 @@ builder.Services.AddZeroMcp(options =>
 ## 3. Map the endpoint
 
 ```csharp
-app.MapZeroMcp();   // registers GET and POST /mcp
+app.MapZeroMCP();   // registers GET and POST /mcp
 ```
 
 ---

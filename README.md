@@ -1,10 +1,10 @@
-# ZeroMcp
+# ZeroMCP
 
 Expose your existing ASP.NET Core API as an MCP (Model Context Protocol) server with a single attribute and two lines of setup. No separate process. No code duplication.
 
 ## How It Works
 
-Tag controller actions with `[Mcp]` or minimal APIs with `.AsMcp(...)`. ZeroMcp will:
+Tag controller actions with `[Mcp]` or minimal APIs with `.AsMcp(...)`. ZeroMCP will:
 
 1. **Discover** tools at startup from controller API descriptions (same source as Swagger) and from minimal API endpoints that use `AsMcp`
 2. **Generate** a JSON Schema for each tool's inputs (route, query, and body merged)
@@ -16,7 +16,7 @@ MCP Client (Claude Desktop, Claude.ai, etc.)
     │
     │  GET /mcp (info)  or  POST /mcp (JSON-RPC 2.0)
     ▼
-ZeroMcp Endpoint
+ZeroMCP Endpoint
     │
     │  in-process dispatch (controller or minimal endpoint)
     ▼
@@ -34,14 +34,14 @@ MCP Client gets structured result
 ### 1. Install
 
 ```xml
-<PackageReference Include="ZeroMcp" Version="1.*" />
+<PackageReference Include="ZeroMCP" Version="1.*" />
 ```
 
 ### 2. Register services
 
 ```csharp
 // Program.cs
-builder.Services.AddZeroMcp(options =>
+builder.Services.AddZeroMCP(options =>
 {
     options.ServerName = "My Orders API";
     options.ServerVersion = "1.0.0";
@@ -51,7 +51,7 @@ builder.Services.AddZeroMcp(options =>
 ### 3. Map the endpoint
 
 ```csharp
-app.MapZeroMcp(); // registers GET and POST /mcp
+app.MapZeroMCP(); // registers GET and POST /mcp
 ```
 
 ### 4. Tag your actions
@@ -89,7 +89,7 @@ For **versioning and breaking-change policy**, see [VERSIONING.md](VERSIONING.md
 ## Configuration
 
 ```csharp
-builder.Services.AddZeroMcp(options =>
+builder.Services.AddZeroMCP(options =>
 {
     options.ServerName = "My API";         // shown during MCP handshake
     options.ServerVersion = "2.0.0";       // shown during MCP handshake
@@ -125,7 +125,7 @@ builder.Services.AddZeroMcp(options =>
 - **Structured logging** — Each MCP request is logged with a scope containing `CorrelationId`, `JsonRpcId`, and `Method`. Tool invocations log `ToolName`, `StatusCode`, `IsError`, `DurationMs`, and `CorrelationId`.
 - **Execution timing** — Request duration and per-tool duration are recorded and included in log messages.
 - **Correlation ID** — Send `X-Correlation-ID` (or the header name in `CorrelationIdHeader`) on the request; the same value is echoed in the response and propagated to the synthetic request (`TraceIdentifier` and `HttpContext.Items`). If omitted, a new GUID is generated.
-- **Metrics sink** — Implement `IMcpMetricsSink` and register it after `AddZeroMcp()` to record tool invocations (tool name, status code, success/failure, duration). The default is a no-op.
+- **Metrics sink** — Implement `IMcpMetricsSink` and register it after `AddZeroMCP()` to record tool invocations (tool name, status code, success/failure, duration). The default is a no-op.
 - **OpenTelemetry** — Set `EnableOpenTelemetryEnrichment = true` to tag the current `Activity` with `mcp.tool`, `mcp.status_code`, `mcp.is_error`, `mcp.duration_ms`, and `mcp.correlation_id` when present.
 
 ### Governance & tool control (Phase 1)
@@ -143,7 +143,7 @@ Tools that are hidden from `tools/list` are also not callable: a direct `tools/c
 ### Custom route
 
 ```csharp
-app.MapZeroMcp("/api/mcp");  // overrides options.RoutePrefix
+app.MapZeroMCP("/api/mcp");  // overrides options.RoutePrefix
 ```
 
 ### Using controllers and minimal APIs together
@@ -153,11 +153,11 @@ If you expose **both** controller actions (with `[Mcp]`) and minimal API endpoin
 ```csharp
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();   // required for controller tool discovery
-// ... AddZeroMcp(...) ...
+// ... AddZeroMCP(...) ...
 
 app.MapControllers();
 // minimal APIs with .AsMcp(...)
-app.MapZeroMcp();
+app.MapZeroMCP();
 ```
 
 Without `AddEndpointsApiExplorer()`, only minimal API tools will appear in `tools/list`; controller actions will be missing because they are discovered from the same API description source as Swagger.
@@ -210,13 +210,13 @@ Run any example with `dotnet run` from its folder. See each project's **README.m
 - **Per-action only** — `[Mcp]` goes on individual action methods, not controllers
 - **One name per application** — duplicate names are logged as warnings and skipped
 - **Any HTTP method** — GET, POST, PATCH, DELETE all work
-- **Description** — If you omit `Description`, ZeroMcp uses the method's XML doc `<summary>` when available.
+- **Description** — If you omit `Description`, ZeroMCP uses the method's XML doc `<summary>` when available.
 
 ---
 
 ## How Parameters Are Mapped
 
-ZeroMcp merges all parameter sources into a single flat JSON Schema object that the LLM fills in:
+ZeroMCP merges all parameter sources into a single flat JSON Schema object that the LLM fills in:
 
 | Parameter source | MCP mapping |
 |---|---|
@@ -256,7 +256,7 @@ Produces this MCP input schema:
 
 ## In-Process Dispatch
 
-When the MCP client calls a tool, ZeroMcp:
+When the MCP client calls a tool, ZeroMCP:
 
 1. Creates a fresh **DI scope** (same as a real request)
 2. Builds a **synthetic `HttpContext`** with route values (including ambient `controller`/`action` for link generation), query string, and body from the JSON arguments
@@ -310,10 +310,10 @@ Add to `claude_desktop_config.json`:
 
 ### Claude.ai (remote MCP)
 
-Point at your deployed API's `/mcp` endpoint. For production, add authentication — ZeroMcp doesn't impose any auth on the `/mcp` route itself, so you can apply standard ASP.NET Core auth middleware or `.RequireAuthorization()` as needed:
+Point at your deployed API's `/mcp` endpoint. For production, add authentication — ZeroMCP doesn't impose any auth on the `/mcp` route itself, so you can apply standard ASP.NET Core auth middleware or `.RequireAuthorization()` as needed:
 
 ```csharp
-app.MapZeroMcp().RequireAuthorization("McpPolicy");
+app.MapZeroMCP().RequireAuthorization("McpPolicy");
 ```
 
 ---
@@ -323,9 +323,9 @@ app.MapZeroMcp().RequireAuthorization("McpPolicy");
 | File | Purpose |
 |------|--------|
 | **README.md** (this file) | Repository / GitLab: full docs, build, tests, contributing, project layout. |
-| **ZeroMcp/README.md** | NuGet package: install, quick start, config summary. Shipped inside the package; keep it consumer-focused. |
+| **ZeroMCP/README.md** | NuGet package: install, quick start, config summary. Shipped inside the package; keep it consumer-focused. |
 
-When you add features or options, update both: details and examples here, short summary and link in `ZeroMcp/README.md`.
+When you add features or options, update both: details and examples here, short summary and link in `ZeroMCP/README.md`.
 
 ---
 
@@ -333,16 +333,16 @@ When you add features or options, update both: details and examples here, short 
 
 ```
 mcpAPI/
-├── ZeroMcp/                       ← Library (NuGet package ZeroMcp)
+├── ZeroMCP/                       ← Library (NuGet package ZeroMCP)
 │   ├── README.md                  ← Package README (NuGet)
 │   ├── Attributes/                ← [Mcp]
 │   ├── Discovery/                 ← Controller + minimal API tool discovery
 │   ├── Schema/                    ← JSON Schema for tool inputs (NJsonSchema)
 │   ├── Dispatch/                  ← Synthetic HttpContext, controller/minimal invoke
 │   ├── Metadata/                  ← McpToolEndpointMetadata for minimal APIs
-│   ├── Extensions/                ← AddZeroMcp, MapZeroMcp, AsMcp
-│   ├── Options/                   ← ZeroMcpOptions
-│   └── ZeroMCP.csproj            (PackageId: ZeroMcp, Version: 1.0.2)
+│   ├── Extensions/                ← AddZeroMCP, MapZeroMCP, AsMcp
+│   ├── Options/                   ← ZeroMCPOptions
+│   └── ZeroMCP.csproj            (PackageId: ZeroMCP, Version: 1.0.2)
 ├── ZeroMCP.Sample/                ← Sample (Orders, Customer, Product APIs; nested route Customer/{id}/orders; health minimal endpoint, optional auth)
 ├── examples/                     ← Minimal, WithAuth, WithEnrichment, WithRateLimiting, Enterprise
 ├── ZeroMCP.Tests/                 ← Integration + schema tests
@@ -352,7 +352,7 @@ mcpAPI/
 └── README.md
 ```
 
-**Wiki:** Detailed documentation can be found on [Our Wiki pages](https://github.com/ZeroMcp/ZeroMCP.net/wiki). 
+**Wiki:** Detailed documentation can be found on [Our Wiki pages](https://github.com/ZeroMCP/ZeroMCP.net/wiki). 
 
 ---
 
@@ -369,7 +369,7 @@ mcpAPI/
 ## Build
 
 - **Targets:** .NET 9.0 and .NET 10.0 (library); sample and tests may target a single framework.
-- **Library:** `dotnet build ZeroMcp\ZeroMCP.csproj`
+- **Library:** `dotnet build ZeroMCP\ZeroMCP.csproj`
 - **Sample:** `dotnet build ZeroMCP.Sample\ZeroMCP.Sample.csproj`
 - **Tests:** `dotnet build ZeroMCP.Tests\ZeroMCP.Tests.csproj` then `dotnet test ZeroMCP.Tests\ZeroMCP.Tests.csproj`
 - **TestService:** `dotnet build TestService\TestService.csproj`
