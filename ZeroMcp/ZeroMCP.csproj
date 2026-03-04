@@ -24,6 +24,30 @@
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
   </PropertyGroup>
 
+  <!-- Explicit Compile includes so Linux (case-sensitive) always sees Options, Ui, Transport, etc. -->
+  <PropertyGroup>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="McpProtocolConstants.cs" />
+    <Compile Include="ZeroMcpOptions.cs" />
+    <Compile Include="McpToolAttribute.cs" />
+    <Compile Include="McpToolDescriptor.cs" />
+    <Compile Include="McpSchemaBuilder.cs" />
+    <Compile Include="XmlDocHelper.cs" />
+    <Compile Include="ServiceCollectionExtensions.cs" />
+    <Compile Include="EndpointRouteBuilderExtensions.cs" />
+    <Compile Include="McpToolEndpointExtensions.cs" />
+    <Compile Include="McpHttpEndpointHandler.cs" />
+    <Compile Include="McpToolHandler.cs" />
+    <Compile Include="McpToolDiscoveryService.cs" />
+    <Compile Include="McpToolDispatcher.cs" />
+    <Compile Include="SyntheticHttpContextFactory.cs" />
+    <Compile Include="Metadata/McpToolEndpointMetadata.cs" />
+    <Compile Include="Ui/McpInspectorUiHtml.cs" />
+    <Compile Include="Observability/IMcpMetricsSink.cs" />
+    <Compile Include="Observability/NoOpMcpMetricsSink.cs" />
+  </ItemGroup>
   <!-- Exclude sample and test code from the library (they live in separate projects) -->
   <ItemGroup>
     <Compile Remove="Program.cs" />
