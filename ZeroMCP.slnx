@@ -9,8 +9,31 @@
     <Project Path="examples/WithAuth/WithAuthExample.csproj" />
     <Project Path="examples/WithEnrichment/WithEnrichmentExample.csproj" />
   </Folder>
+  <Folder Name="/Wiki/">
+    <File Path="wiki/Configuration.md" />
+    <File Path="wiki/Connecting-Clients.md" />
+    <File Path="wiki/Contributing.md" />
+    <File Path="wiki/Controllers-and-Minimal-APIs.md" />
+    <File Path="wiki/Dispatch-and-Pipeline.md" />
+    <File Path="wiki/Enterprise-Usage.md" />
+    <File Path="wiki/Governance-and-Security.md" />
+    <File Path="wiki/Home.md" />
+    <File Path="wiki/Limitations.md" />
+    <File Path="wiki/Migration-Guide.md" />
+    <File Path="wiki/Observability.md" />
+    <File Path="wiki/Parameters-and-Schemas.md" />
+    <File Path="wiki/Performance.md" />
+    <File Path="wiki/Project-Structure.md" />
+    <File Path="wiki/Quick-Start.md" />
+    <File Path="wiki/README.md" />
+    <File Path="wiki/Security-Model.md" />
+    <File Path="wiki/The-Mcp-Attribute.md" />
+    <File Path="wiki/TheStory.md" />
+    <File Path="wiki/Tool-Inspector-UI.md" />
+    <File Path="wiki/Versioning.md" />
+  </Folder>
+  <Project Path="ZeroMCP.Benchmarks/ZeroMCP.Benchmarks.csproj" />
   <Project Path="ZeroMCP.Sample/ZeroMCP.Sample.csproj" />
   <Project Path="ZeroMCP.Tests/ZeroMCP.Tests.csproj" />
-  <Project Path="ZeroMCP.Benchmarks/ZeroMCP.Benchmarks.csproj" />
   <Project Path="ZeroMcp/ZeroMCP.csproj" />
 </Solution>

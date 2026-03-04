@@ -2,32 +2,7 @@
 
 **ZeroMcp** exposes your existing ASP.NET Core API as an [MCP](https://modelcontextprotocol.io/) (Model Context Protocol) server with a single attribute and two lines of setup. No separate process. No code duplication.
 
----
-
-## How it works
-
-Tag controller actions with **`[Mcp]`** or minimal APIs with **`.AsMcp(...)`**. ZeroMcp will:
-
-1. **Discover** tools at startup from controller API descriptions (same source as Swagger) and from minimal API endpoints that use `AsMcp`
-2. **Generate** a JSON Schema for each tool's inputs (route, query, and body merged)
-3. **Expose** a single endpoint (GET and POST `/mcp`) that speaks the MCP Streamable HTTP transport; optionally **GET /mcp/tools** (JSON tool list) and **GET /mcp/ui** (Swagger-like test invocation UI)
-4. **Dispatch** tool calls in-process through your real action or endpoint pipeline — filters, validation, and authorization run normally
-
-```
-MCP Client (Claude Desktop, Claude.ai, etc.)
-    │
-    │  GET /mcp (info)  or  POST /mcp (JSON-RPC 2.0)
-    ▼
-ZeroMcp Endpoint
-    │
-    │  in-process dispatch (controller or minimal endpoint)
-    ▼
-Your Action / Endpoint  ← [Mcp] or .AsMcp(...)
-    │
-    │  real response
-    ▼
-MCP Client gets structured result
-```
+Read [The ZeroMcp Story](TheStory) to understand why ZeroMcp exists
 
 ---
 
