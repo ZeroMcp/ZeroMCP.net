@@ -24,8 +24,6 @@ internal sealed class McpHttpEndpointHandler
     internal const string CorrelationIdItemKey = "McpCorrelationId";
 
     private readonly McpToolHandler _toolHandler;
-   // private readonly string _serverName;
-  //  private readonly string _serverVersion;
     private readonly ZeroMCPOptions _options;
     private readonly ILogger<McpHttpEndpointHandler> _logger;
 
