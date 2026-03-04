@@ -176,13 +176,14 @@ Set **EnableToolInspector** or **EnableToolInspectorUI** to `false` to disable t
 
 ## Examples
 
-The **examples/** folder contains four standalone projects:
+The **examples/** folder contains five standalone projects:
 
 | Example | Description |
 |--------|-------------|
 | **Minimal** | Bare-minimum: one controller action, one minimal API, no auth |
 | **WithAuth** | API-key auth, role-based tool visibility, `[Authorize]` |
 | **WithEnrichment** | Phase 2 result enrichment, suggested follow-ups, streaming options |
+| **WithRateLimiting** | Phase 4 (Option A): ASP.NET Core rate limiting on the MCP endpoint, 429 + JSON-RPC error |
 | **Enterprise** | Auth, enrichment, observability, ToolFilter, ToolVisibilityFilter |
 
 Run any example with `dotnet run` from its folder. See each project's **README.md** for details.
@@ -343,7 +344,7 @@ mcpAPI/
 │   ├── Options/                   ← ZeroMcpOptions
 │   └── ZeroMCP.csproj            (PackageId: ZeroMcp, Version: 1.0.2)
 ├── ZeroMCP.Sample/                ← Sample (Orders, Customer, Product APIs; nested route Customer/{id}/orders; health minimal endpoint, optional auth)
-├── examples/                     ← Phase 3: Minimal, WithAuth, WithEnrichment, Enterprise
+├── examples/                     ← Minimal, WithAuth, WithEnrichment, WithRateLimiting, Enterprise
 ├── ZeroMCP.Tests/                 ← Integration + schema tests
 ├── wiki/                          ← Wiki documentation (linked Markdown pages)
 ├── nupkgs/                        ← dotnet pack -o nupkgs

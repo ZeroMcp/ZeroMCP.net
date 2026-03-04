@@ -71,6 +71,7 @@ So: **auth runs on the MCP request first**; that identity is **propagated** into
 | Surface | Mitigation |
 |--------|------------|
 | Unauthenticated access to MCP | Use **RequireAuthorization** on the MCP endpoint or enforce auth in front (gateway/middleware). |
+| Rate limiting / abuse | Use **ASP.NET Core rate limiting**: `AddRateLimiter`, `UseRateLimiter()`, and `MapZeroMcp().RequireRateLimiting("Policy")`. See [Configuration](Configuration) and the **WithRateLimiting** example. |
 | Unauthenticated access to inspector | Disable **EnableToolInspector** or protect **GET /mcp/tools**. |
 | Tool list reveals internal tools | Use **ToolFilter** and **ToolVisibilityFilter**; use **Roles** / **Policy** so only allowed users see sensitive tools. |
 | Invocation without auth | Identity is propagated to the synthetic request; **`[Authorize]`** on the action still runs. Ensure auth middleware runs before **MapZeroMcp**. |

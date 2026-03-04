@@ -73,6 +73,22 @@ Set **EnableToolInspector** or **EnableToolInspectorUI** to `false` to disable t
 
 ---
 
+## Rate limiting (Option A)
+
+ZeroMCP does not add its own rate limiter. Use **ASP.NET Core rate limiting** and apply a policy to the MCP endpoint.
+
+1. **Add a policy** — e.g. fixed window or sliding window, with a partition key (per-IP, per-user, or custom).
+2. **Enable middleware** — Call `app.UseRateLimiter()` after `app.UseRouting()`.
+3. **Apply to MCP** — Chain `.RequireRateLimiting("YourPolicyName")` on the endpoint: `app.MapZeroMcp().RequireRateLimiting("McpPolicy")`.
+
+The **inspector** routes (GET {RoutePrefix}/tools and GET {RoutePrefix}/ui) are registered separately; the convention builder returned by `MapZeroMcp()` applies only to the main GET/POST MCP route. To rate-limit or protect the inspector, disable it in production or add middleware/auth that applies to those paths.
+
+**Example:** See the **WithRateLimiting** example in the repository (`examples/WithRateLimiting`). It uses a fixed-window policy (10 requests per 10 seconds) and returns HTTP 429 with a JSON-RPC–style error body when the limit is exceeded.
+
+**Per-user or per-tool limits:** Configure a custom partitioner in `AddRateLimiter` (e.g. `PartitionedRateLimiter.Create(context => ...)` or use `UserId` / a header like `X-Client-Id`). See [Microsoft Learn: Rate limiting](https://learn.microsoft.com/en-us/aspnet/core/performance/rate-limit) and [Enterprise Usage](Enterprise-Usage).
+
+---
+
 ## Custom route
 
 Override the route when mapping:

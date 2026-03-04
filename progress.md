@@ -1,5 +1,24 @@
 # Progress
 
+## 2026-03-03 – Phase 4 Part 1 (Option A): Rate limiting docs and example
+
+- **examples/WithRateLimiting/** — New example: **AddRateLimiter** with fixed-window policy (10 req/10 sec), **UseRateLimiter()**, **MapZeroMcp().RequireRateLimiting("McpPolicy")**. **OnRejected** returns HTTP 429 and JSON-RPC–style error (`code: -32029`, "Rate limit exceeded"). README explains Option A and points to wiki.
+- **wiki/Configuration.md** — New section **"Rate limiting (Option A)"**: use ASP.NET Core rate limiting; add policy, UseRateLimiter, RequireRateLimiting on MapZeroMcp; note inspector is separate; link to WithRateLimiting and Enterprise Usage; per-user/per-tool via custom partitioner.
+- **wiki/Enterprise-Usage.md** — Replaced "Phase 4 may add built-in options" with concrete steps: AddRateLimiter, UseRateLimiter, MapZeroMcp().RequireRateLimiting; partition key for per-user/per-tool; link to WithRateLimiting and Configuration.
+- **wiki/Security-Model.md** — Added mitigation row: "Rate limiting / abuse" → use ASP.NET Core rate limiting and WithRateLimiting example.
+- **plan-phase4.md** — Marked Part 1 Option A completed; added pointer to progress.
+- **README.md** — Examples table and project structure updated to include **WithRateLimiting**.
+- **examples/WithRateLimiting/Program.cs** — Added `using Microsoft.AspNetCore.RateLimiting` so `AddFixedWindowLimiter` resolves (build fix).
+
+---
+
+## 2026-03-03 – Phase 4 implementation plan
+
+- **plan-phase4.md** — New implementation plan for Phase 4 (Month 6): (1) Enterprise Features — rate limiting (options, partition key, hook point, 429 response) and quota (document or minimal); (2) Tool Versioning — version/deprecated on attribute and descriptor, tools/list and inspector, optional aliases; (3) Security Hardening — IMcpAuditSink, payload limits, strict schema validation, optional signature validation. Includes implementation order, acceptance criteria, and estimated files to touch. Recommendation: start rate limiting with docs + optional policy name; defer full per-tool/quota to follow-up if needed.
+- **plan.md** — Phase 4 rows now link to plan-phase4.md.
+
+---
+
 ## 2026-03-03 – Wiki: dedicated Tool Inspector UI page
 
 - **wiki/Tool-Inspector-UI.md** — New page describing the Tool Inspector UI: URL (GET {RoutePrefix}/ui), when it’s available (EnableToolInspector + EnableToolInspectorUI), what you can do (browse, group by category, view schema, try it out), auth/roles (same HTTP context; test role-restricted tools while authenticated), JSON tool list link, production (disable or protect). See also links to Configuration, Governance, Security Model, Enterprise Usage.

@@ -11,9 +11,9 @@
 | **Phase 3** | Month 5 | Developer Experience | - Starter templates (minimal, enterprise, auth, streaming)<br>- GitHub examples<br>- NuGet examples | Low adoption friction |Completed|
 |  |  | Tool Inspector UI | - `/mcp/tools` inspection endpoint<br>- Schema preview<br>- Test invocation UI | Improved developer experience |Partial - UI work in progress |
 |  |  | Documentation & Positioning | - Enterprise usage guides<br>- Security model documentation<br>- Performance benchmarks<br>- Migration guide | Strong ecosystem positioning |Completed|
-| **Phase 4** | Month 6 | Enterprise Features | - Rate limiting (per-tool / per-user / per-agent)<br>- Quota enforcement | Safe at scale ||
-|  |  | Tool Versioning | - Versioned tool names<br>- Deprecation flags<br>- Backwards compatibility strategy | Long-lived agent stability ||
-|  |  | Security Hardening | - Audit logging<br>- Payload limits<br>- Strict schema validation<br>- Optional signature validation | Enterprise-grade security ||
+| **Phase 4** | Month 6 | Enterprise Features | - Rate limiting (per-tool / per-user / per-agent)<br>- Quota enforcement | Safe at scale | Plan: [plan-phase4.md](plan-phase4.md) |
+|  |  | Tool Versioning | - Versioned tool names<br>- Deprecation flags<br>- Backwards compatibility strategy | Long-lived agent stability | Plan: [plan-phase4.md](plan-phase4.md) |
+|  |  | Security Hardening | - Audit logging<br>- Payload limits<br>- Strict schema validation<br>- Optional signature validation | Enterprise-grade security | Plan: [plan-phase4.md](plan-phase4.md) |
 |**Phase 5** | Month 7-9 | Form Fields | - Support for form fields in tool calls | Support for form fields in tool calls ||
 ||| File Uploads | - Support for file uploads in tool calls | Support for file uploads in tool calls ||
 
