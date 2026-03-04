@@ -21,7 +21,12 @@ jobs:
 
       - name: Pack
         run: |
-          VERSION="${GITHUB_REF#refs/tags/v}"
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          else
+            VERSION=$(git tag --list "v*" --sort=-version:refname | head -n1)
+            VERSION=${VERSION#v}
+          fi
           dotnet pack ZeroMCP/ZeroMCP.csproj -c Release -o ./nupkgs --no-build -p:Version=$VERSION
 
       - name: Push to NuGet.org
