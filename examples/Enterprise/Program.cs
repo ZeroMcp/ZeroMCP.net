@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Authentication;
 using EnterpriseExample.Auth;
-using ZeroMCP.Extensions;
-using ZeroMCP.Options;
+using ZeroMcp.Extensions;
+using ZeroMcp.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 

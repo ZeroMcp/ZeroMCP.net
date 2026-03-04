@@ -7,10 +7,10 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using ZeroMCP;
-using ZeroMCP.Options;
 using Xunit;
 using Microsoft.AspNetCore.Http;
 using System.Net.Http.Headers;
+using ZeroMcp.Options;
 
 namespace ZeroMCP.Tests;
 

@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SampleApi;
-using ZeroMCP.Attributes;
+using ZeroMcp.Attributes;
 
 namespace SampleApi.Controllers;
 

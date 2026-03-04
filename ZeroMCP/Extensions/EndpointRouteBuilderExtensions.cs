@@ -4,11 +4,12 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using ZeroMCP.Options;
 using ZeroMCP.Ui;
 using ZeroMCP.Transport;
+using ZeroMcp.Transport;
+using ZeroMcp.Options;
 
-namespace ZeroMCP.Extensions;
+namespace ZeroMcp.Extensions;
 
 /// <summary>
 /// Extension methods for mapping the MCP endpoint in the ASP.NET Core routing pipeline.
@@ -56,14 +57,14 @@ public static class EndpointRouteBuilderExtensions
         {
             var baseRoute = route.TrimEnd('/');
             var toolsRoute = baseRoute + "/tools";
-            endpoints.MapGet(toolsRoute, (HttpContext ctx) => mcpHandler.HandleToolsInspectorAsync(ctx))
+            endpoints.MapGet(toolsRoute, (ctx) => mcpHandler.HandleToolsInspectorAsync(ctx))
                 .WithName("mcp-tools-inspector")
                 .WithDisplayName("MCP Tool Inspector (ZeroMCP)");
             if (options.EnableToolInspectorUI)
             {
                 var uiRoute = baseRoute + "/ui";
                 var mcpBasePath = baseRoute;
-                endpoints.MapGet(uiRoute, (HttpContext ctx) =>
+                endpoints.MapGet(uiRoute, (ctx) =>
                 {
                     ctx.Response.ContentType = "text/html; charset=utf-8";
                     ctx.Response.StatusCode = 200;
@@ -75,7 +76,7 @@ public static class EndpointRouteBuilderExtensions
         }
 
         // The MCP streamable HTTP transport: GET returns endpoint info, POST handles JSON-RPC
-        return endpoints.MapMethods(route, ["GET", "POST"], (HttpContext ctx) => mcpHandler.HandleAsync(ctx))
+        return endpoints.MapMethods(route, ["GET", "POST"], (ctx) => mcpHandler.HandleAsync(ctx))
             .WithName("mcp-endpoint")
             .WithDisplayName("MCP Endpoint (ZeroMCP)")
             .WithMetadata(new HttpMethodMetadata(["GET", "POST"]));

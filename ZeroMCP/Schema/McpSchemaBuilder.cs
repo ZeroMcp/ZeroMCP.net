@@ -3,9 +3,9 @@ using System.Reflection;
 using System.Text.Json;
 using NJsonSchema;
 using NJsonSchema.Generation;
-using ZeroMCP.Discovery;
+using ZeroMcp.Discovery;
 
-namespace ZeroMCP.Schema;
+namespace ZeroMcp.Schema;
 
 /// <summary>
 /// Builds a merged JSON Schema for an MCP tool's input, combining route params,
@@ -176,8 +176,8 @@ public sealed class McpSchemaBuilder
             _ when underlying == typeof(Guid) => "string",
             _ when underlying == typeof(DateTime) || underlying == typeof(DateTimeOffset) => "string",
             _ when underlying == typeof(DateOnly) || underlying == typeof(TimeOnly) => "string",
-            _ when underlying.IsArray || (underlying.IsGenericType &&
-                   underlying.GetGenericTypeDefinition() == typeof(List<>)) => "array",
+            _ when underlying.IsArray || underlying.IsGenericType &&
+                   underlying.GetGenericTypeDefinition() == typeof(List<>) => "array",
             _ when underlying.IsEnum => "string",
             _ when underlying == typeof(string) => "string",
             _ => "object"

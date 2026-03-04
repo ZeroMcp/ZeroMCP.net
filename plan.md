@@ -14,8 +14,11 @@
 | **Phase 4** | Month 6 | Enterprise Features | - Rate limiting (per-tool / per-user / per-agent)<br>- Quota enforcement | Safe at scale | Plan: [plan-phase4.md](plan-phase4.md) |
 |  |  | Tool Versioning | - Versioned tool names<br>- Deprecation flags<br>- Backwards compatibility strategy | Long-lived agent stability | Plan: [plan-phase4.md](plan-phase4.md) |
 |  |  | Security Hardening | - Audit logging<br>- Payload limits<br>- Strict schema validation<br>- Optional signature validation | Enterprise-grade security | Plan: [plan-phase4.md](plan-phase4.md) |
-|**Phase 5** | Month 7-9 | Form Fields | - Support for form fields in tool calls | Support for form fields in tool calls ||
-||| File Uploads | - Support for file uploads in tool calls | Support for file uploads in tool calls ||
+|**Phase 5** | Month 7-9 | **Prompts support** | - **prompts/list** — list available prompts<br>- **prompts/get** — get prompt by name (with optional arguments)<br>- Discovery and dispatch model (e.g. attributed prompts or registry) | MCP prompts protocol support for template-based prompts ||
+|  |  | Form Fields | - Support for form fields in tool calls | Support for form fields in tool calls ||
+|  |  | File Uploads | - Support for file uploads in tool calls | Support for file uploads in tool calls ||
+| **Phase 6** | Month 10+ | **Completions support** | - MCP completions API (e.g. **completions/list**, **completions/get** or equivalent)<br>- Discovery and integration with LLM/back-end providers<br>- Streaming and non-streaming completion responses | MCP completions protocol support for model-backed completion endpoints ||
+|  |  | **True streaming support** | - End-to-end streaming for MCP transport (e.g. SSE or chunked encoding where the protocol allows)<br>- Streamed responses for tools/call, completions, and other streamable methods<br>- Back-pressure and cancellation across the pipeline | Production-grade streaming for high-latency and long-running responses ||
 
 ---
 

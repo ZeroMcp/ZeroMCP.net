@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
-using ZeroMCP.Attributes;
+using ZeroMcp.Attributes;
 
 namespace WithEnrichmentExample.Controllers;
 

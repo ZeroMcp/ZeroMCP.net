@@ -9,9 +9,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System.Text;
 using System.Text.Json;
-using ZeroMCP.Discovery;
+using ZeroMcp.Discovery;
 
-namespace ZeroMCP.Dispatch;
+namespace ZeroMcp.Dispatch;
 
 /// <summary>
 /// The result of an in-process MCP tool dispatch.

@@ -4,10 +4,11 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Options;
-using ZeroMCP.Discovery;
-using ZeroMCP.Options;
+using ZeroMcp.Discovery;
+using ZeroMcp.Options;
+using ZeroMcp.Transport;
 
-namespace ZeroMCP.Dispatch;
+namespace ZeroMcp.Dispatch;
 
 /// <summary>
 /// Constructs synthetic HttpContext instances for in-process action dispatch.
@@ -152,10 +153,15 @@ public sealed class SyntheticHttpContextFactory
         }
 
         // Propagate correlation ID to synthetic context so logs/traces use the same ID
-        if (sourceContext?.Items[Transport.McpHttpEndpointHandler.CorrelationIdItemKey] is string correlationId)
+
+
+        if (sourceContext?.Items[McpHttpEndpointHandler.CorrelationIdItemKey] is string correlationId)
         {
+
             context.TraceIdentifier = correlationId;
-            context.Items[Transport.McpHttpEndpointHandler.CorrelationIdItemKey] = correlationId;
+
+
+            context.Items[McpHttpEndpointHandler.CorrelationIdItemKey] = correlationId;
         }
 
         // Copy the authenticated user from the MCP request so [Authorize] and authorization filters see the same identity.

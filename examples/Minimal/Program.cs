@@ -1,4 +1,4 @@
-using ZeroMCP.Extensions;
+using ZeroMcp.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 

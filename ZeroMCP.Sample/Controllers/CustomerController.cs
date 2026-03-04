@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using SampleApi;
-using ZeroMCP.Attributes;
+using ZeroMcp.Attributes;
 
 namespace SampleApi.Controllers;
 

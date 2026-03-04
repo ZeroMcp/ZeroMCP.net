@@ -4,11 +4,12 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using ZeroMCP.Discovery;
-using ZeroMCP.Dispatch;
 using ZeroMCP.Observability;
-using ZeroMCP.Options;
 using ZeroMCP;
+using ZeroMcp.Transport;
+using ZeroMcp.Discovery;
+using ZeroMcp.Dispatch;
+using ZeroMcp.Options;
 
 namespace ZeroMCP.Transport;
 

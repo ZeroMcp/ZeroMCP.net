@@ -1,9 +1,9 @@
 using Microsoft.AspNetCore.Mvc.ApiExplorer;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Routing;
-using ZeroMCP.Attributes;
 
-namespace ZeroMCP.Discovery;
+
+namespace ZeroMcp.Discovery;
 
 /// <summary>
 /// Holds all the metadata needed to describe and invoke a single MCP tool.

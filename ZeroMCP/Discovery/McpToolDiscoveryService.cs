@@ -3,12 +3,13 @@ using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using ZeroMCP.Attributes;
+using ZeroMcp.Attributes;
+using ZeroMcp.Options;
+using ZeroMcp.Schema;
+using ZeroMCP.Discovery;
 using ZeroMCP.Metadata;
-using ZeroMCP.Options;
-using ZeroMCP.Schema;
 
-namespace ZeroMCP.Discovery;
+namespace ZeroMcp.Discovery;
 
 /// <summary>
 /// Discovers all [McpTool]-tagged controller actions at startup and builds the tool registry.
@@ -255,7 +256,7 @@ public sealed class McpToolDiscoveryService
         // Use Description from the MCP Attribute, or, if EnableXMLDocAnalysis is set to true, read from XMLDoc
             Description = !string.IsNullOrWhiteSpace(mcpAttr.Description)
                 ? mcpAttr.Description
-                : (_options.EnableXMLDocAnalysis?XmlDocHelper.GetMethodSummary(controllerDescriptor.MethodInfo):""),
+                : _options.EnableXMLDocAnalysis?XmlDocHelper.GetMethodSummary(controllerDescriptor.MethodInfo):"",
             Tags = mcpAttr.Tags,
             Category = mcpAttr.Category,
             Examples = mcpAttr.Examples,

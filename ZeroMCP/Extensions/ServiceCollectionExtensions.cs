@@ -1,14 +1,14 @@
 using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using ZeroMCP.Dispatch;
-using ZeroMCP.Discovery;
 using ZeroMCP.Observability;
-using ZeroMCP.Options;
-using ZeroMCP.Schema;
 using ZeroMCP.Transport;
+using ZeroMcp.Schema;
+using ZeroMcp.Discovery;
+using ZeroMcp.Dispatch;
+using ZeroMcp.Options;
 
-namespace ZeroMCP.Extensions;
+namespace ZeroMcp.Extensions;
 
 /// <summary>
 /// Extension methods for registering ZeroMCP services with the DI container.

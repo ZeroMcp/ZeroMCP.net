@@ -1,5 +1,23 @@
 # Progress
 
+## 2026-03-04 – Pipeline build fix (Linux case-sensitivity)
+
+- **ZeroMCP/ZeroMCP.csproj** — Set **EnableDefaultCompileItems** to **false** and added explicit **Compile Include** for every .cs file (root and subfolders **Ui**, **Observability**, **Metadata**). On Linux the default glob can fail to include subfolders or respect casing; explicit includes ensure **ZeroMCP.Options**, **ZeroMCP.Ui**, and **ZeroMCP.Transport** are always compiled. If the pipeline then fails with "file not found", ensure repo folder names match exactly: **Ui**, **Observability**, **Metadata** (e.g. `git mv ui Ui` if needed).
+
+---
+
+## 2026-03-03 – Plan: Completions and true streaming in Phase 6
+
+- **plan.md** — Phase 6 (Month 10+): added **True streaming support** — end-to-end streaming for MCP transport (e.g. SSE or chunked encoding), streamed responses for tools/call and completions, back-pressure and cancellation. Completions support row unchanged.
+
+---
+
+## 2026-03-03 – Plan: Prompts support in Phase 5 (Month 7–9)
+
+- **plan.md** — Added **Prompts support** to Phase 5: prompts/list, prompts/get, discovery/dispatch model (e.g. attributed prompts or registry). Outcome: MCP prompts protocol support for template-based prompts.
+
+---
+
 ## 2026-03-03 – Phase 4 Part 1 (Option A): Rate limiting docs and example
 
 - **examples/WithRateLimiting/** — New example: **AddRateLimiter** with fixed-window policy (10 req/10 sec), **UseRateLimiter()**, **MapZeroMcp().RequireRateLimiting("McpPolicy")**. **OnRejected** returns HTTP 429 and JSON-RPC–style error (`code: -32029`, "Rate limit exceeded"). README explains Option A and points to wiki.
