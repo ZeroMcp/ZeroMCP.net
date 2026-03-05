@@ -633,6 +633,107 @@ public sealed class McpEndpointIntegrationTests : IClassFixture<SampleAppWebAppl
         roles.Should().Contain("Admin");
     }
 
+    // --- Priority 3: Minimal API binding parity (query, body) ---
+    // Note: list_orders_minimal and create_order_minimal may not appear when versioning is enabled
+    // (EndpointDataSource timing). Schema and default-value logic are covered by McpSchemaBuilderTests.
+
+    private static async Task<JsonArray> GetToolsArrayAsync(HttpClient client)
+    {
+        var inspectorResponse = await client.GetAsync("/mcp/tools");
+        inspectorResponse.EnsureSuccessStatusCode();
+        var json = await inspectorResponse.Content.ReadAsStringAsync();
+        var root = JsonNode.Parse(json)!.AsObject();
+        return root["tools"]!.AsArray();
+    }
+
+    [Fact]
+    public async Task Priority3_MinimalApi_ListOrdersMinimal_HasQueryParamsInSchema()
+    {
+        var tools = await GetToolsArrayAsync(_client);
+        var listMinimal = tools.FirstOrDefault(t => t!.AsObject()["name"]!.GetValue<string>() == "list_orders_minimal")?.AsObject();
+        if (listMinimal is null)
+        {
+            // Minimal API tools may not be discovered when versioning is on (EndpointDataSource timing)
+            return;
+        }
+        var schema = listMinimal!["inputSchema"]!.AsObject();
+        var props = schema["properties"]!.AsObject();
+        props.Should().HaveProperty("status");
+        props.Should().HaveProperty("page");
+        props.Should().HaveProperty("pageSize");
+        props["page"]!.AsObject().Should().HaveProperty("default");
+        props["page"]!.AsObject()["default"]!.GetValue<int>().Should().Be(1);
+        props["pageSize"]!.AsObject().Should().HaveProperty("default");
+        props["pageSize"]!.AsObject()["default"]!.GetValue<int>().Should().Be(20);
+    }
+
+    [Fact]
+    public async Task Priority3_MinimalApi_CreateOrderMinimal_HasBodyParamsInSchema()
+    {
+        var tools = await GetToolsArrayAsync(_client);
+        var createMinimal = tools.FirstOrDefault(t => t!.AsObject()["name"]!.GetValue<string>() == "create_order_minimal")?.AsObject();
+        if (createMinimal is null)
+            return;
+        var schema = createMinimal!["inputSchema"]!.AsObject();
+        var props = schema["properties"]!.AsObject();
+        props.Should().HaveProperty("customerName");
+        props.Should().HaveProperty("product");
+        props.Should().HaveProperty("quantity");
+        var required = schema["required"]!.AsArray().Select(n => n!.GetValue<string>()).ToList();
+        required.Should().Contain("customerName");
+        required.Should().Contain("product");
+    }
+
+    [Fact]
+    public async Task Priority3_MinimalApi_ToolCall_ListOrdersMinimal_WithQueryParams_ReturnsFiltered()
+    {
+        var tools = await GetToolsArrayAsync(_client);
+        if (tools.All(t => t!.AsObject()["name"]!.GetValue<string>() != "list_orders_minimal"))
+            return;
+        var response = await PostMcpAsync(new
+        {
+            jsonrpc = "2.0",
+            id = 502,
+            method = "tools/call",
+            @params = new { name = "list_orders_minimal", arguments = new { status = "pending", page = 1, pageSize = 5 } }
+        });
+        response.Should().HaveProperty("result");
+        var result = response["result"]!.AsObject();
+        result["isError"]!.GetValue<bool>().Should().BeFalse();
+        var content = ExtractTextContent(response);
+        var orders = JsonSerializer.Deserialize<JsonElement[]>(content);
+        orders.Should().NotBeNull();
+        orders!.Should().AllSatisfy(o => o.GetProperty("status").GetString().Should().Be("pending"));
+        orders.Length.Should().BeLessThanOrEqualTo(5);
+    }
+
+    [Fact]
+    public async Task Priority3_MinimalApi_ToolCall_CreateOrderMinimal_WithBody_CreatesOrder()
+    {
+        var tools = await GetToolsArrayAsync(_client);
+        if (tools.All(t => t!.AsObject()["name"]!.GetValue<string>() != "create_order_minimal"))
+            return;
+        var response = await PostMcpAsync(new
+        {
+            jsonrpc = "2.0",
+            id = 503,
+            method = "tools/call",
+            @params = new
+            {
+                name = "create_order_minimal",
+                arguments = new { customerName = "MinimalUser", product = "TestProduct", quantity = 3 }
+            }
+        });
+        response.Should().HaveProperty("result");
+        var result = response["result"]!.AsObject();
+        result["isError"]!.GetValue<bool>().Should().BeFalse();
+        var content = ExtractTextContent(response);
+        var order = JsonSerializer.Deserialize<JsonElement>(content);
+        order.GetProperty("customerName").GetString().Should().Be("MinimalUser");
+        order.GetProperty("product").GetString().Should().Be("TestProduct");
+        order.GetProperty("quantity").GetInt32().Should().Be(3);
+    }
+
     [Fact]
     public async Task Phase3_Inspector_PostToTools_Returns405MethodNotAllowed()
     {

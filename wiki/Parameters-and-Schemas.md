@@ -14,7 +14,7 @@ ZeroMCP merges all parameter sources into a single flat JSON Schema object that 
 
 ---
 
-## Example
+## Controller example
 
 ```csharp
 [HttpPatch("{id}/status")]
@@ -44,6 +44,41 @@ Produces this MCP input schema:
 
 ---
 
+## Minimal API examples
+
+### Query parameters
+
+```csharp
+app.MapGet("/api/orders", (string? status, int page = 1, int pageSize = 20) => ...)
+   .AsMcp("list_orders", "Lists orders with optional filtering.");
+```
+
+Produces:
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "status":   { "type": "string" },
+    "page":     { "type": "integer", "default": 1 },
+    "pageSize": { "type": "integer", "default": 20 }
+  }
+}
+```
+
+### [FromBody] (POST with complex type)
+
+```csharp
+app.MapPost("/api/orders", (CreateOrderRequest req) => ...)
+   .AsMcp("create_order", "Creates a new order.");
+```
+
+Body properties are expanded inline with the same DataAnnotations mapping as controller actions (`[Required]`, `[Range]`, `[MinLength]`, etc.).
+
+**Note:** Minimal API query and body discovery requires `AddEndpointsApiExplorer()` so ZeroMCP can match endpoints to their API descriptions.
+
+---
+
 ## Nested and complex types
 
 - Nested object properties are expanded as `object` in the schema.
@@ -57,4 +92,5 @@ See the integration and schema tests in the repo for more edge cases (nullable, 
 ## See also
 
 - [The [Mcp] Attribute](The-Mcp-Attribute) — Exposing actions as tools
+- [Controllers and Minimal APIs](Controllers-and-Minimal-APIs) — Using both together
 - [Dispatch and Pipeline](Dispatch-and-Pipeline) — How arguments are bound and validated

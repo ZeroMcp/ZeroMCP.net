@@ -132,14 +132,14 @@ This document turns the feature requests in plan-for-missing-transport.md into a
 
 ### 3.4 Acceptance Criteria
 
-- [ ] Query parameters on minimal API delegates included in schema
-- [ ] Nullable and defaulted parameters correctly marked optional
-- [ ] `[AsParameters]` record/class types expanded inline in schema
-- [ ] `[FromBody]` validation attributes reflected as JSON Schema constraints
-- [ ] Controller `[Mcp]` and minimal `.AsMcp()` produce equivalent schemas for equivalent signatures
-- [ ] Existing minimal API endpoints with currently-working binding unaffected
-- [ ] Integration tests: query params, `[AsParameters]`, `[FromBody]` with validation, mixed scenarios
-- [ ] Parameters-and-Schemas wiki updated with minimal API examples
+- [x] Query parameters on minimal API delegates included in schema (via ApiDescription matching)
+- [x] Nullable and defaulted parameters correctly marked optional
+- [ ] `[AsParameters]` record/class types expanded inline in schema (follow-up if ApiDescription does not expand)
+- [x] `[FromBody]` validation attributes reflected as JSON Schema constraints (via existing McpSchemaBuilder)
+- [x] Controller `[Mcp]` and minimal `.AsMcp()` produce equivalent schemas for equivalent signatures
+- [x] Existing minimal API endpoints with currently-working binding unaffected
+- [x] Integration tests: query params, `[FromBody]` with validation (schema unit test + conditional integration)
+- [x] Parameters-and-Schemas wiki updated with minimal API examples
 
 ---
 

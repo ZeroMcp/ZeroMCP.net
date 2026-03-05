@@ -81,6 +81,8 @@ public sealed class McpParameterDescriptor
     public Type ParameterType { get; init; } = default!;
     public bool IsRequired { get; init; }
     public string? Description { get; init; }
+    /// <summary>Default value for optional parameters (e.g. page = 1). Emitted as "default" in JSON Schema.</summary>
+    public object? DefaultValue { get; init; }
 }
 
 public sealed class McpBodyDescriptor

@@ -1,5 +1,19 @@
 # Progress
 
+## 2026-03-05 – Priority 3: Minimal API Query and Body Binding Parity
+
+- **McpToolDiscoveryService**: `BuildMinimalApiDescriptor` now matches minimal API endpoints to `ApiDescription` (from `AddEndpointsApiExplorer`) by RelativePath and HttpMethod; extracts Query and Body from `ParameterDescriptions` (Source.Id: Query, Body), same as controller actions.
+- **FindApiDescriptionForMinimalEndpoint**: New helper to locate ApiDescription for minimal endpoints; skips controller actions.
+- **McpParameterDescriptor**: Added `DefaultValue` for optional params (e.g. `page = 1`).
+- **McpSchemaBuilder**: `BuildPrimitiveProperty` accepts `defaultValue`; emits `"default"` in JSON Schema for query params.
+- **Sample Program.cs**: Added `list_orders_minimal` (GET with status, page, pageSize) and `create_order_minimal` (POST with CreateOrderRequest body).
+- **examples/Minimal/Program.cs**: Added `list_orders_minimal` example with query params.
+- **Tests**: `BuildSchema_QueryParamsWithDefaults_IncludesDefaultInSchema`; `Priority3_MinimalApi_*` integration tests (conditional when tools available).
+- **wiki/Parameters-and-Schemas.md**: Added minimal API examples (query params, [FromBody]).
+- **plan-missing-transport.md**: Marked Priority 3 acceptance criteria for query params, defaults, and wiki update.
+
+---
+
 ## 2026-03-05 – Priority 1+2: stdio Transport and CancellationToken
 
 - **Priority 1 — stdio Transport**

@@ -247,6 +247,8 @@ public sealed class McpToolDiscoveryService
     private McpToolDescriptor BuildMinimalApiDescriptor(Endpoint endpoint, McpToolEndpointMetadata meta)
     {
         var routeParams = new List<McpParameterDescriptor>();
+        var queryParams = new List<McpParameterDescriptor>();
+        McpBodyDescriptor? body = null;
         var httpMethod = "GET";
         var relativeUrl = "";
 
@@ -270,6 +272,40 @@ public sealed class McpToolDiscoveryService
         if (methodMeta?.HttpMethods is { Count: > 0 })
             httpMethod = methodMeta.HttpMethods.First();
 
+        // Match minimal API endpoint to ApiDescription for query/body params (AddEndpointsApiExplorer populates these)
+        var apiDesc = FindApiDescriptionForMinimalEndpoint(relativeUrl, httpMethod);
+        if (apiDesc is not null)
+        {
+            foreach (var param in apiDesc.ParameterDescriptions)
+            {
+                if (param.Type == typeof(CancellationToken))
+                    continue;
+                switch (param.Source.Id)
+                {
+                    case "Path":
+                        // Already have from RoutePattern; skip to avoid duplicates
+                        break;
+                    case "Query":
+                        queryParams.Add(new McpParameterDescriptor
+                        {
+                            Name = param.Name,
+                            ParameterType = param.Type ?? typeof(string),
+                            IsRequired = param.IsRequired,
+                            Description = param.ModelMetadata?.Description,
+                            DefaultValue = param.DefaultValue
+                        });
+                        break;
+                    case "Body":
+                        body = new McpBodyDescriptor
+                        {
+                            BodyType = param.Type ?? typeof(object),
+                            ParameterName = param.Name
+                        };
+                        break;
+                }
+            }
+        }
+
         var descriptor = new McpToolDescriptor
         {
             Name = meta.Name,
@@ -285,8 +321,8 @@ public sealed class McpToolDiscoveryService
             ActionDescriptor = null,
             Endpoint = endpoint,
             RouteParameters = routeParams,
-            QueryParameters = [],
-            Body = null,
+            QueryParameters = queryParams,
+            Body = body,
             HttpMethod = httpMethod,
             RelativeUrl = relativeUrl
         };
@@ -295,6 +331,29 @@ public sealed class McpToolDiscoveryService
             descriptor.InputSchemaJson = _schemaBuilder.BuildSchema(descriptor);
 
         return descriptor;
+    }
+
+    /// <summary>
+    /// Finds the ApiDescription for a minimal API endpoint by matching RelativePath and HttpMethod.
+    /// AddEndpointsApiExplorer populates ApiDescription for minimal APIs with ParameterDescriptions including Query and Body.
+    /// </summary>
+    private ApiDescription? FindApiDescriptionForMinimalEndpoint(string relativeUrl, string httpMethod)
+    {
+        var normalized = relativeUrl.TrimStart('/');
+        foreach (var group in _apiDescriptionProvider.ApiDescriptionGroups.Items)
+        {
+            foreach (var desc in group.Items)
+            {
+                // Skip controller actions — they are processed separately
+                if (desc.ActionDescriptor is ControllerActionDescriptor)
+                    continue;
+                var descPath = (desc.RelativePath ?? "").TrimStart('/');
+                if (string.Equals(descPath, normalized, StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(desc.HttpMethod ?? "", httpMethod, StringComparison.OrdinalIgnoreCase))
+                    return desc;
+            }
+        }
+        return null;
     }
 
     private McpToolDescriptor BuildDescriptor(

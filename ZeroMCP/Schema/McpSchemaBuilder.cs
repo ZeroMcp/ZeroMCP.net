@@ -33,7 +33,7 @@ public sealed class McpSchemaBuilder
         // Route parameters
         foreach (var param in descriptor.RouteParameters)
         {
-            properties[param.Name] = BuildPrimitiveProperty(param.ParameterType, param.Description);
+            properties[param.Name] = BuildPrimitiveProperty(param.ParameterType, param.Description, null);
             // Route params are always required
             required.Add(param.Name);
         }
@@ -41,7 +41,7 @@ public sealed class McpSchemaBuilder
         // Query parameters
         foreach (var param in descriptor.QueryParameters)
         {
-            properties[param.Name] = BuildPrimitiveProperty(param.ParameterType, param.Description);
+            properties[param.Name] = BuildPrimitiveProperty(param.ParameterType, param.Description, param.DefaultValue);
             if (param.IsRequired)
                 required.Add(param.Name);
         }
@@ -70,7 +70,7 @@ public sealed class McpSchemaBuilder
         });
     }
 
-    private static Dictionary<string, object> BuildPrimitiveProperty(Type type, string? description)
+    private static Dictionary<string, object> BuildPrimitiveProperty(Type type, string? description, object? defaultValue = null)
     {
         var prop = new Dictionary<string, object>
         {
@@ -79,6 +79,9 @@ public sealed class McpSchemaBuilder
 
         if (description is not null)
             prop["description"] = description;
+
+        if (defaultValue is not null)
+            prop["default"] = defaultValue;
 
         // Handle nullable
         var underlying = Nullable.GetUnderlyingType(type);
