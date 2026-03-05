@@ -35,15 +35,19 @@ public sealed class SyntheticHttpContextFactory
     /// Builds a synthetic HttpContext populated from the MCP tool arguments.
     /// Route values, query string, and body stream are all set appropriately.
     /// If sourceContext is provided and ForwardHeaders is configured, copies those headers.
+    /// Uses cancellationToken for RequestAborted so [Mcp] actions receive cancellation (notifications/cancelled, connection drop).
     /// </summary>
     public HttpContext Build(
         McpToolDescriptor descriptor,
         IReadOnlyDictionary<string, JsonElement> args,
         IServiceScope scope,
-        HttpContext? sourceContext = null)
+        HttpContext? sourceContext = null,
+        CancellationToken cancellationToken = default)
     {
         var features = new FeatureCollection();
         features.Set<IHttpRequestFeature>(new HttpRequestFeature());
+        var abortToken = cancellationToken != default ? cancellationToken : sourceContext?.RequestAborted ?? default;
+        features.Set<IHttpRequestLifetimeFeature>(new CancellableHttpRequestLifetimeFeature(abortToken));
         features.Set<IHttpResponseFeature>(new HttpResponseFeature());
         features.Set<IHttpResponseBodyFeature>(new StreamResponseBodyFeature(new MemoryStream()));
         features.Set<IServiceProvidersFeature>(new SyntheticRequestServicesFeature(scope.ServiceProvider));
@@ -194,4 +198,12 @@ internal sealed class SyntheticRequestServicesFeature : IServiceProvidersFeature
 internal sealed class RoutingFeature : IRoutingFeature
 {
     public RouteData? RouteData { get; set; }
+}
+
+/// <summary>IHttpRequestLifetimeFeature with configurable RequestAborted for synthetic contexts.</summary>
+internal sealed class CancellableHttpRequestLifetimeFeature : IHttpRequestLifetimeFeature
+{
+    public CancellableHttpRequestLifetimeFeature(CancellationToken requestAborted) => RequestAborted = requestAborted;
+    public CancellationToken RequestAborted { get; set; }
+    public void Abort() { /* no-op for synthetic */ }
 }

@@ -46,6 +46,13 @@ app.MapGet("/api/admin/health", () => Results.Ok(new { status = "admin-ok", time
 
 app.MapZeroMCP();
 
+// stdio transport: when launched with --mcp-stdio, run JSON-RPC over stdin/stdout (Claude Desktop, Claude Code)
+if (args.Contains("--mcp-stdio"))
+{
+    await app.RunMcpStdioAsync();
+    return;
+}
+
 app.Run();
 
 // Expose for WebApplicationFactory<Program> in integration tests

@@ -1,5 +1,33 @@
 # Progress
 
+## 2026-03-05 – Priority 1+2: stdio Transport and CancellationToken
+
+- **Priority 1 — stdio Transport**
+  - **ZeroMcpOptions**: Added `StdioIdentity` (ClaimsPrincipal?) for fixed-identity stdio deployments.
+  - **McpStdioExtensions**: New `RunMcpStdioAsync()` extension on WebApplication; supports `--mcp-stdio` CLI flag.
+  - **McpStdioHostRunner**: New transport that reads newline-delimited JSON-RPC from stdin, routes through `McpHttpEndpointHandler.ProcessMessageAsync`, writes responses to stdout. Uses `StreamReader`/`StreamWriter`; overload accepts custom streams for testing.
+  - **McpHttpEndpointHandler**: Extracted `ProcessMessageAsync(JsonDocument, HttpContext)` for reuse by HTTP and stdio; handles `initialize`, `tools/list`, `tools/call`, `notifications/initialized`, `notifications/cancelled`.
+  - **Sample Program.cs**: Added stdio branch: `if (args.Contains("--mcp-stdio")) { await app.RunMcpStdioAsync(); return; }`.
+  - **wiki/Connecting-Clients.md**: Added stdio (Option A) and HTTP (Option B) Claude Desktop examples; documented `--mcp-stdio` and published binary config.
+  - **McpStdioTests**: Integration test `Stdio_Initialize_ReturnsServerInfo` using piped streams.
+
+- **Priority 2 — CancellationToken**
+  - **McpHttpEndpointHandler**: Added `_cancellationRegistry` (ConcurrentDictionary) for in-flight tools/call; `HandleToolsCallWithCancellationAsync` creates linked CTS, registers by request id, passes token to handler; `HandleCancelledAsync` handles `notifications/cancelled` and cancels by requestId; `OperationCanceledException` returns JSON-RPC error `-32800`.
+  - **SyntheticHttpContextFactory**: Added `CancellableHttpRequestLifetimeFeature`; `Build` accepts `CancellationToken` and sets `RequestAborted` on synthetic context so `[Mcp]` actions receive cancellation.
+  - **McpToolDispatcher**: Passes `cancellationToken` to `SyntheticHttpContextFactory.Build`.
+  - **McpToolDiscoveryService**: Skips `CancellationToken` parameters in schema (excluded from MCP input schema).
+  - **McpCancellationTests**: Integration test `Cancellation_NotificationsCancelled_Returns204`.
+
+- **plan-missing-transport.md**: Acceptance criteria for stdio and CancellationToken addressed.
+
+---
+
+## 2026-03-05 – Missing Transport & Input Types implementation plan
+
+- **plan-missing-transport.md** — New implementation plan derived from [.localplanning/plan-for-missing-transport.md](.localplanning/plan-for-missing-transport.md). Covers six features in priority order: (1) stdio Transport — RunMcpStdioAsync, --mcp-stdio, newline-delimited JSON-RPC, StdioIdentity; (2) CancellationToken — auto-binding, notifications/cancelled, -32800 on cancel; (3) Minimal API Binding Parity — query params, [AsParameters], validation mapping; (4) Streaming (IAsyncEnumerable) — detection, SSE partial results, streaming: true; (5) File Upload ([FromForm]) — base64 schema, FormFile construction, MaxFormFileSizeBytes; (6) Legacy SSE Transport — WithLegacySseTransport, GET /mcp/sse, POST /mcp/messages. Each section has Goals, task tables, acceptance criteria; plan includes implementation order, dependencies, files to touch, and references.
+
+---
+
 ## 2026-03-05 – Tool versioning via versioned MCP endpoints
 
 - **Model:** `McpToolAttribute.Version` (int, 0 = unversioned), `McpToolEndpointMetadata.Version`, `McpToolDescriptor.Version`, `ZeroMcpOptions.DefaultVersion`, `AsMcp(..., version: null)`.

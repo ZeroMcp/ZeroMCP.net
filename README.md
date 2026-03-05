@@ -77,6 +77,19 @@ public class OrdersController : ControllerBase
 
 Point any MCP client at your app's `/mcp` URL; it will see your tagged controller actions and minimal endpoints as tools.
 
+ZeroMCP supports **HTTP** and **stdio** transports. For Claude Desktop and Claude Code (which default to stdio), add a stdio branch before `app.Run()`:
+
+```csharp
+if (args.Contains("--mcp-stdio"))
+{
+    await app.RunMcpStdioAsync();
+    return;
+}
+app.Run();
+```
+
+Then configure Claude Desktop with `"command": "dotnet", "args": ["run", "--project", "MyApi", "--", "--mcp-stdio"]`. See [wiki/Connecting-Clients](wiki/Connecting-Clients.md).
+
 - **GET /mcp** — Server info and example JSON-RPC payload.
 - **GET /mcp/tools** — (Phase 3) JSON list of all registered tools and their schemas (when **EnableToolInspector** is true). Use for debugging or tooling.
 - **GET /mcp/ui** — (Phase 3) Swagger-like test invocation UI: list tools, view schemas, invoke tools from the browser (when **EnableToolInspectorUI** is true).

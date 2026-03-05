@@ -308,6 +308,8 @@ public sealed class McpToolDiscoveryService
 
         foreach (var param in apiDescription.ParameterDescriptions)
         {
+            if (param.Type == typeof(CancellationToken))
+                continue; // Infrastructure parameter; excluded from MCP schema
             switch (param.Source.Id)
             {
                 case "Path":

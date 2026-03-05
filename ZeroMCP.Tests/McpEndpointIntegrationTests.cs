@@ -5,6 +5,7 @@ using FluentAssertions;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using ZeroMCP;
 using Xunit;
@@ -945,5 +946,65 @@ public sealed class McpVersioningTests : IClassFixture<SampleAppWebApplicationFa
         var root = JsonNode.Parse(json)!.AsObject();
         root["version"]!.GetValue<int>().Should().Be(1);
         root["availableVersions"]!.AsArray().Select(n => n!.GetValue<int>()).Should().Contain(1);
+    }
+}
+
+// --- stdio Transport (Priority 1) ---
+
+public sealed class McpStdioTests : IClassFixture<SampleAppWebApplicationFactory>
+{
+    private readonly SampleAppWebApplicationFactory _factory;
+
+    public McpStdioTests(SampleAppWebApplicationFactory factory) => _factory = factory;
+
+    [Fact]
+    public async Task Stdio_Initialize_ReturnsServerInfo()
+    {
+        var pipeToServer = new System.IO.Pipelines.Pipe(); // we write -> server reads (stdin)
+        var pipeFromServer = new System.IO.Pipelines.Pipe(); // server writes -> we read (stdout)
+
+        var runner = new ZeroMCP.Transport.McpStdioHostRunner(
+            _factory.Services,
+            _factory.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<ZeroMCPOptions>>().Value,
+            _factory.Services.GetRequiredService<ILoggerFactory>().CreateLogger<ZeroMCP.Transport.McpStdioHostRunner>());
+
+        var runTask = runner.RunAsync(pipeToServer.Reader.AsStream(), pipeFromServer.Writer.AsStream());
+
+        var request = JsonSerializer.Serialize(new
+        {
+            jsonrpc = "2.0",
+            id = 1,
+            method = "initialize",
+            @params = new { protocolVersion = McpProtocolConstants.ProtocolVersion, clientInfo = new { name = "test", version = "1.0" } }
+        });
+        await pipeToServer.Writer.WriteAsync(Encoding.UTF8.GetBytes(request + "\n"));
+        await pipeToServer.Writer.CompleteAsync();
+
+        var responseLine = await new StreamReader(pipeFromServer.Reader.AsStream(), Encoding.UTF8).ReadLineAsync();
+        responseLine.Should().NotBeNullOrWhiteSpace();
+        var response = JsonNode.Parse(responseLine!)!.AsObject();
+        response.Should().HaveProperty("result");
+        response["result"]!.AsObject()["protocolVersion"]!.GetValue<string>().Should().Be(McpProtocolConstants.ProtocolVersion);
+        response["result"]!.AsObject()["serverInfo"]!.AsObject()["name"]!.GetValue<string>().Should().Be("Orders API");
+
+        await runTask;
+    }
+}
+
+// --- CancellationToken (Priority 2) ---
+
+public sealed class McpCancellationTests : IClassFixture<SampleAppWebApplicationFactory>
+{
+    private readonly HttpClient _client;
+
+    public McpCancellationTests(SampleAppWebApplicationFactory factory) => _client = factory.CreateClient();
+
+    [Fact]
+    public async Task Cancellation_NotificationsCancelled_Returns204()
+    {
+        var body = new { jsonrpc = "2.0", method = "notifications/cancelled", @params = new { requestId = "999" } };
+        var content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
+        var response = await _client.PostAsync("/mcp", content);
+        response.StatusCode.Should().Be(System.Net.HttpStatusCode.NoContent);
     }
 }

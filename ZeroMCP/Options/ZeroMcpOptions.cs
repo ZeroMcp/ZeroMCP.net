@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 
 namespace ZeroMCP.Options;
@@ -123,6 +124,15 @@ public sealed class ZeroMCPOptions
     /// Default: null (auto = highest registered version). Useful during migration to control when clients get bumped.
     /// </summary>
     public int? DefaultVersion { get; set; }
+
+    // --- stdio Transport (Priority 1) ---
+
+    /// <summary>
+    /// When running in stdio transport mode, this identity is used as the authenticated user for tool dispatch.
+    /// stdio has no HTTP context; set this to provide a fixed identity (e.g. for role-based tool visibility).
+    /// When null, User is unauthenticated. ForwardHeaders is a no-op in stdio mode.
+    /// </summary>
+    public ClaimsPrincipal? StdioIdentity { get; set; }
 }
 
 /// <summary>Suggested follow-up tool and rationale for AI clients.</summary>

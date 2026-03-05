@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
@@ -28,6 +29,7 @@ internal sealed class McpHttpEndpointHandler
     private readonly ILogger<McpHttpEndpointHandler> _logger;
     private readonly int? _endpointVersion;
     private readonly IReadOnlyList<int> _availableVersions;
+    private readonly ConcurrentDictionary<string, CancellationTokenSource> _cancellationRegistry = new();
 
     public McpHttpEndpointHandler(
         McpToolHandler toolHandler,
@@ -122,14 +124,31 @@ internal sealed class McpHttpEndpointHandler
             var stopwatch = Stopwatch.StartNew();
             try
             {
-                object? responsePayload = method switch
+                object? responsePayload;
+                if (method == "tools/call" && idValue is not null)
                 {
-                    "initialize" => HandleInitialize(@params),
-                    "notifications/initialized" => null, // fire and forget, no response
-                    "tools/list" => await HandleToolsListAsync(context),
-                    "tools/call" => await HandleToolsCallAsync(@params, context, _endpointVersion),
-                    _ => throw new McpMethodNotFoundException($"Method not found: {method}")
-                };
+                    var idStr = idValue is string s ? s : idValue.ToString() ?? "";
+                    responsePayload = await HandleToolsCallWithCancellationAsync(@params, context, idStr);
+                }
+                else
+                {
+                    if (method == "notifications/cancelled")
+                    {
+                        await HandleCancelledAsync(@params);
+                        responsePayload = null;
+                    }
+                    else
+                    {
+                        responsePayload = method switch
+                        {
+                            "initialize" => HandleInitialize(@params),
+                            "notifications/initialized" => null, // fire and forget, no response
+                            "tools/list" => await HandleToolsListAsync(context),
+                            "tools/call" => await HandleToolsCallAsync(@params, context, _endpointVersion, null),
+                            _ => throw new McpMethodNotFoundException($"Method not found: {method}")
+                        };
+                    }
+                }
 
                 if (responsePayload is null)
                 {
@@ -151,11 +170,91 @@ internal sealed class McpHttpEndpointHandler
                 _logger.LogWarning("MCP invalid params: Method={Method}, Message={Message}, DurationMs={DurationMs}", method, ex.Message, stopwatch.ElapsedMilliseconds);
                 await WriteErrorAsync(context, idValue, -32602, ex.Message, null);
             }
+            catch (OperationCanceledException)
+            {
+                await WriteErrorAsync(context, idValue, -32800, "Request cancelled", null);
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Unhandled error processing MCP method: Method={Method}, DurationMs={DurationMs}", method, stopwatch.ElapsedMilliseconds);
                 await WriteErrorAsync(context, idValue, -32603, "Internal error", ex.Message);
             }
+        }
+    }
+
+    /// <summary>
+    /// Processes a single JSON-RPC message and returns the response as a JSON string.
+    /// Used by both HTTP and stdio transports. Returns null for notifications (no response).
+    /// </summary>
+    internal async Task<string?> ProcessMessageAsync(JsonDocument requestDoc, HttpContext context)
+    {
+        var root = requestDoc.RootElement;
+
+        if (!root.TryGetProperty("jsonrpc", out var jsonrpc) || jsonrpc.GetString() != "2.0")
+            return SerializeErrorResponse(null, -32600, "Invalid Request: missing jsonrpc 2.0", null);
+
+        root.TryGetProperty("id", out var id);
+        var idValue = id.ValueKind == JsonValueKind.Undefined ? (object?)null : id.GetRawText();
+
+        if (!root.TryGetProperty("method", out var methodEl))
+            return SerializeErrorResponse(idValue, -32600, "Invalid Request: missing method", null);
+
+        var method = methodEl.GetString() ?? "";
+        root.TryGetProperty("params", out var @params);
+
+        var correlationId = GetOrCreateCorrelationId(context);
+        if (!string.IsNullOrEmpty(correlationId))
+            context.Items[CorrelationIdItemKey] = correlationId;
+
+        try
+        {
+            object? responsePayload;
+            if (method == "tools/call" && idValue is not null)
+            {
+                var idStr = idValue is string s ? s : idValue.ToString() ?? "";
+                responsePayload = await HandleToolsCallWithCancellationAsync(@params, context, idStr);
+            }
+            else
+            {
+                if (method == "notifications/cancelled")
+                {
+                    await HandleCancelledAsync(@params);
+                    responsePayload = null;
+                }
+                else
+                {
+                    responsePayload = method switch
+                    {
+                        "initialize" => HandleInitialize(@params),
+                        "notifications/initialized" => null,
+                        "tools/list" => await HandleToolsListAsync(context),
+                        "tools/call" => await HandleToolsCallAsync(@params, context, _endpointVersion, null),
+                        _ => throw new McpMethodNotFoundException($"Method not found: {method}")
+                    };
+                }
+            }
+
+            if (responsePayload is null)
+                return null;
+
+            return SerializeResultResponse(idValue, responsePayload);
+        }
+        catch (McpMethodNotFoundException ex)
+        {
+            return SerializeErrorResponse(idValue, -32601, ex.Message, null);
+        }
+        catch (McpInvalidParamsException ex)
+        {
+            return SerializeErrorResponse(idValue, -32602, ex.Message, null);
+        }
+        catch (OperationCanceledException)
+        {
+            return SerializeErrorResponse(idValue, -32800, "Request cancelled", null);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unhandled error processing MCP method: Method={Method}", method);
+            return SerializeErrorResponse(idValue, -32603, "Internal error", ex.Message);
         }
     }
 
@@ -181,6 +280,32 @@ internal sealed class McpHttpEndpointHandler
         if (context.Request.Headers.TryGetValue(headerName, out var value) && !string.IsNullOrWhiteSpace(value))
             return value.ToString().Trim();
         return Guid.NewGuid().ToString("N");
+    }
+
+    private Task HandleCancelledAsync(JsonElement @params)
+    {
+        if (@params.ValueKind == JsonValueKind.Undefined) return Task.CompletedTask;
+        if (!@params.TryGetProperty("requestId", out var idEl)) return Task.CompletedTask;
+        var requestId = idEl.GetRawText().Trim('"');
+        if (_cancellationRegistry.TryRemove(requestId, out var cts))
+        {
+            try { cts.Cancel(); } catch { /* ignore */ }
+            cts.Dispose();
+        }
+        return Task.CompletedTask;
+    }
+
+    private static string SerializeResultResponse(object? id, object result)
+    {
+        var response = new { jsonrpc = "2.0", id, result };
+        return JsonSerializer.Serialize(response, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = false });
+    }
+
+    private static string SerializeErrorResponse(object? id, int code, string message, string? data)
+    {
+        var error = data is not null ? (object)new { code, message, data } : new { code, message };
+        var response = new { jsonrpc = "2.0", id, error };
+        return JsonSerializer.Serialize(response, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
     }
 
     private object HandleInitialize(JsonElement @params)
@@ -217,7 +342,22 @@ internal sealed class McpHttpEndpointHandler
         return new { tools };
     }
 
-    private async Task<object> HandleToolsCallAsync(JsonElement @params, HttpContext httpContext, int? endpointVersion)
+    private async Task<object> HandleToolsCallWithCancellationAsync(JsonElement @params, HttpContext httpContext, string requestId)
+    {
+        using var cts = new CancellationTokenSource();
+        _cancellationRegistry[requestId] = cts;
+        var linked = CancellationTokenSource.CreateLinkedTokenSource(httpContext.RequestAborted, cts.Token);
+        try
+        {
+            return await HandleToolsCallAsync(@params, httpContext, _endpointVersion, linked.Token);
+        }
+        finally
+        {
+            _cancellationRegistry.TryRemove(requestId, out _);
+        }
+    }
+
+    private async Task<object> HandleToolsCallAsync(JsonElement @params, HttpContext httpContext, int? endpointVersion, CancellationToken? cancellationToken)
     {
         if (@params.ValueKind == JsonValueKind.Undefined)
             throw new McpInvalidParamsException("tools/call requires params");
@@ -235,7 +375,8 @@ internal sealed class McpHttpEndpointHandler
                 args[prop.Name] = prop.Value;
         }
 
-        var result = await _toolHandler.HandleCallAsync(toolName, args, httpContext.RequestAborted, httpContext, endpointVersion);
+        var ct = cancellationToken ?? httpContext.RequestAborted;
+        var result = await _toolHandler.HandleCallAsync(toolName, args, ct, httpContext, endpointVersion);
 
         // MCP tool result format (content + isError always; optional metadata/suggestedNextActions/hints when enrichment enabled)
         // When streaming enabled, content is split into chunks with chunkIndex and isFinal for partial-response clients
