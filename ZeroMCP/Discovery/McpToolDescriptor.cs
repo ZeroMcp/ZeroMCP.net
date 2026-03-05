@@ -63,6 +63,16 @@ public sealed class McpToolDescriptor
     public McpBodyDescriptor? Body { get; init; }
 
     /// <summary>
+    /// Form file parameters (IFormFile, IFormFileCollection). MCP clients pass base64-encoded content.
+    /// </summary>
+    public IReadOnlyList<McpFormFileDescriptor> FormFileParameters { get; init; } = [];
+
+    /// <summary>
+    /// Form field parameters ([FromForm] string, etc.) alongside file params.
+    /// </summary>
+    public IReadOnlyList<McpParameterDescriptor> FormParameters { get; init; } = [];
+
+    /// <summary>
     /// The merged JSON Schema for all inputs (route + query + body flattened).
     /// Null if IncludeInputSchemas is false.
     /// </summary>
@@ -81,10 +91,21 @@ public sealed class McpParameterDescriptor
     public Type ParameterType { get; init; } = default!;
     public bool IsRequired { get; init; }
     public string? Description { get; init; }
+    /// <summary>Default value for optional parameters (e.g. page = 1). Emitted as "default" in JSON Schema.</summary>
+    public object? DefaultValue { get; init; }
 }
 
 public sealed class McpBodyDescriptor
 {
     public Type BodyType { get; init; } = default!;
     public string ParameterName { get; init; } = default!;
+}
+
+/// <summary>Describes an IFormFile or IFormFileCollection parameter for MCP schema and dispatch.</summary>
+public sealed class McpFormFileDescriptor
+{
+    public string Name { get; init; } = default!;
+    public string ParameterName { get; init; } = default!;
+    /// <summary>True for IFormFileCollection (multiple files).</summary>
+    public bool IsCollection { get; init; }
 }

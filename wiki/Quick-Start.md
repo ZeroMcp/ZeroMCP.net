@@ -86,6 +86,7 @@ See [Connecting MCP Clients](Connecting-Clients) for Claude Desktop and Claude.a
 The repository includes **examples/** for different scenarios:
 
 - **Minimal** — Bare-minimum setup (one controller, one minimal API).
+- **WithStdio** — stdio transport (`--mcp-stdio`), Claude Desktop config, JSON-RPC over stdin/stdout.
 - **WithAuth** — API-key auth, role-based tool visibility, `[Authorize]`.
 - **WithEnrichment** — Result enrichment, suggested follow-ups, streaming options.
 - **Enterprise** — Auth, enrichment, observability, ToolFilter, ToolVisibilityFilter.
@@ -96,5 +97,6 @@ The repository includes **examples/** for different scenarios:
 
 - [Configuration](Configuration) — Route prefix, tool filters, observability, enrichment, streaming, tool inspector
 - [The [Mcp] Attribute](The-Mcp-Attribute) — Description, tags, category, examples, hints, roles, policy
+- [Connecting Clients](Connecting-Clients) — Claude Desktop (stdio), HTTP, Claude.ai
 - [Controllers and Minimal APIs](Controllers-and-Minimal-APIs) — Exposing minimal API endpoints as tools
 - [Enterprise Usage](Enterprise-Usage) — Production deployment checklist

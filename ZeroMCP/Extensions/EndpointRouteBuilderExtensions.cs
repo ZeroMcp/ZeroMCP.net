@@ -28,7 +28,7 @@ public static class EndpointRouteBuilderExtensions
     /// app.MapZeroMCP("/api/mcp");
     /// </code>
     /// </example>
-    public static IEndpointConventionBuilder MapZeroMCP(
+    public static ZeroMcpEndpointBuilder MapZeroMCP(
         this IEndpointRouteBuilder endpoints,
         string? routePrefix = null)
     {
@@ -76,10 +76,14 @@ public static class EndpointRouteBuilderExtensions
                 }
             }
 
-            return endpoints.MapMethods(route, ["GET", "POST"], (ctx) => mcpHandler.HandleAsync(ctx))
+            var inner = endpoints.MapMethods(route, ["GET", "POST"], (ctx) => mcpHandler.HandleAsync(ctx))
                 .WithName("mcp-endpoint")
                 .WithDisplayName("MCP Endpoint (ZeroMCP)")
                 .WithMetadata(new HttpMethodMetadata(["GET", "POST"]));
+            var builder = new ZeroMcpEndpointBuilder(inner, endpoints, baseRoute, options);
+            if (options.EnableLegacySseTransport)
+                builder.WithLegacySseTransport();
+            return builder;
         }
 
         var availableVersions = discovery.GetAvailableVersions();
@@ -138,9 +142,13 @@ public static class EndpointRouteBuilderExtensions
             }
         }
 
-        return endpoints.MapMethods(route, ["GET", "POST"], (ctx) => defaultHandler.HandleAsync(ctx))
+        var mcpInner = endpoints.MapMethods(route, ["GET", "POST"], (ctx) => defaultHandler.HandleAsync(ctx))
             .WithName("mcp-endpoint")
             .WithDisplayName("MCP Endpoint (ZeroMCP)")
             .WithMetadata(new HttpMethodMetadata(["GET", "POST"]));
+        var mcpBuilder = new ZeroMcpEndpointBuilder(mcpInner, endpoints, baseRoute, options);
+        if (options.EnableLegacySseTransport)
+            mcpBuilder.WithLegacySseTransport();
+        return mcpBuilder;
     }
 }

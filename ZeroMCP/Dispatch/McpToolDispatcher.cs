@@ -78,7 +78,7 @@ public sealed class McpToolDispatcher
         HttpContext context;
         try
         {
-            context = _contextFactory.Build(descriptor, args, scope, sourceContext);
+            context = _contextFactory.Build(descriptor, args, scope, sourceContext, cancellationToken);
         }
         catch (Exception ex)
         {

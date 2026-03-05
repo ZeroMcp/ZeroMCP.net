@@ -1,5 +1,83 @@
 # Progress
 
+## 2026-03-05 – WithStdio example
+
+- **examples/WithStdio/** — New example: stdio transport via `--mcp-stdio`, Claude Desktop config, `health_check` and `echo` tools. README with run instructions, claude_desktop_config.json snippets, and manual testing. Added to ZeroMcp.slnx and README examples table.
+  - **launchSettings.json**: Default profile launches with `--mcp-stdio`, `launchBrowser: false`; added "WithStdioExample (HTTP)" profile for HTTP mode with browser.
+
+---
+
+## 2026-03-05 – Priority 4+5: CancellationToken (complete) and File Upload ([FromForm])
+
+- **Priority 4 (CancellationToken)** — Already implemented; marked plan acceptance criteria complete.
+- **Priority 5 (File Upload)** — Implemented:
+  - **McpToolDescriptor**: Added `FormFileParameters` (McpFormFileDescriptor) and `FormParameters`; `McpFormFileDescriptor` (Name, ParameterName, IsCollection).
+  - **McpToolDiscoveryService**: Detects `IFormFile` and `IFormFileCollection` by type; `[FromForm]` strings via Source "Form"/"FormFile".
+  - **McpSchemaBuilder**: Emits base64 schema for single file (`{name}`, `{name}_filename`, `{name}_content_type`) and array schema for collections.
+  - **SyntheticHttpContextFactory**: `BuildFormCollection` decodes base64, creates `FormFile`, populates `FormCollection`; sets `IFormFeature` when `FormFileParameters.Count > 0`.
+  - **ZeroMcpOptions**: Added `MaxFormFileSizeBytes` (default 10 MB).
+  - **wiki/Parameters-and-Schemas.md**: Added "File Upload Tools" section.
+  - **wiki/Limitations.md**, **README.md**: Updated [FromForm] to supported.
+  - **plan-for-missing-transport.md**: Marked File Upload acceptance criteria complete (integration tests passing).
+  - **SyntheticHttpContextFactory**: FormFile creation now initializes `Headers = new HeaderDictionary()` and sets `ContentType` so `document.ContentType` does not throw NRE; fixes `FormFile_UploadDocument_ReturnsFileInfo`.
+
+---
+
+## 2026-03-05 – Priority 6: Legacy SSE Transport (MCP spec 2024-11-05)
+
+- **ZeroMcpOptions**: Added `EnableLegacySseTransport` (default: false).
+- **McpLegacySseEndpointHandler**: New handler for GET `/mcp/sse` (creates session, sends `endpoint` event with `/mcp/messages?sessionId=` URL, holds SSE connection) and POST `/mcp/messages?sessionId=` (routes JSON-RPC via `McpHttpEndpointHandler`, writes response as SSE `message` event). Session store: `ConcurrentDictionary<string, SseSession>` with `Channel<string>` and `CancellationTokenSource`; cleanup on `RequestAborted`.
+- **ZeroMcpEndpointBuilder** / **ZeroMcpEndpointBuilderExtensions**: `MapZeroMCP` returns builder; `WithLegacySseTransport()` adds SSE endpoints when opted in.
+- **ServiceCollectionExtensions**: Registers `McpLegacySseEndpointHandler` as singleton.
+- **Sample Program.cs**: Uses `WithLegacySseTransport()`.
+- **Integration tests**: `McpLegacySseTests` — `LegacySse_GetSse_ReturnsEndpointEvent`, `LegacySse_InitializeAndToolsList_WorkOverSse`.
+- **wiki/Limitations.md**: Documented Legacy SSE opt-in and horizontal scale limitation.
+- **plan-for-missing-transport.md**: Marked Legacy SSE acceptance criteria complete.
+
+---
+
+## 2026-03-05 – Priority 3: Minimal API Query and Body Binding Parity
+
+- **McpToolDiscoveryService**: `BuildMinimalApiDescriptor` now matches minimal API endpoints to `ApiDescription` (from `AddEndpointsApiExplorer`) by RelativePath and HttpMethod; extracts Query and Body from `ParameterDescriptions` (Source.Id: Query, Body), same as controller actions.
+- **FindApiDescriptionForMinimalEndpoint**: New helper to locate ApiDescription for minimal endpoints; skips controller actions.
+- **McpParameterDescriptor**: Added `DefaultValue` for optional params (e.g. `page = 1`).
+- **McpSchemaBuilder**: `BuildPrimitiveProperty` accepts `defaultValue`; emits `"default"` in JSON Schema for query params.
+- **Sample Program.cs**: Added `list_orders_minimal` (GET with status, page, pageSize) and `create_order_minimal` (POST with CreateOrderRequest body).
+- **examples/Minimal/Program.cs**: Added `list_orders_minimal` example with query params.
+- **Tests**: `BuildSchema_QueryParamsWithDefaults_IncludesDefaultInSchema`; `Priority3_MinimalApi_*` integration tests (conditional when tools available).
+- **wiki/Parameters-and-Schemas.md**: Added minimal API examples (query params, [FromBody]).
+- **plan-missing-transport.md**: Marked Priority 3 acceptance criteria for query params, defaults, and wiki update.
+
+---
+
+## 2026-03-05 – Priority 1+2: stdio Transport and CancellationToken
+
+- **Priority 1 — stdio Transport**
+  - **ZeroMcpOptions**: Added `StdioIdentity` (ClaimsPrincipal?) for fixed-identity stdio deployments.
+  - **McpStdioExtensions**: New `RunMcpStdioAsync()` extension on WebApplication; supports `--mcp-stdio` CLI flag.
+  - **McpStdioHostRunner**: New transport that reads newline-delimited JSON-RPC from stdin, routes through `McpHttpEndpointHandler.ProcessMessageAsync`, writes responses to stdout. Uses `StreamReader`/`StreamWriter`; overload accepts custom streams for testing.
+  - **McpHttpEndpointHandler**: Extracted `ProcessMessageAsync(JsonDocument, HttpContext)` for reuse by HTTP and stdio; handles `initialize`, `tools/list`, `tools/call`, `notifications/initialized`, `notifications/cancelled`.
+  - **Sample Program.cs**: Added stdio branch: `if (args.Contains("--mcp-stdio")) { await app.RunMcpStdioAsync(); return; }`.
+  - **wiki/Connecting-Clients.md**: Added stdio (Option A) and HTTP (Option B) Claude Desktop examples; documented `--mcp-stdio` and published binary config.
+  - **McpStdioTests**: Integration test `Stdio_Initialize_ReturnsServerInfo` using piped streams.
+
+- **Priority 2 — CancellationToken**
+  - **McpHttpEndpointHandler**: Added `_cancellationRegistry` (ConcurrentDictionary) for in-flight tools/call; `HandleToolsCallWithCancellationAsync` creates linked CTS, registers by request id, passes token to handler; `HandleCancelledAsync` handles `notifications/cancelled` and cancels by requestId; `OperationCanceledException` returns JSON-RPC error `-32800`.
+  - **SyntheticHttpContextFactory**: Added `CancellableHttpRequestLifetimeFeature`; `Build` accepts `CancellationToken` and sets `RequestAborted` on synthetic context so `[Mcp]` actions receive cancellation.
+  - **McpToolDispatcher**: Passes `cancellationToken` to `SyntheticHttpContextFactory.Build`.
+  - **McpToolDiscoveryService**: Skips `CancellationToken` parameters in schema (excluded from MCP input schema).
+  - **McpCancellationTests**: Integration test `Cancellation_NotificationsCancelled_Returns204`.
+
+- **plan-missing-transport.md**: Acceptance criteria for stdio and CancellationToken addressed.
+
+---
+
+## 2026-03-05 – Missing Transport & Input Types implementation plan
+
+- **plan-missing-transport.md** — New implementation plan derived from [.localplanning/plan-for-missing-transport.md](.localplanning/plan-for-missing-transport.md). Covers six features in priority order: (1) stdio Transport — RunMcpStdioAsync, --mcp-stdio, newline-delimited JSON-RPC, StdioIdentity; (2) CancellationToken — auto-binding, notifications/cancelled, -32800 on cancel; (3) Minimal API Binding Parity — query params, [AsParameters], validation mapping; (4) Streaming (IAsyncEnumerable) — detection, SSE partial results, streaming: true; (5) File Upload ([FromForm]) — base64 schema, FormFile construction, MaxFormFileSizeBytes; (6) Legacy SSE Transport — WithLegacySseTransport, GET /mcp/sse, POST /mcp/messages. Each section has Goals, task tables, acceptance criteria; plan includes implementation order, dependencies, files to touch, and references.
+
+---
+
 ## 2026-03-05 – Tool versioning via versioned MCP endpoints
 
 - **Model:** `McpToolAttribute.Version` (int, 0 = unversioned), `McpToolEndpointMetadata.Version`, `McpToolDescriptor.Version`, `ZeroMcpOptions.DefaultVersion`, `AsMcp(..., version: null)`.

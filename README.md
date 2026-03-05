@@ -77,10 +77,24 @@ public class OrdersController : ControllerBase
 
 Point any MCP client at your app's `/mcp` URL; it will see your tagged controller actions and minimal endpoints as tools.
 
+ZeroMCP supports **HTTP** and **stdio** transports. For Claude Desktop and Claude Code (which default to stdio), add a stdio branch before `app.Run()`:
+
+```csharp
+if (args.Contains("--mcp-stdio"))
+{
+    await app.RunMcpStdioAsync();
+    return;
+}
+app.Run();
+```
+
+Then configure Claude Desktop with `"command": "dotnet", "args": ["run", "--project", "MyApi", "--", "--mcp-stdio"]`. See [wiki/Connecting-Clients](wiki/Connecting-Clients.md).
+
 - **GET /mcp** — Server info and example JSON-RPC payload.
 - **GET /mcp/tools** — (Phase 3) JSON list of all registered tools and their schemas (when **EnableToolInspector** is true). Use for debugging or tooling.
 - **GET /mcp/ui** — (Phase 3) Swagger-like test invocation UI: list tools, view schemas, invoke tools from the browser (when **EnableToolInspectorUI** is true).
 - **POST /mcp** — JSON-RPC (`initialize`, `tools/list`, `tools/call`).
+- **Legacy SSE** — Opt-in: `app.MapZeroMCP().WithLegacySseTransport()` adds GET `/mcp/sse` and POST `/mcp/messages` for MCP spec 2024-11-05 clients.
 
 For **versioning and breaking-change policy**, see [VERSIONING.md](VERSIONING.md).
 
@@ -188,11 +202,12 @@ See [wiki/Tool-Versioning](wiki/Tool-Versioning.md).
 
 ## Examples
 
-The **examples/** folder contains five standalone projects:
+The **examples/** folder contains standalone projects:
 
 | Example | Description |
 |--------|-------------|
 | **Minimal** | Bare-minimum: one controller action, one minimal API, no auth |
+| **WithStdio** | stdio transport: `--mcp-stdio`, Claude Desktop config, JSON-RPC over stdin/stdout |
 | **WithAuth** | API-key auth, role-based tool visibility, `[Authorize]` |
 | **WithEnrichment** | Phase 2 result enrichment, suggested follow-ups, streaming options |
 | **WithRateLimiting** | Phase 4 (Option A): ASP.NET Core rate limiting on the MCP endpoint, 429 + JSON-RPC error |
@@ -370,9 +385,9 @@ mcpAPI/
 
 ## Known Limitations
 
-- **Streamable HTTP only** — stdio and SSE transports are not supported
+- **Transports** — Streamable HTTP (primary), stdio via `--mcp-stdio`, Legacy SSE opt-in via `WithLegacySseTransport()`. See [wiki/Limitations](wiki/Limitations.md).
 - **Minimal APIs** — supported via `AsMcp`; route params are bound; query/body binding is limited
-- **[FromForm] and file uploads** — not supported; JSON-only body binding
+- **[FromForm] and file uploads** — Supported for `IFormFile`/`IFormFileCollection` via base64; see [Parameters-and-Schemas](wiki/Parameters-and-Schemas.md)
 - **Streaming responses** — `IAsyncEnumerable<T>` and SSE action results are not captured correctly
 - If **CreatedAtAction** or link generation ever fails in your environment, use `return Created(Url.Action(nameof(OtherAction), new { id = entity.Id })!, entity);` as a fallback
 
@@ -398,5 +413,4 @@ Integration and schema tests cover JSON-RPC validation and errors, model binding
 
 PRs welcome. The most impactful next additions would be:
 
-1. SSE transport support
-2. Richer minimal API parameter binding (query/body from route delegate)
+1. Richer minimal API parameter binding (query/body from route delegate)

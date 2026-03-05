@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 
 namespace ZeroMCP.Options;
@@ -123,6 +124,34 @@ public sealed class ZeroMCPOptions
     /// Default: null (auto = highest registered version). Useful during migration to control when clients get bumped.
     /// </summary>
     public int? DefaultVersion { get; set; }
+
+    // --- stdio Transport (Priority 1) ---
+
+    /// <summary>
+    /// When running in stdio transport mode, this identity is used as the authenticated user for tool dispatch.
+    /// stdio has no HTTP context; set this to provide a fixed identity (e.g. for role-based tool visibility).
+    /// When null, User is unauthenticated. ForwardHeaders is a no-op in stdio mode.
+    /// </summary>
+    public ClaimsPrincipal? StdioIdentity { get; set; }
+
+    // --- Legacy SSE Transport (Priority 6) ---
+
+    /// <summary>
+    /// Maximum size in bytes for base64-decoded form file content. Enforced before decoding; exceeded payloads return a structured error.
+    /// Default is 10 MB. Set to 0 to disable the limit (not recommended).
+    /// </summary>
+    public long MaxFormFileSizeBytes { get; set; } = 10 * 1024 * 1024;
+
+    /// <summary>
+    /// When true, registers GET {RoutePrefix}/sse and POST {RoutePrefix}/messages for the deprecated MCP HTTP+SSE transport (spec 2024-11-05).
+    /// Enables backward compatibility with clients that have not migrated to Streamable HTTP.
+    /// Default is false. Can also be enabled via <c>MapZeroMCP().WithLegacySseTransport()</c>.
+    /// </summary>
+    /// <remarks>
+    /// SSE sessions are held in process memory; does not scale horizontally without sticky sessions.
+    /// Use Streamable HTTP for horizontal scale.
+    /// </remarks>
+    public bool EnableLegacySseTransport { get; set; }
 }
 
 /// <summary>Suggested follow-up tool and rationale for AI clients.</summary>

@@ -78,6 +78,38 @@ public sealed class McpSchemaBuilderTests
     }
 
     [Fact]
+    public void BuildSchema_QueryParamsWithDefaults_IncludesDefaultInSchema()
+    {
+        var descriptor = new McpToolDescriptor
+        {
+            Name = "list_items",
+            HttpMethod = "GET",
+            RelativeUrl = "items",
+            ActionDescriptor = null!,
+            ApiDescription = null!,
+            RouteParameters = [],
+            QueryParameters =
+            [
+                new McpParameterDescriptor { Name = "status", ParameterType = typeof(string), IsRequired = false },
+                new McpParameterDescriptor { Name = "page", ParameterType = typeof(int), IsRequired = false, DefaultValue = 1 },
+                new McpParameterDescriptor { Name = "pageSize", ParameterType = typeof(int), IsRequired = false, DefaultValue = 20 }
+            ]
+        };
+
+        var json = _builder.BuildSchema(descriptor);
+        var schema = JsonDocument.Parse(json).RootElement;
+        var props = schema.GetProperty("properties");
+        props.TryGetProperty("page", out var pageProp).Should().BeTrue();
+        pageProp.TryGetProperty("default", out var pageDefault).Should().BeTrue("page should have default");
+        pageDefault.GetInt32().Should().Be(1);
+        props.TryGetProperty("pageSize", out var pageSizeProp).Should().BeTrue();
+        pageSizeProp.TryGetProperty("default", out var pageSizeDefault).Should().BeTrue("pageSize should have default");
+        pageSizeDefault.GetInt32().Should().Be(20);
+        if (schema.TryGetProperty("required", out var req) && req.ValueKind == JsonValueKind.Array)
+            req.GetArrayLength().Should().Be(0);
+    }
+
+    [Fact]
     public void BuildSchema_NullableType_IncludesNullInTypeArray()
     {
         var descriptor = new McpToolDescriptor

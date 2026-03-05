@@ -1,10 +1,51 @@
 # Connecting MCP Clients
 
-Point MCP clients at your app's **/mcp** endpoint (or the route you set in **MapZeroMCP**).
+Point MCP clients at your app's **/mcp** endpoint (or the route you set in **MapZeroMCP**). ZeroMCP supports both **HTTP** and **stdio** transports.
 
 ---
 
 ## Claude Desktop
+
+### Option A: stdio (recommended for local development)
+
+Claude Desktop and Claude Code default to stdio for local MCP servers. Add to **claude_desktop_config.json**:
+
+```json
+{
+  "mcpServers": {
+    "my-api": {
+      "command": "dotnet",
+      "args": ["run", "--project", "MyApi", "--", "--mcp-stdio"]
+    }
+  }
+}
+```
+
+Or with a published binary:
+
+```json
+{
+  "mcpServers": {
+    "my-api": {
+      "command": "C:\\MyApi\\MyApi.exe",
+      "args": ["--mcp-stdio"]
+    }
+  }
+}
+```
+
+In `Program.cs`, add the stdio branch before `app.Run()`:
+
+```csharp
+if (args.Contains("--mcp-stdio"))
+{
+    await app.RunMcpStdioAsync();
+    return;
+}
+app.Run();
+```
+
+### Option B: HTTP
 
 Add to **claude_desktop_config.json**:
 

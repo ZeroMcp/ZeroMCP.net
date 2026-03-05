@@ -56,6 +56,9 @@ public static class ServiceCollectionExtensions
         // Transport
         services.AddSingleton<McpToolHandler>();
 
+        // Legacy SSE transport (opt-in via WithLegacySseTransport or EnableLegacySseTransport)
+        services.AddSingleton<McpLegacySseEndpointHandler>();
+
         // IHttpContextFactory is needed for synthetic context creation
         services.AddSingleton<IHttpContextFactory, DefaultHttpContextFactory>();
 

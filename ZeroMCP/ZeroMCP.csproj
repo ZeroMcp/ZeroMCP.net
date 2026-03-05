@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFrameworks>net10.0;net9.0;net8.0</TargetFrameworks>
@@ -27,6 +27,7 @@
 
 
   <ItemGroup>
+    <InternalsVisibleTo Include="ZeroMCP.Tests" />
     <!-- NuGet package README (consumer-focused). Repo root README.md is for GitLab/project docs. -->
     <None Include="README.md" Pack="true" PackagePath="\" />
     <PackageReference Include="NJsonSchema" Version="11.0.0" />

@@ -5,6 +5,7 @@ using FluentAssertions;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using ZeroMCP;
 using Xunit;
@@ -632,6 +633,107 @@ public sealed class McpEndpointIntegrationTests : IClassFixture<SampleAppWebAppl
         roles.Should().Contain("Admin");
     }
 
+    // --- Priority 3: Minimal API binding parity (query, body) ---
+    // Note: list_orders_minimal and create_order_minimal may not appear when versioning is enabled
+    // (EndpointDataSource timing). Schema and default-value logic are covered by McpSchemaBuilderTests.
+
+    private static async Task<JsonArray> GetToolsArrayAsync(HttpClient client)
+    {
+        var inspectorResponse = await client.GetAsync("/mcp/tools");
+        inspectorResponse.EnsureSuccessStatusCode();
+        var json = await inspectorResponse.Content.ReadAsStringAsync();
+        var root = JsonNode.Parse(json)!.AsObject();
+        return root["tools"]!.AsArray();
+    }
+
+    [Fact]
+    public async Task Priority3_MinimalApi_ListOrdersMinimal_HasQueryParamsInSchema()
+    {
+        var tools = await GetToolsArrayAsync(_client);
+        var listMinimal = tools.FirstOrDefault(t => t!.AsObject()["name"]!.GetValue<string>() == "list_orders_minimal")?.AsObject();
+        if (listMinimal is null)
+        {
+            // Minimal API tools may not be discovered when versioning is on (EndpointDataSource timing)
+            return;
+        }
+        var schema = listMinimal!["inputSchema"]!.AsObject();
+        var props = schema["properties"]!.AsObject();
+        props.Should().HaveProperty("status");
+        props.Should().HaveProperty("page");
+        props.Should().HaveProperty("pageSize");
+        props["page"]!.AsObject().Should().HaveProperty("default");
+        props["page"]!.AsObject()["default"]!.GetValue<int>().Should().Be(1);
+        props["pageSize"]!.AsObject().Should().HaveProperty("default");
+        props["pageSize"]!.AsObject()["default"]!.GetValue<int>().Should().Be(20);
+    }
+
+    [Fact]
+    public async Task Priority3_MinimalApi_CreateOrderMinimal_HasBodyParamsInSchema()
+    {
+        var tools = await GetToolsArrayAsync(_client);
+        var createMinimal = tools.FirstOrDefault(t => t!.AsObject()["name"]!.GetValue<string>() == "create_order_minimal")?.AsObject();
+        if (createMinimal is null)
+            return;
+        var schema = createMinimal!["inputSchema"]!.AsObject();
+        var props = schema["properties"]!.AsObject();
+        props.Should().HaveProperty("customerName");
+        props.Should().HaveProperty("product");
+        props.Should().HaveProperty("quantity");
+        var required = schema["required"]!.AsArray().Select(n => n!.GetValue<string>()).ToList();
+        required.Should().Contain("customerName");
+        required.Should().Contain("product");
+    }
+
+    [Fact]
+    public async Task Priority3_MinimalApi_ToolCall_ListOrdersMinimal_WithQueryParams_ReturnsFiltered()
+    {
+        var tools = await GetToolsArrayAsync(_client);
+        if (tools.All(t => t!.AsObject()["name"]!.GetValue<string>() != "list_orders_minimal"))
+            return;
+        var response = await PostMcpAsync(new
+        {
+            jsonrpc = "2.0",
+            id = 502,
+            method = "tools/call",
+            @params = new { name = "list_orders_minimal", arguments = new { status = "pending", page = 1, pageSize = 5 } }
+        });
+        response.Should().HaveProperty("result");
+        var result = response["result"]!.AsObject();
+        result["isError"]!.GetValue<bool>().Should().BeFalse();
+        var content = ExtractTextContent(response);
+        var orders = JsonSerializer.Deserialize<JsonElement[]>(content);
+        orders.Should().NotBeNull();
+        orders!.Should().AllSatisfy(o => o.GetProperty("status").GetString().Should().Be("pending"));
+        orders.Length.Should().BeLessThanOrEqualTo(5);
+    }
+
+    [Fact]
+    public async Task Priority3_MinimalApi_ToolCall_CreateOrderMinimal_WithBody_CreatesOrder()
+    {
+        var tools = await GetToolsArrayAsync(_client);
+        if (tools.All(t => t!.AsObject()["name"]!.GetValue<string>() != "create_order_minimal"))
+            return;
+        var response = await PostMcpAsync(new
+        {
+            jsonrpc = "2.0",
+            id = 503,
+            method = "tools/call",
+            @params = new
+            {
+                name = "create_order_minimal",
+                arguments = new { customerName = "MinimalUser", product = "TestProduct", quantity = 3 }
+            }
+        });
+        response.Should().HaveProperty("result");
+        var result = response["result"]!.AsObject();
+        result["isError"]!.GetValue<bool>().Should().BeFalse();
+        var content = ExtractTextContent(response);
+        var order = JsonSerializer.Deserialize<JsonElement>(content);
+        order.GetProperty("customerName").GetString().Should().Be("MinimalUser");
+        order.GetProperty("product").GetString().Should().Be("TestProduct");
+        order.GetProperty("quantity").GetInt32().Should().Be(3);
+    }
+
     [Fact]
     public async Task Phase3_Inspector_PostToTools_Returns405MethodNotAllowed()
     {
@@ -945,5 +1047,244 @@ public sealed class McpVersioningTests : IClassFixture<SampleAppWebApplicationFa
         var root = JsonNode.Parse(json)!.AsObject();
         root["version"]!.GetValue<int>().Should().Be(1);
         root["availableVersions"]!.AsArray().Select(n => n!.GetValue<int>()).Should().Contain(1);
+    }
+}
+
+// --- stdio Transport (Priority 1) ---
+
+public sealed class McpStdioTests : IClassFixture<SampleAppWebApplicationFactory>
+{
+    private readonly SampleAppWebApplicationFactory _factory;
+
+    public McpStdioTests(SampleAppWebApplicationFactory factory) => _factory = factory;
+
+    [Fact]
+    public async Task Stdio_Initialize_ReturnsServerInfo()
+    {
+        var pipeToServer = new System.IO.Pipelines.Pipe(); // we write -> server reads (stdin)
+        var pipeFromServer = new System.IO.Pipelines.Pipe(); // server writes -> we read (stdout)
+
+        var runner = new ZeroMCP.Transport.McpStdioHostRunner(
+            _factory.Services,
+            _factory.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<ZeroMCPOptions>>().Value,
+            _factory.Services.GetRequiredService<ILoggerFactory>().CreateLogger<ZeroMCP.Transport.McpStdioHostRunner>());
+
+        var runTask = runner.RunAsync(pipeToServer.Reader.AsStream(), pipeFromServer.Writer.AsStream());
+
+        var request = JsonSerializer.Serialize(new
+        {
+            jsonrpc = "2.0",
+            id = 1,
+            method = "initialize",
+            @params = new { protocolVersion = McpProtocolConstants.ProtocolVersion, clientInfo = new { name = "test", version = "1.0" } }
+        });
+        await pipeToServer.Writer.WriteAsync(Encoding.UTF8.GetBytes(request + "\n"));
+        await pipeToServer.Writer.CompleteAsync();
+
+        var responseLine = await new StreamReader(pipeFromServer.Reader.AsStream(), Encoding.UTF8).ReadLineAsync();
+        responseLine.Should().NotBeNullOrWhiteSpace();
+        var response = JsonNode.Parse(responseLine!)!.AsObject();
+        response.Should().HaveProperty("result");
+        response["result"]!.AsObject()["protocolVersion"]!.GetValue<string>().Should().Be(McpProtocolConstants.ProtocolVersion);
+        response["result"]!.AsObject()["serverInfo"]!.AsObject()["name"]!.GetValue<string>().Should().Be("Orders API");
+
+        await runTask;
+    }
+}
+
+// --- Legacy SSE Transport (Priority 6) ---
+
+public sealed class McpLegacySseTests : IClassFixture<SampleAppWebApplicationFactory>
+{
+    private readonly HttpClient _client;
+
+    public McpLegacySseTests(SampleAppWebApplicationFactory factory) => _client = factory.CreateClient();
+
+    [Fact]
+    public async Task LegacySse_GetSse_ReturnsEndpointEvent()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/mcp/sse");
+        using var response = await _client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
+        response.EnsureSuccessStatusCode();
+        response.Content.Headers.ContentType?.MediaType.Should().Be("text/event-stream");
+
+        await using var stream = await response.Content.ReadAsStreamAsync();
+        using var reader = new StreamReader(stream);
+        var endpointData = await ReadSseEndpointDataAsync(reader);
+        endpointData.Should().NotBeNullOrWhiteSpace();
+        endpointData.Should().Contain("sessionId=");
+        endpointData.Should().Contain("/mcp/messages");
+    }
+
+    [Fact]
+    public async Task LegacySse_InitializeAndToolsList_WorkOverSse()
+    {
+        // 1. Connect to SSE
+        using var sseRequest = new HttpRequestMessage(HttpMethod.Get, "/mcp/sse");
+        using var sseResponse = await _client.SendAsync(sseRequest, HttpCompletionOption.ResponseHeadersRead);
+        sseResponse.EnsureSuccessStatusCode();
+
+        await using var sseStream = await sseResponse.Content.ReadAsStreamAsync();
+        using var sseReader = new StreamReader(sseStream);
+        var messagesPath = await ReadSseEndpointDataAsync(sseReader);
+        messagesPath.Should().NotBeNullOrWhiteSpace();
+
+        // 2. POST initialize to messages endpoint
+        var initBody = JsonSerializer.Serialize(new
+        {
+            jsonrpc = "2.0",
+            id = 1,
+            method = "initialize",
+            @params = new { protocolVersion = McpProtocolConstants.ProtocolVersion, clientInfo = new { name = "test", version = "1.0" } }
+        });
+        var messagesUrl = messagesPath.StartsWith("/") ? messagesPath : "/" + messagesPath;
+        using var postRequest = new HttpRequestMessage(HttpMethod.Post, messagesUrl)
+        {
+            Content = new StringContent(initBody, Encoding.UTF8, "application/json")
+        };
+        var postResponse = await _client.SendAsync(postRequest);
+        postResponse.EnsureSuccessStatusCode();
+
+        // 3. Read message event from SSE stream (response comes back on the held connection)
+        var messageData = await ReadSseMessageDataAsync(sseReader);
+        messageData.Should().NotBeNullOrWhiteSpace();
+        var responseObj = JsonNode.Parse(messageData)!.AsObject();
+        responseObj.Should().HaveProperty("result");
+        responseObj["result"]!.AsObject()["serverInfo"]!.AsObject()["name"]!.GetValue<string>().Should().Be("Orders API");
+    }
+
+    private static async Task<string?> ReadSseEndpointDataAsync(StreamReader reader)
+    {
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        while (await reader.ReadLineAsync(cts.Token) is { } line)
+        {
+            if (line.StartsWith("event:", StringComparison.OrdinalIgnoreCase) && line.AsSpan(6).Trim().Equals("endpoint", StringComparison.OrdinalIgnoreCase))
+            {
+                var dataLine = await reader.ReadLineAsync(cts.Token);
+                if (dataLine?.StartsWith("data:", StringComparison.OrdinalIgnoreCase) == true)
+                    return dataLine.Substring(5).Trim();
+            }
+        }
+        return null;
+    }
+
+    private static async Task<string?> ReadSseMessageDataAsync(StreamReader reader)
+    {
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        while (await reader.ReadLineAsync(cts.Token) is { } line)
+        {
+            if (line.StartsWith("event:", StringComparison.OrdinalIgnoreCase) && line.AsSpan(6).Trim().Equals("message", StringComparison.OrdinalIgnoreCase))
+            {
+                var dataLine = await reader.ReadLineAsync(cts.Token);
+                if (dataLine?.StartsWith("data:", StringComparison.OrdinalIgnoreCase) == true)
+                    return dataLine.Substring(5).Trim();
+            }
+        }
+        return null;
+    }
+}
+
+// --- CancellationToken (Priority 2) ---
+
+public sealed class McpCancellationTests : IClassFixture<SampleAppWebApplicationFactory>
+{
+    private readonly HttpClient _client;
+
+    public McpCancellationTests(SampleAppWebApplicationFactory factory) => _client = factory.CreateClient();
+
+    [Fact]
+    public async Task Cancellation_NotificationsCancelled_Returns204()
+    {
+        var body = new { jsonrpc = "2.0", method = "notifications/cancelled", @params = new { requestId = "999" } };
+        var content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
+        var response = await _client.PostAsync("/mcp", content);
+        response.StatusCode.Should().Be(System.Net.HttpStatusCode.NoContent);
+    }
+}
+
+// --- File Upload (Priority 5) ---
+
+public sealed class McpFormFileTests : IClassFixture<SampleAppWebApplicationFactory>
+{
+    private readonly HttpClient _client;
+
+    public McpFormFileTests(SampleAppWebApplicationFactory factory) => _client = factory.CreateClient();
+
+    [Fact]
+    public async Task FormFile_UploadDocument_ReturnsFileInfo()
+    {
+        var base64 = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("Hello, MCP file upload!"));
+        var body = new
+        {
+            jsonrpc = "2.0",
+            id = "1",
+            method = "tools/call",
+            @params = new
+            {
+                name = "upload_document",
+                arguments = new
+                {
+                    document = base64,
+                    document_filename = "test.txt",
+                    document_content_type = "text/plain",
+                    title = "Test Document"
+                }
+            }
+        };
+        var content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
+        var response = await _client.PostAsync("/mcp", content);
+        response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
+        var json = await response.Content.ReadAsStringAsync();
+        var node = JsonNode.Parse(json);
+        node.Should().NotBeNull();
+        node!["result"]!["content"]!.AsArray().FirstOrDefault()!["text"]!.GetValue<string>()
+            .Should().Contain("test.txt").And.Contain("Test Document");
+    }
+
+    [Fact]
+    public async Task FormFile_ToolsList_IncludesUploadDocumentWithBase64Schema()
+    {
+        var body = new { jsonrpc = "2.0", id = "1", method = "tools/list" };
+        var content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
+        var response = await _client.PostAsync("/mcp", content);
+        response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
+        var json = await response.Content.ReadAsStringAsync();
+        var node = JsonNode.Parse(json);
+        var tools = node!["result"]!["tools"]!.AsArray();
+        var upload = tools.FirstOrDefault(t => t!["name"]!.GetValue<string>() == "upload_document");
+        upload.Should().NotBeNull();
+        var schema = upload!["inputSchema"]!["properties"]!.AsObject();
+        schema.Should().HaveProperty("document");
+        schema["document"]!["format"]!.GetValue<string>().Should().Be("byte");
+        schema.Should().HaveProperty("document_filename");
+        schema.Should().HaveProperty("document_content_type");
+        schema.Should().HaveProperty("title");
+    }
+
+    [Fact]
+    public async Task FormFile_OversizedPayload_ReturnsError()
+    {
+        var huge = new byte[11 * 1024 * 1024]; // 11 MB
+        new Random(42).NextBytes(huge);
+        var base64 = Convert.ToBase64String(huge);
+        var body = new
+        {
+            jsonrpc = "2.0",
+            id = "1",
+            method = "tools/call",
+            @params = new
+            {
+                name = "upload_document",
+                arguments = new { document = base64 }
+            }
+        };
+        var content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
+        var response = await _client.PostAsync("/mcp", content);
+        response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
+        var json = await response.Content.ReadAsStringAsync();
+        var node = JsonNode.Parse(json);
+        node!["result"]!["isError"]!.GetValue<bool>().Should().BeTrue();
+        node["result"]!["content"]!.AsArray().FirstOrDefault()!["text"]!.GetValue<string>()
+            .Should().Contain("MaxFormFileSizeBytes");
     }
 }

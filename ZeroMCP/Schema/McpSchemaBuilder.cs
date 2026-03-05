@@ -33,7 +33,7 @@ public sealed class McpSchemaBuilder
         // Route parameters
         foreach (var param in descriptor.RouteParameters)
         {
-            properties[param.Name] = BuildPrimitiveProperty(param.ParameterType, param.Description);
+            properties[param.Name] = BuildPrimitiveProperty(param.ParameterType, param.Description, null);
             // Route params are always required
             required.Add(param.Name);
         }
@@ -41,12 +41,56 @@ public sealed class McpSchemaBuilder
         // Query parameters
         foreach (var param in descriptor.QueryParameters)
         {
-            properties[param.Name] = BuildPrimitiveProperty(param.ParameterType, param.Description);
+            properties[param.Name] = BuildPrimitiveProperty(param.ParameterType, param.Description, param.DefaultValue);
             if (param.IsRequired)
                 required.Add(param.Name);
         }
 
-        // Body: expand its properties inline
+        // Form parameters ([FromForm] string, etc.)
+        foreach (var param in descriptor.FormParameters)
+        {
+            properties[param.Name] = BuildPrimitiveProperty(param.ParameterType, param.Description, param.DefaultValue);
+            if (param.IsRequired)
+                required.Add(param.Name);
+        }
+
+        // Form file parameters (IFormFile, IFormFileCollection) — base64 schema
+        foreach (var param in descriptor.FormFileParameters)
+        {
+            if (param.IsCollection)
+            {
+                properties[param.Name] = new Dictionary<string, object>
+                {
+                    ["type"] = "array",
+                    ["items"] = new Dictionary<string, object>
+                    {
+                        ["type"] = "object",
+                        ["properties"] = new Dictionary<string, object>
+                        {
+                            ["content"] = new Dictionary<string, object> { ["type"] = "string", ["format"] = "byte", ["description"] = "Base64-encoded file content" },
+                            ["filename"] = new Dictionary<string, object> { ["type"] = "string", ["description"] = "Original filename (optional)" },
+                            ["content_type"] = new Dictionary<string, object> { ["type"] = "string", ["description"] = "MIME type (optional)" }
+                        },
+                        ["required"] = new[] { "content" }
+                    },
+                    ["description"] = "Array of files (content: base64, optional filename and content_type)"
+                };
+            }
+            else
+            {
+                properties[param.Name] = new Dictionary<string, object>
+                {
+                    ["type"] = "string",
+                    ["format"] = "byte",
+                    ["description"] = "Base64-encoded file content"
+                };
+                required.Add(param.Name);
+                properties[param.Name + "_filename"] = new Dictionary<string, object> { ["type"] = "string", ["description"] = "Original filename (optional)" };
+                properties[param.Name + "_content_type"] = new Dictionary<string, object> { ["type"] = "string", ["description"] = "MIME type (optional, e.g. application/pdf)" };
+            }
+        }
+
+        // Body: expand its properties inline (only when no form files — form actions use FormParameters + FormFileParameters)
         if (descriptor.Body is not null)
         {
             var bodyProperties = ExtractBodyProperties(descriptor.Body.BodyType, required);
@@ -70,7 +114,7 @@ public sealed class McpSchemaBuilder
         });
     }
 
-    private static Dictionary<string, object> BuildPrimitiveProperty(Type type, string? description)
+    private static Dictionary<string, object> BuildPrimitiveProperty(Type type, string? description, object? defaultValue = null)
     {
         var prop = new Dictionary<string, object>
         {
@@ -79,6 +123,9 @@ public sealed class McpSchemaBuilder
 
         if (description is not null)
             prop["description"] = description;
+
+        if (defaultValue is not null)
+            prop["default"] = defaultValue;
 
         // Handle nullable
         var underlying = Nullable.GetUnderlyingType(type);
