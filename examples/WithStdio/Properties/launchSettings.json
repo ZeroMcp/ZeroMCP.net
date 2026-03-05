@@ -1,0 +1,21 @@
+{
+  "profiles": {
+    "WithStdioExample": {
+      "commandName": "Project",
+      "launchBrowser": false,
+      "commandLineArgs": "--mcp-stdio",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:19936;http://localhost:19937"
+    },
+    "WithStdioExample (HTTP)": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:19936;http://localhost:19937"
+    }
+  }
+}

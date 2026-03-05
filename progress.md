@@ -1,5 +1,12 @@
 # Progress
 
+## 2026-03-05 – WithStdio example
+
+- **examples/WithStdio/** — New example: stdio transport via `--mcp-stdio`, Claude Desktop config, `health_check` and `echo` tools. README with run instructions, claude_desktop_config.json snippets, and manual testing. Added to ZeroMcp.slnx and README examples table.
+  - **launchSettings.json**: Default profile launches with `--mcp-stdio`, `launchBrowser: false`; added "WithStdioExample (HTTP)" profile for HTTP mode with browser.
+
+---
+
 ## 2026-03-05 – Priority 4+5: CancellationToken (complete) and File Upload ([FromForm])
 
 - **Priority 4 (CancellationToken)** — Already implemented; marked plan acceptance criteria complete.

@@ -202,11 +202,12 @@ See [wiki/Tool-Versioning](wiki/Tool-Versioning.md).
 
 ## Examples
 
-The **examples/** folder contains five standalone projects:
+The **examples/** folder contains standalone projects:
 
 | Example | Description |
 |--------|-------------|
 | **Minimal** | Bare-minimum: one controller action, one minimal API, no auth |
+| **WithStdio** | stdio transport: `--mcp-stdio`, Claude Desktop config, JSON-RPC over stdin/stdout |
 | **WithAuth** | API-key auth, role-based tool visibility, `[Authorize]` |
 | **WithEnrichment** | Phase 2 result enrichment, suggested follow-ups, streaming options |
 | **WithRateLimiting** | Phase 4 (Option A): ASP.NET Core rate limiting on the MCP endpoint, 429 + JSON-RPC error |
