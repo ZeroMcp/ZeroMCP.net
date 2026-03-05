@@ -363,12 +363,36 @@ public sealed class McpToolDiscoveryService
     {
         var routeParams = new List<McpParameterDescriptor>();
         var queryParams = new List<McpParameterDescriptor>();
+        var formFileParams = new List<McpFormFileDescriptor>();
+        var formParams = new List<McpParameterDescriptor>();
         McpBodyDescriptor? body = null;
 
         foreach (var param in apiDescription.ParameterDescriptions)
         {
             if (param.Type == typeof(CancellationToken))
                 continue; // Infrastructure parameter; excluded from MCP schema
+            var t = param.Type ?? typeof(object);
+            if (t == typeof(Microsoft.AspNetCore.Http.IFormFile))
+            {
+                formFileParams.Add(new McpFormFileDescriptor { Name = param.Name!, ParameterName = param.Name!, IsCollection = false });
+                continue;
+            }
+            if (t == typeof(Microsoft.AspNetCore.Http.IFormFileCollection))
+            {
+                formFileParams.Add(new McpFormFileDescriptor { Name = param.Name!, ParameterName = param.Name!, IsCollection = true });
+                continue;
+            }
+            if (param.Source.Id == "Form" || param.Source.Id == "FormFile")
+            {
+                formParams.Add(new McpParameterDescriptor
+                {
+                    Name = param.Name!,
+                    ParameterType = t,
+                    IsRequired = param.IsRequired,
+                    Description = param.ModelMetadata?.Description
+                });
+                continue;
+            }
             switch (param.Source.Id)
             {
                 case "Path":
@@ -420,6 +444,8 @@ public sealed class McpToolDiscoveryService
             RouteParameters = routeParams,
             QueryParameters = queryParams,
             Body = body,
+            FormFileParameters = formFileParams,
+            FormParameters = formParams,
             HttpMethod = apiDescription.HttpMethod ?? "GET",
             RelativeUrl = apiDescription.RelativePath ?? string.Empty
         };

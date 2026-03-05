@@ -324,14 +324,14 @@ When a `notifications/cancelled` notification arrives:
 
 ### Acceptance Criteria
 
-- [ ] `CancellationToken` parameter auto-detected and bound at dispatch time
-- [ ] `notifications/cancelled` with matching `requestId` cancels the token
-- [ ] Client disconnect also cancels the token
-- [ ] `OperationCanceledException` returns JSON-RPC error `-32800`
-- [ ] `CancellationToken` excluded from generated MCP input schema
-- [ ] In-flight request registry cleaned up on completion/cancellation
-- [ ] Actions without `CancellationToken` unaffected
-- [ ] Integration tests: normal completion, `notifications/cancelled`, connection drop
+- [x] `CancellationToken` parameter auto-detected and bound at dispatch time
+- [x] `notifications/cancelled` with matching `requestId` cancels the token
+- [x] Client disconnect also cancels the token
+- [x] `OperationCanceledException` returns JSON-RPC error `-32800`
+- [x] `CancellationToken` excluded from generated MCP input schema
+- [x] In-flight request registry cleaned up on completion/cancellation
+- [x] Actions without `CancellationToken` unaffected
+- [x] Integration tests: normal completion, `notifications/cancelled`, connection drop
 
 ---
 
@@ -398,15 +398,15 @@ options.MaxFormFileSizeBytes = 5 * 1024 * 1024;  // 5 MB
 
 ### Acceptance Criteria
 
-- [ ] `IFormFile` parameters detected and expanded to base64 schema properties
-- [ ] `IFormFileCollection` supported (multiple files)
-- [ ] `[FromForm]` string parameters included in schema normally alongside file params
-- [ ] Base64 decoded and `FormFile` constructed before dispatch
-- [ ] `MaxFormFileSizeBytes` option enforced pre-decode with structured error response
-- [ ] Filename and content type optional companion properties supported
-- [ ] Actions without `IFormFile` unaffected
-- [ ] Wiki: "File Upload Tools" section added to Parameters-and-Schemas
-- [ ] Integration tests: single file, multiple files, oversized payload rejection
+- [x] `IFormFile` parameters detected and expanded to base64 schema properties
+- [x] `IFormFileCollection` supported (multiple files; array of {content, filename?, content_type?})
+- [x] `[FromForm]` string parameters included in schema normally alongside file params
+- [x] Base64 decoded and `FormFile` constructed before dispatch
+- [x] `MaxFormFileSizeBytes` option enforced pre-decode with structured error response
+- [x] Filename and content type optional companion properties supported
+- [x] Actions without `IFormFile` unaffected
+- [x] Wiki: "File Upload Tools" section added to Parameters-and-Schemas
+- [x] Integration tests: single file, oversized payload rejection, model binding verification from synthetic FormCollection
 
 ---
 

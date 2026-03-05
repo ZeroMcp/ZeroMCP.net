@@ -137,6 +137,12 @@ public sealed class ZeroMCPOptions
     // --- Legacy SSE Transport (Priority 6) ---
 
     /// <summary>
+    /// Maximum size in bytes for base64-decoded form file content. Enforced before decoding; exceeded payloads return a structured error.
+    /// Default is 10 MB. Set to 0 to disable the limit (not recommended).
+    /// </summary>
+    public long MaxFormFileSizeBytes { get; set; } = 10 * 1024 * 1024;
+
+    /// <summary>
     /// When true, registers GET {RoutePrefix}/sse and POST {RoutePrefix}/messages for the deprecated MCP HTTP+SSE transport (spec 2024-11-05).
     /// Enables backward compatibility with clients that have not migrated to Streamable HTTP.
     /// Default is false. Can also be enabled via <c>MapZeroMCP().WithLegacySseTransport()</c>.

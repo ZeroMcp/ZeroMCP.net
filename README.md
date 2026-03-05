@@ -386,7 +386,7 @@ mcpAPI/
 
 - **Transports** — Streamable HTTP (primary), stdio via `--mcp-stdio`, Legacy SSE opt-in via `WithLegacySseTransport()`. See [wiki/Limitations](wiki/Limitations.md).
 - **Minimal APIs** — supported via `AsMcp`; route params are bound; query/body binding is limited
-- **[FromForm] and file uploads** — not supported; JSON-only body binding
+- **[FromForm] and file uploads** — Supported for `IFormFile`/`IFormFileCollection` via base64; see [Parameters-and-Schemas](wiki/Parameters-and-Schemas.md)
 - **Streaming responses** — `IAsyncEnumerable<T>` and SSE action results are not captured correctly
 - If **CreatedAtAction** or link generation ever fails in your environment, use `return Created(Url.Action(nameof(OtherAction), new { id = entity.Id })!, entity);` as a fallback
 

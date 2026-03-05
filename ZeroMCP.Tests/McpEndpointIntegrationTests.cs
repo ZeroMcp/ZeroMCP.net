@@ -1201,3 +1201,90 @@ public sealed class McpCancellationTests : IClassFixture<SampleAppWebApplication
         response.StatusCode.Should().Be(System.Net.HttpStatusCode.NoContent);
     }
 }
+
+// --- File Upload (Priority 5) ---
+
+public sealed class McpFormFileTests : IClassFixture<SampleAppWebApplicationFactory>
+{
+    private readonly HttpClient _client;
+
+    public McpFormFileTests(SampleAppWebApplicationFactory factory) => _client = factory.CreateClient();
+
+    [Fact]
+    public async Task FormFile_UploadDocument_ReturnsFileInfo()
+    {
+        var base64 = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("Hello, MCP file upload!"));
+        var body = new
+        {
+            jsonrpc = "2.0",
+            id = "1",
+            method = "tools/call",
+            @params = new
+            {
+                name = "upload_document",
+                arguments = new
+                {
+                    document = base64,
+                    document_filename = "test.txt",
+                    document_content_type = "text/plain",
+                    title = "Test Document"
+                }
+            }
+        };
+        var content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
+        var response = await _client.PostAsync("/mcp", content);
+        response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
+        var json = await response.Content.ReadAsStringAsync();
+        var node = JsonNode.Parse(json);
+        node.Should().NotBeNull();
+        node!["result"]!["content"]!.AsArray().FirstOrDefault()!["text"]!.GetValue<string>()
+            .Should().Contain("test.txt").And.Contain("Test Document");
+    }
+
+    [Fact]
+    public async Task FormFile_ToolsList_IncludesUploadDocumentWithBase64Schema()
+    {
+        var body = new { jsonrpc = "2.0", id = "1", method = "tools/list" };
+        var content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
+        var response = await _client.PostAsync("/mcp", content);
+        response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
+        var json = await response.Content.ReadAsStringAsync();
+        var node = JsonNode.Parse(json);
+        var tools = node!["result"]!["tools"]!.AsArray();
+        var upload = tools.FirstOrDefault(t => t!["name"]!.GetValue<string>() == "upload_document");
+        upload.Should().NotBeNull();
+        var schema = upload!["inputSchema"]!["properties"]!.AsObject();
+        schema.Should().HaveProperty("document");
+        schema["document"]!["format"]!.GetValue<string>().Should().Be("byte");
+        schema.Should().HaveProperty("document_filename");
+        schema.Should().HaveProperty("document_content_type");
+        schema.Should().HaveProperty("title");
+    }
+
+    [Fact]
+    public async Task FormFile_OversizedPayload_ReturnsError()
+    {
+        var huge = new byte[11 * 1024 * 1024]; // 11 MB
+        new Random(42).NextBytes(huge);
+        var base64 = Convert.ToBase64String(huge);
+        var body = new
+        {
+            jsonrpc = "2.0",
+            id = "1",
+            method = "tools/call",
+            @params = new
+            {
+                name = "upload_document",
+                arguments = new { document = base64 }
+            }
+        };
+        var content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
+        var response = await _client.PostAsync("/mcp", content);
+        response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
+        var json = await response.Content.ReadAsStringAsync();
+        var node = JsonNode.Parse(json);
+        node!["result"]!["isError"]!.GetValue<bool>().Should().BeTrue();
+        node["result"]!["content"]!.AsArray().FirstOrDefault()!["text"]!.GetValue<string>()
+            .Should().Contain("MaxFormFileSizeBytes");
+    }
+}

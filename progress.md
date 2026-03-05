@@ -1,5 +1,21 @@
 # Progress
 
+## 2026-03-05 – Priority 4+5: CancellationToken (complete) and File Upload ([FromForm])
+
+- **Priority 4 (CancellationToken)** — Already implemented; marked plan acceptance criteria complete.
+- **Priority 5 (File Upload)** — Implemented:
+  - **McpToolDescriptor**: Added `FormFileParameters` (McpFormFileDescriptor) and `FormParameters`; `McpFormFileDescriptor` (Name, ParameterName, IsCollection).
+  - **McpToolDiscoveryService**: Detects `IFormFile` and `IFormFileCollection` by type; `[FromForm]` strings via Source "Form"/"FormFile".
+  - **McpSchemaBuilder**: Emits base64 schema for single file (`{name}`, `{name}_filename`, `{name}_content_type`) and array schema for collections.
+  - **SyntheticHttpContextFactory**: `BuildFormCollection` decodes base64, creates `FormFile`, populates `FormCollection`; sets `IFormFeature` when `FormFileParameters.Count > 0`.
+  - **ZeroMcpOptions**: Added `MaxFormFileSizeBytes` (default 10 MB).
+  - **wiki/Parameters-and-Schemas.md**: Added "File Upload Tools" section.
+  - **wiki/Limitations.md**, **README.md**: Updated [FromForm] to supported.
+  - **plan-for-missing-transport.md**: Marked File Upload acceptance criteria complete (integration tests passing).
+  - **SyntheticHttpContextFactory**: FormFile creation now initializes `Headers = new HeaderDictionary()` and sets `ContentType` so `document.ContentType` does not throw NRE; fixes `FormFile_UploadDocument_ReturnsFileInfo`.
+
+---
+
 ## 2026-03-05 – Priority 6: Legacy SSE Transport (MCP spec 2024-11-05)
 
 - **ZeroMcpOptions**: Added `EnableLegacySseTransport` (default: false).

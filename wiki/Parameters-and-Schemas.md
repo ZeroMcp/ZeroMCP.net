@@ -79,6 +79,48 @@ Body properties are expanded inline with the same DataAnnotations mapping as con
 
 ---
 
+## File Upload Tools (`IFormFile`, `IFormFileCollection`)
+
+Actions that accept `IFormFile` or `IFormFileCollection` can be called by MCP clients passing file content as base64-encoded strings.
+
+### Single file (`IFormFile`)
+
+```csharp
+[HttpPost("upload")]
+[Mcp("upload_document", Description = "Uploads a document.")]
+public IActionResult UploadDocument(IFormFile document, [FromForm] string? title = null) { ... }
+```
+
+MCP schema:
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "document":         { "type": "string", "format": "byte", "description": "Base64-encoded file content" },
+    "document_filename": { "type": "string", "description": "Original filename (optional)" },
+    "document_content_type": { "type": "string", "description": "MIME type (optional)" },
+    "title":            { "type": "string" }
+  },
+  "required": ["document"]
+}
+```
+
+### Multiple files (`IFormFileCollection`)
+
+```csharp
+[Mcp("upload_files", Description = "Uploads multiple files.")]
+public IActionResult UploadFiles(IFormFileCollection files) { ... }
+```
+
+MCP schema: `files` is an array of objects with `content` (base64, required), `filename` (optional), `content_type` (optional).
+
+### Size limit
+
+`MaxFormFileSizeBytes` (default: 10 MB) is enforced before decoding. Exceeded payloads return a structured error.
+
+---
+
 ## Nested and complex types
 
 - Nested object properties are expanded as `object` in the schema.

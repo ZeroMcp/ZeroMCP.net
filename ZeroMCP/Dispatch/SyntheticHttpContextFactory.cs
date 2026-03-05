@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Primitives;
 using ZeroMCP.Discovery;
 using ZeroMCP.Options;
 using ZeroMCP.Transport;
@@ -52,6 +53,15 @@ public sealed class SyntheticHttpContextFactory
         features.Set<IHttpResponseBodyFeature>(new StreamResponseBodyFeature(new MemoryStream()));
         features.Set<IServiceProvidersFeature>(new SyntheticRequestServicesFeature(scope.ServiceProvider));
         features.Set<IItemsFeature>(new ItemsFeature());
+
+        // Pre-build form when we have FormFile params so FormFeature is set before context creation
+        if (descriptor.FormFileParameters.Count > 0)
+        {
+            var (formCollection, formError) = BuildFormCollection(descriptor, args);
+            if (formError is not null)
+                throw new ArgumentException(formError);
+            features.Set<IFormFeature>(new FormFeature(formCollection!));
+        }
 
         var context = new DefaultHttpContext(features);
         context.RequestServices = scope.ServiceProvider;
@@ -111,8 +121,13 @@ public sealed class SyntheticHttpContextFactory
             context.Request.QueryString = new QueryString("?" + string.Join("&", queryParts));
         }
 
-        // Bind body — collect all non-route, non-query args and serialize as JSON body
-        if (descriptor.Body is not null)
+        // Bind form (files + form fields) or body (JSON)
+        if (descriptor.FormFileParameters.Count > 0)
+        {
+            context.Request.ContentType = "multipart/form-data";
+            context.Request.Body = new MemoryStream(); // Some pipeline code expects non-null body
+        }
+        else if (descriptor.Body is not null)
         {
             var bodyArgs = new Dictionary<string, JsonElement>();
 
@@ -174,6 +189,67 @@ public sealed class SyntheticHttpContextFactory
             context.User = sourceContext.User;
 
         return context;
+    }
+
+    private (FormCollection? form, string? error) BuildFormCollection(McpToolDescriptor descriptor, IReadOnlyDictionary<string, JsonElement> args)
+    {
+        var fields = new Dictionary<string, StringValues>(StringComparer.OrdinalIgnoreCase);
+        var files = new List<IFormFile>();
+
+        foreach (var param in descriptor.FormParameters)
+        {
+            if (args.TryGetValue(param.Name, out var value))
+                fields[param.Name] = ExtractStringValue(value);
+        }
+
+        var maxBytes = _options.MaxFormFileSizeBytes;
+        if (maxBytes <= 0) maxBytes = long.MaxValue;
+
+        foreach (var param in descriptor.FormFileParameters)
+        {
+            if (param.IsCollection)
+            {
+                if (!args.TryGetValue(param.Name, out var arrEl) || arrEl.ValueKind != JsonValueKind.Array)
+                    continue;
+                foreach (var item in arrEl.EnumerateArray())
+                {
+                    if (item.ValueKind != JsonValueKind.Object) continue;
+                    var content = item.TryGetProperty("content", out var c) ? c.GetString() : null;
+                    if (string.IsNullOrEmpty(content)) continue;
+                    var decoded = Convert.FromBase64String(content);
+                    if (decoded.LongLength > maxBytes)
+                        return (null, $"File '{param.Name}' exceeds MaxFormFileSizeBytes ({_options.MaxFormFileSizeBytes} bytes)");
+                    var filename = item.TryGetProperty("filename", out var fn) ? fn.GetString() ?? "file" : "file";
+                    var contentType = item.TryGetProperty("content_type", out var ct) ? ct.GetString() ?? "application/octet-stream" : "application/octet-stream";
+                    var stream = new MemoryStream(decoded);
+                    var ff = new FormFile(stream, 0, stream.Length, param.ParameterName, filename) { Headers = new HeaderDictionary() };
+                    ff.Headers.ContentType = contentType;
+                    files.Add(ff);
+                }
+            }
+            else
+            {
+                if (!args.TryGetValue(param.Name, out var base64El))
+                    continue;
+                var base64 = base64El.GetString();
+                if (string.IsNullOrEmpty(base64)) continue;
+                var decoded = Convert.FromBase64String(base64);
+                if (decoded.LongLength > maxBytes)
+                    return (null, $"File '{param.Name}' exceeds MaxFormFileSizeBytes ({_options.MaxFormFileSizeBytes} bytes)");
+                var filename = args.TryGetValue(param.Name + "_filename", out var fnEl) ? fnEl.GetString() ?? "file" : "file";
+                var contentType = args.TryGetValue(param.Name + "_content_type", out var ctEl) ? ctEl.GetString() ?? "application/octet-stream" : "application/octet-stream";
+                var stream = new MemoryStream(decoded);
+                var ff = new FormFile(stream, 0, stream.Length, param.ParameterName, filename) { Headers = new HeaderDictionary() };
+                ff.Headers.ContentType = contentType;
+                files.Add(ff);
+            }
+        }
+
+        var formFiles = new FormFileCollection();
+        foreach (var f in files)
+            formFiles.Add(f);
+
+        return (new FormCollection(fields, formFiles), null);
     }
 
     private static string ExtractStringValue(JsonElement element) => element.ValueKind switch

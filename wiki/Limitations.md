@@ -20,7 +20,7 @@ Known limitations and workarounds.
 
 ## Body and uploads
 
-- **[FromForm] and file uploads** — Not supported; JSON-only body binding for tool calls.
+- **[FromForm] and file uploads** — Supported for `IFormFile` and `IFormFileCollection`: clients pass base64-encoded content; ZeroMCP reconstructs `FormFile` before dispatch. See [Parameters and Schemas](Parameters-and-Schemas) (File Upload Tools). Size limit: `MaxFormFileSizeBytes` (default 10 MB).
 - **Streaming responses** — **IAsyncEnumerable&lt;T&gt;** and SSE action results from the action are not captured as a live stream. When **EnableStreamingToolResults** is true, the (buffered) response body is split into chunks (chunkIndex, isFinal, text) in a single JSON response for streaming-aware clients.
 
 ---

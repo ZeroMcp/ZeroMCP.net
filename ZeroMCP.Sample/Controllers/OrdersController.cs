@@ -81,6 +81,17 @@ public class OrdersController : ControllerBase
         return Created($"/api/orders/{order.Id}", order);
     }
 
+    [HttpPost("upload")]
+    [Mcp("upload_document", Description = "Uploads a document. Accepts base64-encoded content via MCP.", Tags = ["write"])]
+    public ActionResult<object> UploadDocument(IFormFile document, [FromForm] string? title = null)
+    {
+        if (document == null)
+            return BadRequest(new { error = "Document is required" });
+        if (document.Length == 0)
+            return BadRequest(new { error = "Empty file" });
+        return Ok(new { filename = document.FileName, size = document.Length, contentType = document.ContentType ?? "application/octet-stream", title = title ?? "untitled" });
+    }
+
     [HttpPatch("{id:int}/status")]
     [Mcp("update_order_status", Description = "Updates the status of an existing order.")]
     public ActionResult<Order> UpdateStatus(int id, [FromBody] UpdateStatusRequest request)
