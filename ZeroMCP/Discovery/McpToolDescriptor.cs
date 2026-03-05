@@ -35,6 +35,9 @@ public sealed class McpToolDescriptor
     /// <summary>When set, tool is only visible in tools/list if the user satisfies this authorization policy.</summary>
     public string? RequiredPolicy { get; init; }
 
+    /// <summary>When set, tool is only exposed on the versioned endpoint /mcp/v{Version}. Null means the tool appears on all version endpoints.</summary>
+    public int? Version { get; init; }
+
     /// <summary>The full ApiDescription for this action (route, HTTP method, params). Null for minimal API endpoints.</summary>
     public ApiDescription? ApiDescription { get; init; }
 

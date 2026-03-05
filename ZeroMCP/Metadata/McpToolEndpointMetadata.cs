@@ -16,6 +16,7 @@ public sealed class McpToolEndpointMetadata
     public string? Category { get; }
     public string[]? Examples { get; }
     public string[]? Hints { get; }
+    public int? Version { get; }
 
     public McpToolEndpointMetadata(
         string name,
@@ -25,7 +26,8 @@ public sealed class McpToolEndpointMetadata
         string? policy = null,
         string? category = null,
         string[]? examples = null,
-        string[]? hints = null)
+        string[]? hints = null,
+        int? version = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         Name = name;
@@ -36,5 +38,6 @@ public sealed class McpToolEndpointMetadata
         Category = category;
         Examples = examples;
         Hints = hints;
+        Version = version;
     }
 }

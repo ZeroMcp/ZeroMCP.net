@@ -1,5 +1,19 @@
 # Progress
 
+## 2026-03-05 – Tool versioning via versioned MCP endpoints
+
+- **Model:** `McpToolAttribute.Version` (int, 0 = unversioned), `McpToolEndpointMetadata.Version`, `McpToolDescriptor.Version`, `ZeroMcpOptions.DefaultVersion`, `AsMcp(..., version: null)`.
+- **Discovery:** `McpToolDiscoveryService` refactored to `ToolRegistry` with version buckets; `GetToolsForVersion`, `GetToolsForDefaultEndpoint`, `GetTool(name, version)`, per-version duplicate detection.
+- **Handlers:** `McpToolHandler` and `McpHttpEndpointHandler` accept endpoint version and available versions; inspector payload includes `version`, `availableVersions`, per-tool `version`.
+- **Routing:** `MapZeroMCP` registers `/mcp/v{n}`, `/mcp/v{n}/tools`, `/mcp/v{n}/ui` when versioned tools exist; single `/mcp` when not.
+- **Inspector UI:** Version selector in topbar, version badges on tools, correct invoke/fetch targets for versioned endpoints.
+- **Sample:** Versioned `get_order` v1/v2 in OrdersController; unversioned and versioned `health_check` in Program.cs.
+- **Tests:** `McpVersioningTests` for v1/v2/404, default, inspector JSON/UI, tools/call scoped to version. All 55 tests pass.
+- **Docs:** New [wiki/Tool-Versioning](wiki/Tool-Versioning.md); Configuration (DefaultVersion), The-Mcp-Attribute (Version), Tool-Inspector-UI (version selector, badges), Controllers-and-Minimal-APIs (version param), Migration-Guide (no migration), Limitations (integer versions), README (Tool Versioning section), plan-phase4.md (versioning complete).
+- **Bug fix (EnforceAuthorizationAsync):** When `descriptor.Endpoint` is null (common for controller actions), `[Authorize]` was not enforced because `authorizeData` was empty. Fixed by falling back to reflection on `ControllerActionDescriptor.MethodInfo` and controller type for `[Authorize]`/`[AllowAnonymous]` attributes. Also fixed test header format (`Authorization: Bearer INVALID` instead of `Bearer: INVALID`) and `CreateOrder` to use explicit URL for `Created()`.
+
+---
+
 ## 2026-03-04 – Pipeline build fix (Linux case-sensitivity)
 
 - **ZeroMCP/ZeroMCP.csproj** — Set **EnableDefaultCompileItems** to **false** and added explicit **Compile Include** for every .cs file (root and subfolders **Ui**, **Observability**, **Metadata**). On Linux the default glob can fail to include subfolders or respect casing; explicit includes ensure **ZeroMCP.Options**, **ZeroMCP.Ui**, and **ZeroMCP.Transport** are always compiled. If the pipeline then fails with "file not found", ensure repo folder names match exactly: **Ui**, **Observability**, **Metadata** (e.g. `git mv ui Ui` if needed).

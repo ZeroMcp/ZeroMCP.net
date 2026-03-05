@@ -174,6 +174,18 @@ Set **EnableToolInspector** or **EnableToolInspectorUI** to `false` to disable t
 
 ---
 
+## Tool Versioning
+
+You can expose tools on versioned endpoints so clients can target a specific API version. Use **Version** on **`[Mcp]`** or **`.AsMcp(..., version: n)`** for tools that differ by version; leave **Version** unset for tools that appear on all versions.
+
+- **Without versioning** — Only **/mcp**, **/mcp/tools**, and **/mcp/ui** are registered (unchanged behaviour).
+- **With versioning** — For each version (e.g. 1, 2) you get **/mcp/v1**, **/mcp/v2**, plus **/mcp/v1/tools**, **/mcp/v2/ui**, etc. The unversioned **/mcp** resolves to the highest version (or **DefaultVersion** in options).
+- **Inspector** — The UI shows a version selector and version badges on tools when multiple versions exist.
+
+See [wiki/Tool-Versioning](wiki/Tool-Versioning.md).
+
+---
+
 ## Examples
 
 The **examples/** folder contains five standalone projects:
@@ -208,7 +220,7 @@ Run any example with `dotnet run` from its folder. See each project's **README.m
 ### Placement rules
 
 - **Per-action only** — `[Mcp]` goes on individual action methods, not controllers
-- **One name per application** — duplicate names are logged as warnings and skipped
+- **One name per version** — duplicate names within the same version are logged and skipped; the same name in different versions (e.g. `get_order` in v1 and v2) is allowed. Without versioning, one name per application.
 - **Any HTTP method** — GET, POST, PATCH, DELETE all work
 - **Description** — If you omit `Description`, ZeroMCP uses the method's XML doc `<summary>` when available.
 

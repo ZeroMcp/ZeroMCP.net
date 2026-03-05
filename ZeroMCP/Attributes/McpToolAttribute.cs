@@ -53,6 +53,12 @@ public sealed class McpAttribute : Attribute
     /// </summary>
     public string? Policy { get; set; }
 
+    /// <summary>
+    /// Optional version number. When set to a value greater than 0, the tool is exposed only on the versioned endpoint /mcp/v{Version}.
+    /// When 0 or not set, the tool appears on all version endpoints. Use 1, 2, etc. for versioned tools.
+    /// </summary>
+    public int Version { get; set; }
+
     /// <param name="name">The tool name in snake_case (e.g. "get_order", "create_customer")</param>
     public McpAttribute(string name)
     {

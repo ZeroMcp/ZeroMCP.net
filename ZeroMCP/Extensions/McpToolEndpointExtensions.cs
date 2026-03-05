@@ -21,6 +21,7 @@ public static class McpToolEndpointExtensions
     /// <param name="category">Optional primary category for this tool (e.g. \"orders\", \"customers\", \"system\").</param>
     /// <param name="examples">Optional free-form usage examples for this tool.</param>
     /// <param name="hints">Optional AI-facing hints or metadata strings.</param>
+    /// <param name="version">Optional version number; tool is exposed only on /mcp/v{version}. Null means the tool appears on all version endpoints.</param>
     public static TBuilder AsMcp<TBuilder>(
         this TBuilder builder,
         string name,
@@ -30,12 +31,13 @@ public static class McpToolEndpointExtensions
         string? policy = null,
         string? category = null,
         string[]? examples = null,
-        string[]? hints = null)
+        string[]? hints = null,
+        int? version = null)
         where TBuilder : IEndpointConventionBuilder
     {
         builder.Add(endpointBuilder =>
         {
-            endpointBuilder.Metadata.Add(new McpToolEndpointMetadata(name, description, tags, roles, policy, category, examples, hints));
+            endpointBuilder.Metadata.Add(new McpToolEndpointMetadata(name, description, tags, roles, policy, category, examples, hints, version));
         });
         return builder;
     }

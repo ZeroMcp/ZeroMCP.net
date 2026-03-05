@@ -46,6 +46,7 @@ app.MapGet("/api/health", () => Results.Ok(new { status = "ok" }))
 - **Hints** (optional) — AI-facing hint strings.
 - **Roles** (optional) — Only list tool if user is in one of these roles.
 - **Policy** (optional) — Only list tool if authorization policy succeeds.
+- **Version** (optional) — When set to a value &gt; 0, the tool is exposed only on **/mcp/v{Version}**. When null or not set, the tool appears on all version endpoints. See [Tool Versioning](Tool-Versioning).
 
 Discovery uses **EndpointDataSource**. Route parameters on minimal APIs are supported; query/body binding is limited to what the route pattern exposes.
 

@@ -38,6 +38,13 @@ How to upgrade from earlier phases of ZeroMCP (e.g. Phase 1 to Phase 2) and hand
 
 ---
 
+## Tool versioning (Phase 4)
+
+- **No migration required** — If you do not use the **Version** property on **`[Mcp]`** or **`.AsMcp(...)`**, behaviour is unchanged: only **/mcp** (and **/mcp/tools**, **/mcp/ui**) are registered. Versioning is opt-in.
+- **Adding versioning** — Set **Version = 1**, **Version = 2**, etc. on tools that differ between versions; leave **Version** unset (or 0) for tools that appear on all versions. See [Tool Versioning](Tool-Versioning).
+
+---
+
 ## General upgrade checklist
 
 1. **Pull latest** — Ensure you have the target version of ZeroMCP.

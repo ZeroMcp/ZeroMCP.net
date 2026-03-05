@@ -117,6 +117,12 @@ public sealed class ZeroMCPOptions
     /// The UI lists tools, shows input schemas, and lets you invoke tools/call from the browser. Default is true.
     /// </summary>
     public bool EnableToolInspectorUI { get; set; } = true;
+
+    /// <summary>
+    /// When set, the unversioned /mcp endpoint resolves to this version instead of the highest registered version.
+    /// Default: null (auto = highest registered version). Useful during migration to control when clients get bumped.
+    /// </summary>
+    public int? DefaultVersion { get; set; }
 }
 
 /// <summary>Suggested follow-up tool and rationale for AI clients.</summary>

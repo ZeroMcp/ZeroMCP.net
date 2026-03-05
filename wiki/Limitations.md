@@ -36,6 +36,12 @@ Known limitations and workarounds.
 
 ---
 
+## Tool versioning
+
+- **Integer versions only** — Only integer version numbers (e.g. 1, 2) are supported. Date-based or string versions may be added in a future release. See [Tool Versioning](Tool-Versioning).
+
+---
+
 ## Tool inspector
 
 - **GET /mcp/tools** returns all *registered* tools (subject to **ToolFilter** only). It does not apply per-request visibility (roles, policy, **ToolVisibilityFilter**). In production, disable **EnableToolInspector** or protect the route if the list is sensitive. See [Enterprise Usage](Enterprise-Usage) and [Security Model](Security-Model).

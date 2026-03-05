@@ -75,6 +75,17 @@ This document breaks Phase 4 from [plan.md](plan.md) into concrete tasks, option
 2. Update UI and docs.
 3. Add optional alias/redirect if time permits.
 
+### 2.4 Tool versioning via versioned MCP endpoints (completed)
+
+Tool versioning was implemented via **versioned MCP endpoints** (see separate plan: versioned `/mcp/v1`, `/mcp/v2`, etc.). Summary:
+
+- **Attribute:** `[Mcp(..., Version = 1)]` (integer; 0 or omitted = unversioned). Same on `.AsMcp(..., version: 1)`.
+- **Routing:** When any versioned tools exist, routes `/mcp/v{n}`, `/mcp/v{n}/tools`, `/mcp/v{n}/ui` are registered per version; unversioned `/mcp` resolves to highest (or **DefaultVersion** in options).
+- **Discovery:** Tools grouped into version buckets; unversioned tools appear on all version endpoints; duplicate names allowed across versions, not within a version.
+- **Inspector:** JSON includes `version` and `availableVersions`; UI has version selector and version badges. Docs: [wiki/Tool-Versioning](wiki/Tool-Versioning.md).
+
+Deprecation and string versions remain as future work.
+
 ---
 
 ## 3. Security Hardening
