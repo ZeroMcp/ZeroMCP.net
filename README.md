@@ -94,6 +94,7 @@ Then configure Claude Desktop with `"command": "dotnet", "args": ["run", "--proj
 - **GET /mcp/tools** — (Phase 3) JSON list of all registered tools and their schemas (when **EnableToolInspector** is true). Use for debugging or tooling.
 - **GET /mcp/ui** — (Phase 3) Swagger-like test invocation UI: list tools, view schemas, invoke tools from the browser (when **EnableToolInspectorUI** is true).
 - **POST /mcp** — JSON-RPC (`initialize`, `tools/list`, `tools/call`).
+- **Legacy SSE** — Opt-in: `app.MapZeroMCP().WithLegacySseTransport()` adds GET `/mcp/sse` and POST `/mcp/messages` for MCP spec 2024-11-05 clients.
 
 For **versioning and breaking-change policy**, see [VERSIONING.md](VERSIONING.md).
 
@@ -383,7 +384,7 @@ mcpAPI/
 
 ## Known Limitations
 
-- **Streamable HTTP only** — stdio and SSE transports are not supported
+- **Transports** — Streamable HTTP (primary), stdio via `--mcp-stdio`, Legacy SSE opt-in via `WithLegacySseTransport()`. See [wiki/Limitations](wiki/Limitations.md).
 - **Minimal APIs** — supported via `AsMcp`; route params are bound; query/body binding is limited
 - **[FromForm] and file uploads** — not supported; JSON-only body binding
 - **Streaming responses** — `IAsyncEnumerable<T>` and SSE action results are not captured correctly
@@ -411,5 +412,4 @@ Integration and schema tests cover JSON-RPC validation and errors, model binding
 
 PRs welcome. The most impactful next additions would be:
 
-1. SSE transport support
-2. Richer minimal API parameter binding (query/body from route delegate)
+1. Richer minimal API parameter binding (query/body from route delegate)

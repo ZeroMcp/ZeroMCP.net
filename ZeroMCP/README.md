@@ -74,6 +74,7 @@ Point any MCP client (e.g. Claude Desktop) at your app’s `/mcp` URL.
 | `StreamingChunkSize` | `4096` | Chunk size when streaming enabled |
 | `EnableToolInspector` | `true` | GET {RoutePrefix}/tools returns full tool list as JSON |
 | `EnableToolInspectorUI` | `true` | GET {RoutePrefix}/ui serves Swagger-like test invocation UI |
+| `EnableLegacySseTransport` | `false` | Add GET /mcp/sse and POST /mcp/messages for MCP spec 2024-11-05 clients |
 
 Set `EnableToolInspector` or `EnableToolInspectorUI` to `false` to disable the JSON endpoint or the UI (e.g. in production if the list is sensitive). The sample app uses `builder.Environment.IsDevelopment()` to enable them only in Development.
 

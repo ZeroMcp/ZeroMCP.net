@@ -71,7 +71,7 @@ app.MapPost("/api/orders/minimal", (CreateOrderRequest req) =>
     return Results.Created($"/api/orders/{order.Id}", order);
 }).AsMcp("create_order_minimal", "Creates a new order. Returns the created order with its assigned ID.", tags: new[] { "write" });
 
-app.MapZeroMCP();
+app.MapZeroMCP().WithLegacySseTransport();
 
 // stdio transport: when launched with --mcp-stdio, run JSON-RPC over stdin/stdout (Claude Desktop, Claude Code)
 if (args.Contains("--mcp-stdio"))

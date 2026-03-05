@@ -1,5 +1,18 @@
 # Progress
 
+## 2026-03-05 – Priority 6: Legacy SSE Transport (MCP spec 2024-11-05)
+
+- **ZeroMcpOptions**: Added `EnableLegacySseTransport` (default: false).
+- **McpLegacySseEndpointHandler**: New handler for GET `/mcp/sse` (creates session, sends `endpoint` event with `/mcp/messages?sessionId=` URL, holds SSE connection) and POST `/mcp/messages?sessionId=` (routes JSON-RPC via `McpHttpEndpointHandler`, writes response as SSE `message` event). Session store: `ConcurrentDictionary<string, SseSession>` with `Channel<string>` and `CancellationTokenSource`; cleanup on `RequestAborted`.
+- **ZeroMcpEndpointBuilder** / **ZeroMcpEndpointBuilderExtensions**: `MapZeroMCP` returns builder; `WithLegacySseTransport()` adds SSE endpoints when opted in.
+- **ServiceCollectionExtensions**: Registers `McpLegacySseEndpointHandler` as singleton.
+- **Sample Program.cs**: Uses `WithLegacySseTransport()`.
+- **Integration tests**: `McpLegacySseTests` — `LegacySse_GetSse_ReturnsEndpointEvent`, `LegacySse_InitializeAndToolsList_WorkOverSse`.
+- **wiki/Limitations.md**: Documented Legacy SSE opt-in and horizontal scale limitation.
+- **plan-for-missing-transport.md**: Marked Legacy SSE acceptance criteria complete.
+
+---
+
 ## 2026-03-05 – Priority 3: Minimal API Query and Body Binding Parity
 
 - **McpToolDiscoveryService**: `BuildMinimalApiDescriptor` now matches minimal API endpoints to `ApiDescription` (from `AddEndpointsApiExplorer`) by RelativePath and HttpMethod; extracts Query and Body from `ParameterDescriptions` (Source.Id: Query, Body), same as controller actions.

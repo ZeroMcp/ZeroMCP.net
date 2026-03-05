@@ -188,14 +188,14 @@ Because SSE sessions are held in process memory, this transport does not scale h
 
 ### Acceptance Criteria
 
-- [ ] `WithLegacySseTransport()` extension and `EnableLegacySseTransport` option
-- [ ] `GET /mcp/sse` returns valid SSE stream with `endpoint` event
-- [ ] `POST /mcp/messages?sessionId=` routes correctly and returns response on SSE stream
-- [ ] Auth (`ForwardHeaders`, `RequireAuthorization`) works on SSE endpoints
-- [ ] Session cleanup on client disconnect
-- [ ] Horizontal scale limitation documented in wiki
-- [ ] `tools/list` and `tools/call` verified working against a real SSE client
-- [ ] Streamable HTTP transport unaffected
+- [x] `WithLegacySseTransport()` extension and `EnableLegacySseTransport` option
+- [x] `GET /mcp/sse` returns valid SSE stream with `endpoint` event
+- [x] `POST /mcp/messages?sessionId=` routes correctly and returns response on SSE stream
+- [x] Auth (`ForwardHeaders`, `RequireAuthorization`) works on SSE endpoints (same middleware chain)
+- [x] Session cleanup on client disconnect
+- [x] Horizontal scale limitation documented in wiki
+- [x] `tools/list` and `tools/call` verified working against a real SSE client (integration tests)
+- [x] Streamable HTTP transport unaffected
 
 ---
 

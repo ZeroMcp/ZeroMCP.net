@@ -6,7 +6,8 @@ Known limitations and workarounds.
 
 ## Transport
 
-- **Streamable HTTP only** — stdio and SSE transports are not supported. Only the MCP Streamable HTTP transport (GET/POST `/mcp`) is implemented.
+- **Streamable HTTP** — Primary transport: GET/POST `/mcp`. stdio is supported via `RunMcpStdioAsync()` and `--mcp-stdio`.
+- **Legacy SSE (opt-in)** — When `WithLegacySseTransport()` or `EnableLegacySseTransport` is enabled, GET `/mcp/sse` and POST `/mcp/messages` provide backward compatibility with MCP spec 2024-11-05 clients. **Horizontal scale limitation:** SSE sessions are held in process memory; use sticky sessions or Streamable HTTP for multi-instance deployments.
 
 ---
 

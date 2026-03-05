@@ -133,6 +133,19 @@ public sealed class ZeroMCPOptions
     /// When null, User is unauthenticated. ForwardHeaders is a no-op in stdio mode.
     /// </summary>
     public ClaimsPrincipal? StdioIdentity { get; set; }
+
+    // --- Legacy SSE Transport (Priority 6) ---
+
+    /// <summary>
+    /// When true, registers GET {RoutePrefix}/sse and POST {RoutePrefix}/messages for the deprecated MCP HTTP+SSE transport (spec 2024-11-05).
+    /// Enables backward compatibility with clients that have not migrated to Streamable HTTP.
+    /// Default is false. Can also be enabled via <c>MapZeroMCP().WithLegacySseTransport()</c>.
+    /// </summary>
+    /// <remarks>
+    /// SSE sessions are held in process memory; does not scale horizontally without sticky sessions.
+    /// Use Streamable HTTP for horizontal scale.
+    /// </remarks>
+    public bool EnableLegacySseTransport { get; set; }
 }
 
 /// <summary>Suggested follow-up tool and rationale for AI clients.</summary>

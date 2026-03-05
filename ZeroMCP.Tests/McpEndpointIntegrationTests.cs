@@ -1092,6 +1092,98 @@ public sealed class McpStdioTests : IClassFixture<SampleAppWebApplicationFactory
     }
 }
 
+// --- Legacy SSE Transport (Priority 6) ---
+
+public sealed class McpLegacySseTests : IClassFixture<SampleAppWebApplicationFactory>
+{
+    private readonly HttpClient _client;
+
+    public McpLegacySseTests(SampleAppWebApplicationFactory factory) => _client = factory.CreateClient();
+
+    [Fact]
+    public async Task LegacySse_GetSse_ReturnsEndpointEvent()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/mcp/sse");
+        using var response = await _client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
+        response.EnsureSuccessStatusCode();
+        response.Content.Headers.ContentType?.MediaType.Should().Be("text/event-stream");
+
+        await using var stream = await response.Content.ReadAsStreamAsync();
+        using var reader = new StreamReader(stream);
+        var endpointData = await ReadSseEndpointDataAsync(reader);
+        endpointData.Should().NotBeNullOrWhiteSpace();
+        endpointData.Should().Contain("sessionId=");
+        endpointData.Should().Contain("/mcp/messages");
+    }
+
+    [Fact]
+    public async Task LegacySse_InitializeAndToolsList_WorkOverSse()
+    {
+        // 1. Connect to SSE
+        using var sseRequest = new HttpRequestMessage(HttpMethod.Get, "/mcp/sse");
+        using var sseResponse = await _client.SendAsync(sseRequest, HttpCompletionOption.ResponseHeadersRead);
+        sseResponse.EnsureSuccessStatusCode();
+
+        await using var sseStream = await sseResponse.Content.ReadAsStreamAsync();
+        using var sseReader = new StreamReader(sseStream);
+        var messagesPath = await ReadSseEndpointDataAsync(sseReader);
+        messagesPath.Should().NotBeNullOrWhiteSpace();
+
+        // 2. POST initialize to messages endpoint
+        var initBody = JsonSerializer.Serialize(new
+        {
+            jsonrpc = "2.0",
+            id = 1,
+            method = "initialize",
+            @params = new { protocolVersion = McpProtocolConstants.ProtocolVersion, clientInfo = new { name = "test", version = "1.0" } }
+        });
+        var messagesUrl = messagesPath.StartsWith("/") ? messagesPath : "/" + messagesPath;
+        using var postRequest = new HttpRequestMessage(HttpMethod.Post, messagesUrl)
+        {
+            Content = new StringContent(initBody, Encoding.UTF8, "application/json")
+        };
+        var postResponse = await _client.SendAsync(postRequest);
+        postResponse.EnsureSuccessStatusCode();
+
+        // 3. Read message event from SSE stream (response comes back on the held connection)
+        var messageData = await ReadSseMessageDataAsync(sseReader);
+        messageData.Should().NotBeNullOrWhiteSpace();
+        var responseObj = JsonNode.Parse(messageData)!.AsObject();
+        responseObj.Should().HaveProperty("result");
+        responseObj["result"]!.AsObject()["serverInfo"]!.AsObject()["name"]!.GetValue<string>().Should().Be("Orders API");
+    }
+
+    private static async Task<string?> ReadSseEndpointDataAsync(StreamReader reader)
+    {
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        while (await reader.ReadLineAsync(cts.Token) is { } line)
+        {
+            if (line.StartsWith("event:", StringComparison.OrdinalIgnoreCase) && line.AsSpan(6).Trim().Equals("endpoint", StringComparison.OrdinalIgnoreCase))
+            {
+                var dataLine = await reader.ReadLineAsync(cts.Token);
+                if (dataLine?.StartsWith("data:", StringComparison.OrdinalIgnoreCase) == true)
+                    return dataLine.Substring(5).Trim();
+            }
+        }
+        return null;
+    }
+
+    private static async Task<string?> ReadSseMessageDataAsync(StreamReader reader)
+    {
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        while (await reader.ReadLineAsync(cts.Token) is { } line)
+        {
+            if (line.StartsWith("event:", StringComparison.OrdinalIgnoreCase) && line.AsSpan(6).Trim().Equals("message", StringComparison.OrdinalIgnoreCase))
+            {
+                var dataLine = await reader.ReadLineAsync(cts.Token);
+                if (dataLine?.StartsWith("data:", StringComparison.OrdinalIgnoreCase) == true)
+                    return dataLine.Substring(5).Trim();
+            }
+        }
+        return null;
+    }
+}
+
 // --- CancellationToken (Priority 2) ---
 
 public sealed class McpCancellationTests : IClassFixture<SampleAppWebApplicationFactory>
