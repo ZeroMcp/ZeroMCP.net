@@ -26,17 +26,21 @@ internal sealed class McpHttpEndpointHandler
     private readonly McpToolHandler _toolHandler;
     private readonly ZeroMCPOptions _options;
     private readonly ILogger<McpHttpEndpointHandler> _logger;
+    private readonly int? _endpointVersion;
+    private readonly IReadOnlyList<int> _availableVersions;
 
     public McpHttpEndpointHandler(
         McpToolHandler toolHandler,
         ZeroMCPOptions options,
-        ILogger<McpHttpEndpointHandler> logger)
+        ILogger<McpHttpEndpointHandler> logger,
+        int? endpointVersion = null,
+        IReadOnlyList<int>? availableVersions = null)
     {
         _toolHandler = toolHandler;
-      //  _serverName = options.ServerName;
-      //  _serverVersion = options.ServerVersion;
         _options = options;
         _logger = logger;
+        _endpointVersion = endpointVersion;
+        _availableVersions = availableVersions ?? [];
     }
 
     public async Task HandleAsync(HttpContext context)
@@ -123,7 +127,7 @@ internal sealed class McpHttpEndpointHandler
                     "initialize" => HandleInitialize(@params),
                     "notifications/initialized" => null, // fire and forget, no response
                     "tools/list" => await HandleToolsListAsync(context),
-                    "tools/call" => await HandleToolsCallAsync(@params, context),
+                    "tools/call" => await HandleToolsCallAsync(@params, context, _endpointVersion),
                     _ => throw new McpMethodNotFoundException($"Method not found: {method}")
                 };
 
@@ -160,7 +164,7 @@ internal sealed class McpHttpEndpointHandler
     /// </summary>
     public async Task HandleToolsInspectorAsync(HttpContext context)
     {
-        var payload = _toolHandler.GetInspectorPayload();
+        var payload = _toolHandler.GetInspectorPayload(_endpointVersion, _availableVersions.Count > 0 ? _availableVersions : null);
         context.Response.ContentType = "application/json";
         context.Response.StatusCode = 200;
         await context.Response.WriteAsync(JsonSerializer.Serialize(payload, new JsonSerializerOptions
@@ -194,7 +198,7 @@ internal sealed class McpHttpEndpointHandler
 
     private async Task<object> HandleToolsListAsync(HttpContext context)
     {
-        var list = await _toolHandler.GetToolDefinitionsAsync(context, context.RequestAborted);
+        var list = await _toolHandler.GetToolDefinitionsAsync(context, context.RequestAborted, _endpointVersion);
         var tools = list.Select(t =>
         {
             // MCP standard: name, description, inputSchema. Phase 2: optional category, tags, examples, hints
@@ -213,7 +217,7 @@ internal sealed class McpHttpEndpointHandler
         return new { tools };
     }
 
-    private async Task<object> HandleToolsCallAsync(JsonElement @params, HttpContext httpContext)
+    private async Task<object> HandleToolsCallAsync(JsonElement @params, HttpContext httpContext, int? endpointVersion)
     {
         if (@params.ValueKind == JsonValueKind.Undefined)
             throw new McpInvalidParamsException("tools/call requires params");
@@ -231,7 +235,7 @@ internal sealed class McpHttpEndpointHandler
                 args[prop.Name] = prop.Value;
         }
 
-        var result = await _toolHandler.HandleCallAsync(toolName, args, httpContext.RequestAborted, httpContext);
+        var result = await _toolHandler.HandleCallAsync(toolName, args, httpContext.RequestAborted, httpContext, endpointVersion);
 
         // MCP tool result format (content + isError always; optional metadata/suggestedNextActions/hints when enrichment enabled)
         // When streaming enabled, content is split into chunks with chunkIndex and isFinal for partial-response clients

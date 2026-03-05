@@ -64,12 +64,15 @@ internal sealed class McpToolHandler
 
     /// <summary>
     /// Returns MCP tools visible to the current request (filtered by roles, policy, and ToolVisibilityFilter).
-    /// Called during the MCP tools/list request when governance is used.
+    /// When <paramref name="version"/> is set, only tools for that version endpoint are returned.
     /// </summary>
-    public async Task<IReadOnlyList<McpToolDefinition>> GetToolDefinitionsAsync(HttpContext? context, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<McpToolDefinition>> GetToolDefinitionsAsync(HttpContext? context, CancellationToken cancellationToken = default, int? version = null)
     {
+        var descriptors = version is null
+            ? _discovery.GetTools()
+            : _discovery.GetToolsForVersion(version.Value);
         var list = new List<McpToolDefinition>();
-        foreach (var descriptor in _discovery.GetTools())
+        foreach (var descriptor in descriptors)
         {
             if (context is not null && !await IsVisibleAsync(descriptor, context, cancellationToken).ConfigureAwait(false))
                 continue;
@@ -91,12 +94,15 @@ internal sealed class McpToolHandler
 
     /// <summary>
     /// Returns the full tool registry as a payload for the GET /mcp/tools inspector endpoint.
-    /// Respects ToolFilter (discovery-time) but does not apply per-request visibility.
+    /// When <paramref name="version"/> is set, only tools for that version are included; response includes version and availableVersions.
     /// </summary>
-    internal object GetInspectorPayload()
+    internal object GetInspectorPayload(int? version = null, IReadOnlyList<int>? availableVersions = null)
     {
+        var descriptors = version is null
+            ? _discovery.GetTools()
+            : _discovery.GetToolsForVersion(version.Value);
         var tools = new List<object>();
-        foreach (var d in _discovery.GetTools())
+        foreach (var d in descriptors)
         {
             var schema = d.InputSchemaJson is not null
                 ? JsonDocument.Parse(d.InputSchemaJson).RootElement
@@ -113,18 +119,24 @@ internal sealed class McpToolHandler
                 ["hints"] = d.Hints,
                 ["inputSchema"] = schema,
                 ["requiredRoles"] = d.RequiredRoles,
-                ["requiredPolicy"] = d.RequiredPolicy
+                ["requiredPolicy"] = d.RequiredPolicy,
+                ["version"] = d.Version
             };
             tools.Add(entry);
         }
-        return new
+        var payload = new Dictionary<string, object?>
         {
-            serverName = _options.ServerName,
-            serverVersion = _options.ServerVersion,
-            protocolVersion = McpProtocolConstants.ProtocolVersion,
-            toolCount = tools.Count,
-            tools
+            ["serverName"] = _options.ServerName,
+            ["serverVersion"] = _options.ServerVersion,
+            ["protocolVersion"] = McpProtocolConstants.ProtocolVersion,
+            ["toolCount"] = tools.Count,
+            ["tools"] = tools
         };
+        if (version is not null)
+            payload["version"] = version.Value;
+        if (availableVersions is { Count: > 0 })
+            payload["availableVersions"] = availableVersions;
+        return payload;
     }
 
     private async Task<bool> IsVisibleAsync(McpToolDescriptor descriptor, HttpContext context, CancellationToken cancellationToken)
@@ -174,16 +186,18 @@ internal sealed class McpToolHandler
 
     /// <summary>
     /// Handles a tools/call request from the MCP client.
+    /// When <paramref name="version"/> is set, the tool is resolved from that version's endpoint set.
     /// </summary>
     /// <param name="sourceContext">Optional HTTP context of the MCP request; when set, configured headers (e.g. Authorization) are forwarded to the dispatched action.</param>
     public async Task<McpToolResult> HandleCallAsync(
         string toolName,
         IReadOnlyDictionary<string, JsonElement> args,
         CancellationToken cancellationToken,
-        HttpContext? sourceContext = null)
+        HttpContext? sourceContext = null,
+        int? version = null)
     {
         var correlationId = sourceContext?.Items[McpHttpEndpointHandler.CorrelationIdItemKey] as string;
-        var descriptor = _discovery.GetTool(toolName);
+        var descriptor = _discovery.GetTool(toolName, version);
 
         if (descriptor is null)
         {

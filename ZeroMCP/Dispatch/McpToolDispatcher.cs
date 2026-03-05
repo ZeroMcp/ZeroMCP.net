@@ -1,8 +1,10 @@
+using System.Reflection;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Policy;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Abstractions;
+using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
@@ -157,6 +159,18 @@ public sealed class McpToolDispatcher
                             ?? new List<IAuthorizeData>();
 
         var allowAnonymous = endpoint?.Metadata.GetMetadata<IAllowAnonymous>() is not null;
+
+        if (authorizeData.Count == 0 && !allowAnonymous && descriptor.ActionDescriptor is ControllerActionDescriptor cad)
+        {
+            var methodAttrs = cad.MethodInfo.GetCustomAttributes<AuthorizeAttribute>(inherit: true);
+            var classAttrs = cad.ControllerTypeInfo.GetCustomAttributes<AuthorizeAttribute>(inherit: true);
+            authorizeData.AddRange(methodAttrs);
+            authorizeData.AddRange(classAttrs);
+
+            allowAnonymous = cad.MethodInfo.GetCustomAttribute<AllowAnonymousAttribute>(inherit: true) is not null
+                          || cad.ControllerTypeInfo.GetCustomAttribute<AllowAnonymousAttribute>(inherit: true) is not null;
+        }
+
         if (allowAnonymous || authorizeData.Count == 0)
             return null;
 

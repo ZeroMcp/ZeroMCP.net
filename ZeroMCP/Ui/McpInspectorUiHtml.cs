@@ -6,16 +6,46 @@ namespace ZeroMCP.Ui;
 /// </summary>
 internal static class McpInspectorUiHtml
 {
-    private const string Placeholder = "{{MCP_BASE}}";
+    private const string PlaceholderBase = "{{MCP_BASE}}";
+    private const string PlaceholderRoot = "{{MCP_ROOT}}";
+    private const string PlaceholderVersions = "{{AVAILABLE_VERSIONS_JSON}}";
+    private const string PlaceholderCurrentVersion = "{{CURRENT_VERSION_JSON}}";
+    private const string PlaceholderShowSelector = "{{SHOW_VERSION_SELECTOR}}";
 
     /// <summary>
     /// Returns the full HTML document with the MCP base path injected for fetch calls.
+    /// When <paramref name="availableVersions"/> has more than one version, a version selector is shown.
     /// </summary>
-    /// <param name="mcpBasePath">The route prefix (e.g. "/mcp") with no trailing slash.</param>
-    public static string GetHtml(string mcpBasePath)
+    /// <param name="mcpBasePath">The route prefix for the current page (e.g. "/mcp" or "/mcp/v1") with no trailing slash.</param>
+    /// <param name="currentVersion">The version number for this endpoint, or null for "latest" (unversioned /mcp).</param>
+    /// <param name="availableVersions">All registered version numbers; when count &gt; 1, the version selector is shown.</param>
+    public static string GetHtml(string mcpBasePath, int? currentVersion = null, IReadOnlyList<int>? availableVersions = null)
     {
-        var escaped = mcpBasePath.Replace("\\", "\\\\").Replace("'", "\\'");
-        return HtmlTemplate.Replace(Placeholder, escaped);
+        var showSelector = availableVersions is { Count: > 1 };
+        var rootBase = GetRootBase(mcpBasePath, currentVersion, availableVersions);
+
+        var escapedBase = mcpBasePath.Replace("\\", "\\\\").Replace("'", "\\'");
+        var escapedRoot = rootBase.Replace("\\", "\\\\").Replace("'", "\\'");
+        var versionsJson = showSelector && availableVersions is { } v ? "[" + string.Join(",", v) + "]" : "[]";
+        var currentVersionJson = currentVersion.HasValue ? currentVersion.Value.ToString() : "\"latest\"";
+        var showSelectorStr = showSelector ? "true" : "false";
+
+        return HtmlTemplate
+            .Replace(PlaceholderBase, escapedBase)
+            .Replace(PlaceholderRoot, escapedRoot)
+            .Replace(PlaceholderVersions, versionsJson)
+            .Replace(PlaceholderCurrentVersion, currentVersionJson)
+            .Replace(PlaceholderShowSelector, showSelectorStr);
+    }
+
+    private static string GetRootBase(string mcpBasePath, int? currentVersion, IReadOnlyList<int>? availableVersions)
+    {
+        if (availableVersions is not { Count: > 0 } || !currentVersion.HasValue)
+            return mcpBasePath;
+        var suffix = "/v" + currentVersion.Value;
+        if (mcpBasePath.EndsWith(suffix, StringComparison.Ordinal))
+            return mcpBasePath[..^suffix.Length];
+        return mcpBasePath;
     }
 
     private const string HtmlTemplate = """
@@ -53,11 +83,14 @@ internal static class McpInspectorUiHtml
         .error { color: #dc2626; padding: 12px; background: #fef2f2; border-radius: 4px; }
         .category-group { margin-bottom: 28px; }
         .category-group h2 { margin: 0 0 12px; font-size: 1.1rem; font-weight: 600; color: #374151; text-transform: capitalize; letter-spacing: 0.02em; padding-bottom: 6px; border-bottom: 1px solid #e5e7eb; }
+        .version-badge { font-size: 0.7rem; font-weight: 500; color: #6b9a00; background: rgba(255,255,255,0.3); padding: 2px 6px; border-radius: 3px; margin-left: 6px; }
+        .topbar select { margin-left: 12px; padding: 4px 8px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.5); background: rgba(255,255,255,0.2); color: #fff; font-size: 0.9rem; }
     </style>
 </head>
 <body>
     <div class="topbar">
         <h1>ZeroMCP Tool Inspector</h1>
+        <span id="version-selector-wrap" style="display:none;">Version: <select id="version-select"></select></span>
         <a href="#" id="link-json">JSON (tools)</a>
     </div>
     <div class="container">
@@ -66,10 +99,37 @@ internal static class McpInspectorUiHtml
     </div>
     <script>
         const MCP_BASE = '{{MCP_BASE}}';
+        const MCP_ROOT = '{{MCP_ROOT}}';
+        const AVAILABLE_VERSIONS = {{AVAILABLE_VERSIONS_JSON}};
+        const CURRENT_VERSION = {{CURRENT_VERSION_JSON}};
+        const SHOW_VERSION_SELECTOR = {{SHOW_VERSION_SELECTOR}};
+
+        let currentInvokeBase = MCP_BASE;
         document.getElementById('link-json').href = MCP_BASE + '/tools';
 
+        if (SHOW_VERSION_SELECTOR && AVAILABLE_VERSIONS.length > 0) {
+            const wrap = document.getElementById('version-selector-wrap');
+            const sel = document.getElementById('version-select');
+            wrap.style.display = 'inline';
+            sel.innerHTML = '<option value="latest">latest</option>' + AVAILABLE_VERSIONS.map(v => '<option value="' + v + '">v' + v + '</option>').join('');
+            sel.value = typeof CURRENT_VERSION === 'number' ? CURRENT_VERSION : 'latest';
+            sel.addEventListener('change', () => {
+                const v = sel.value;
+                currentInvokeBase = v === 'latest' ? MCP_ROOT : MCP_ROOT + '/v' + v;
+                document.getElementById('link-json').href = currentInvokeBase + '/tools';
+                document.getElementById('loading').style.display = 'block';
+                document.getElementById('loading').innerHTML = 'Loading tools…';
+                document.getElementById('tools').style.display = 'none';
+                document.getElementById('tools').innerHTML = '';
+                loadTools().then(renderTools).catch(e => {
+                    document.getElementById('loading').innerHTML = '<div class="error">' + escapeHtml(e.message || String(e)) + '</div>';
+                });
+            });
+        }
+
         async function loadTools() {
-            const res = await fetch(MCP_BASE + '/tools');
+            const toolsUrl = currentInvokeBase + '/tools';
+            const res = await fetch(toolsUrl);
             if (!res.ok) throw new Error(res.status + ' ' + res.statusText);
             return res.json();
         }
@@ -95,11 +155,12 @@ internal static class McpInspectorUiHtml
                 const listDiv = document.createElement('div');
                 groupDiv.appendChild(listDiv);
                 for (const tool of groups[category]) {
+                    const versionBadge = (tool.version != null) ? '<span class="version-badge">v' + tool.version + '</span>' : '';
                     const el = document.createElement('div');
                     el.className = 'tool';
                     el.innerHTML = `
                         <div class="tool-header">
-                            <span><span class="tool-method">${escapeHtml(tool.httpMethod || '')}</span><span class="tool-name">${escapeHtml(tool.name)}</span></span>
+                            <span><span class="tool-method">${escapeHtml(tool.httpMethod || '')}</span><span class="tool-name">${escapeHtml(tool.name)}</span>${versionBadge}</span>
                         </div>
                         <div class="tool-body" style="display:none;">
                             <div class="tool-desc">${escapeHtml(tool.description || '')}</div>
@@ -161,7 +222,7 @@ internal static class McpInspectorUiHtml
             responseEl.className = 'response';
             responseEl.innerHTML = '<div class="loading">Calling…</div>';
             try {
-                const res = await fetch(MCP_BASE, {
+                const res = await fetch(currentInvokeBase, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: toolName, arguments: args } })

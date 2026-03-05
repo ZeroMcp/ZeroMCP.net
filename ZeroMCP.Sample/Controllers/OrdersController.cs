@@ -13,11 +13,37 @@ public class OrdersController : ControllerBase
     private static List<Order> Store => SampleData.Orders;
 
     [HttpGet("{id:int}")]
-    [Mcp("get_order", Description = "Retrieves a single order by its numeric ID.")]
     public ActionResult<Order> GetOrder(int id)
     {
         var order = Store.FirstOrDefault(o => o.Id == id);
         return order is null ? NotFound($"Order {id} not found") : Ok(order);
+    }
+
+    [HttpGet("v1/{id:int}")]
+    [Mcp("get_order", Version = 1, Description = "Retrieves a single order by ID.")]
+    public ActionResult<Order> GetOrderV1(int id)
+    {
+        var order = Store.FirstOrDefault(o => o.Id == id);
+        return order is null ? NotFound($"Order {id} not found") : Ok(order);
+    }
+
+    [HttpGet("v2/{id:int}")]
+    [Mcp("get_order", Version = 2, Description = "Retrieves a single order by ID with expanded detail.")]
+    public ActionResult<OrderDetail> GetOrderV2(int id, [FromQuery] bool includeHistory = false)
+    {
+        var order = Store.FirstOrDefault(o => o.Id == id);
+        if (order is null) return NotFound($"Order {id} not found");
+        var detail = new OrderDetail
+        {
+            Id = order.Id,
+            CustomerId = order.CustomerId,
+            CustomerName = order.CustomerName,
+            Product = order.Product,
+            Quantity = order.Quantity,
+            Status = order.Status,
+            History = includeHistory ? ["created", "pending"] : null
+        };
+        return Ok(detail);
     }
 
     [HttpGet("secure/{id:int}")]
@@ -52,7 +78,7 @@ public class OrdersController : ControllerBase
             Status = "pending"
         };
         Store.Add(order);
-        return CreatedAtAction(nameof(GetOrder), new { id = order.Id }, order);
+        return Created($"/api/orders/{order.Id}", order);
     }
 
     [HttpPatch("{id:int}/status")]
@@ -83,6 +109,17 @@ public class Order
     public string Product { get; set; } = default!;
     public int Quantity { get; set; }
     public string Status { get; set; } = "pending";
+}
+
+public class OrderDetail
+{
+    public int Id { get; set; }
+    public int? CustomerId { get; set; }
+    public string CustomerName { get; set; } = default!;
+    public string Product { get; set; } = default!;
+    public int Quantity { get; set; }
+    public string Status { get; set; } = "pending";
+    public string[]? History { get; set; }
 }
 
 public class CreateOrderRequest

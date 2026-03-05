@@ -6,7 +6,7 @@ The **Tool Inspector UI** is a built-in, Swagger-like web page that lets you bro
 
 ## URL and when it’s available
 
-- **URL:** **GET {RoutePrefix}/ui** (e.g. **GET /mcp/ui** when `RoutePrefix` is `"/mcp"`).
+- **URL:** **GET {RoutePrefix}/ui** (e.g. **GET /mcp/ui** when `RoutePrefix` is `"/mcp"`). When [tool versioning](Tool-Versioning) is in use, **GET {RoutePrefix}/v{n}/ui** is also available per version.
 - The UI is registered only when both are true:
   - **EnableToolInspector** is `true` (default) — enables the inspector (including the JSON tool list).
   - **EnableToolInspectorUI** is `true` (default) — enables this HTML UI in addition to the JSON endpoint.
@@ -21,6 +21,7 @@ Set either option to `false` in [Configuration](Configuration) to disable the JS
 2. **Grouping by category** — Tools are grouped by **category** when set on `[Mcp]` or `.AsMcp(...)`. Tools without a category appear under “(Uncategorized)”. Category sections are sorted alphabetically.
 3. **View details** — Expand a tool to see its description and **input schema** (JSON Schema for route, query, and body parameters).
 4. **Try it out** — Edit the JSON arguments in the text area and click **Invoke**. The page sends a **tools/call** request to the MCP endpoint (POST {RoutePrefix}) and shows the JSON-RPC response (success or error).
+5. **Version selector** (when [tool versioning](Tool-Versioning) is used) — If multiple versions are registered, a **Version** dropdown appears in the header. Changing it reloads the tool list from **GET {RoutePrefix}/v{n}/tools** and sends **Invoke** to **POST {RoutePrefix}/v{n}`. The “JSON (tools)” link updates to the selected version’s tools endpoint. Tools that are version-specific show a small version badge (e.g. **v2**).
 
 The UI does not implement MCP session state (e.g. **initialize**); it only calls **tools/call** with the arguments you provide. It is a thin test client over your MCP endpoint.
 
@@ -39,7 +40,7 @@ See [Governance and Security](Governance-and-Security) and [Security Model](Secu
 
 ## JSON tool list
 
-The top-right link **“JSON (tools)”** goes to **GET {RoutePrefix}/tools**, which returns the full tool list as JSON (server name, version, protocol version, and a `tools` array with name, description, httpMethod, route, inputSchema, category, tags, examples, hints, requiredRoles, requiredPolicy). The UI uses this endpoint to render the page; you can use it for scripting or tooling.
+The top-right link **“JSON (tools)”** goes to **GET {RoutePrefix}/tools** (or **GET {RoutePrefix}/v{n}/tools** when a version is selected and versioning is in use). The response includes server name, protocol version, and a `tools` array (name, description, httpMethod, route, inputSchema, category, tags, examples, hints, requiredRoles, requiredPolicy). When versioning is enabled, the JSON also includes **version** and **availableVersions**; each tool entry may include a **version** field (null for unversioned tools). The UI uses this endpoint to render the page; you can use it for scripting or tooling.
 
 Note: **GET /mcp/tools** does **not** apply per-request visibility (roles/policy are not used to filter that list). It shows all registered tools. So in the UI you may see tools you cannot invoke if you are not in the right role. Invoking them will correctly return an error.
 
@@ -55,6 +56,7 @@ Note: **GET /mcp/tools** does **not** apply per-request visibility (roles/policy
 ## See also
 
 - [Configuration](Configuration) — EnableToolInspector, EnableToolInspectorUI, RoutePrefix, “Tool Inspector and UI” section
+- [Tool Versioning](Tool-Versioning) — Version selector, versioned /mcp/v{n}/tools and /mcp/v{n}/ui
 - [Governance and Security](Governance-and-Security) — Roles, policy, and how they apply to tools/call and the UI
 - [Security Model](Security-Model) — Auth flow, tool inspector endpoint, attack surfaces
 - [Enterprise Usage](Enterprise-Usage) — Tool inspector in production, rate limiting

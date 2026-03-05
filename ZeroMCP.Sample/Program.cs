@@ -33,9 +33,12 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
-// Minimal API example: exposed as MCP tool via WithMcpTool
+// Unversioned health (appears on all version endpoints)
 app.MapGet("/api/health", () => Results.Ok(new { status = "ok", timestamp = DateTime.UtcNow }))
    .AsMcp("health_check", "Returns API health status.", tags: new[] { "system" }, category: "system");
+// Versioned health (v2 only) — same tool name, different implementation
+app.MapGet("/api/v2/health", () => Results.Ok(new { status = "ok", version = "2", timestamp = DateTime.UtcNow }))
+   .AsMcp("health_check", "Returns enhanced health status.", version: 2, category: "system");
 
 // Governance: role-based tool — only visible in tools/list when user is in Admin role
 app.MapGet("/api/admin/health", () => Results.Ok(new { status = "admin-ok", timestamp = DateTime.UtcNow }))

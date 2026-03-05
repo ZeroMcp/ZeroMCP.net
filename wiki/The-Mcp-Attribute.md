@@ -42,13 +42,14 @@ public ActionResult<Order> GetOrder(int id) { ... }
 | **Hints** | Optional. AI-facing hints/metadata strings. |
 | **Roles** | Optional. Tool only in `tools/list` if user is in at least one role. Requires auth. |
 | **Policy** | Optional. Tool only in `tools/list` if `IAuthorizationService` authorizes the policy. |
+| **Version** | Optional. When set to a value &gt; 0, the tool is exposed only on the versioned endpoint `/mcp/v{Version}`. When 0 or not set, the tool appears on all version endpoints. See [Tool Versioning](Tool-Versioning.md). |
 
 ---
 
 ## Placement rules
 
 - **Per-action only** — `[Mcp]` goes on individual action methods, not on the controller class.
-- **One name per application** — Duplicate tool names are logged as warnings and skipped.
+- **One name per version** — Duplicate tool names within the same version are logged and skipped; the same name in different versions (e.g. `get_order` in v1 and v2) is allowed. When no versioning is used, one name per application.
 - **Any HTTP method** — GET, POST, PATCH, DELETE all work.
 - **Description** — Prefer setting `Description` explicitly; otherwise XML `<summary>` is used when present (see `EnableXMLDocAnalysis` in [Configuration](Configuration.md)).
 

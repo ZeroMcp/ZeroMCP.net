@@ -36,6 +36,9 @@ builder.Services.AddZeroMCP(options =>
     // Phase 3: Tool Inspector
     options.EnableToolInspector = true;         // GET {RoutePrefix}/tools returns full tool list as JSON
     options.EnableToolInspectorUI = true;       // GET {RoutePrefix}/ui serves test invocation UI (Swagger-like)
+
+    // Tool versioning: when set, unversioned /mcp resolves to this version instead of the highest
+    options.DefaultVersion = null;              // null = use highest registered version
 });
 ```
 
@@ -59,6 +62,7 @@ builder.Services.AddZeroMCP(options =>
 | **EnableToolInspector** | `true` | When true, registers GET {RoutePrefix}/tools with full tool registry (JSON). Set false to disable. |
 | **EnableToolInspectorUI** | `true` | When true and inspector is enabled, registers GET {RoutePrefix}/ui with a Swagger-like test invocation UI (list tools, view schemas, invoke from browser). |
 | **EnableXMLDocAnalysis** | `true` | When true, controller actions with `[Mcp]` but no explicit Description use the method's XML doc `<summary>` as the tool description. |
+| **DefaultVersion** | `null` | When tool versioning is used: version number for the unversioned `/mcp` endpoint. `null` = use the highest registered version. See [Tool Versioning](Tool-Versioning.md). |
 
 ---
 
