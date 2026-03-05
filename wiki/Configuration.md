@@ -1,6 +1,6 @@
 # Configuration
 
-ZeroMCP is configured via **AddZeroMCP** options and **MapZeroMCP** (and optional route override).
+ZeroMCP is configured via **AddZeroMCP** options and **MapZeroMCP** (and optional route override). 
 
 ---
 
