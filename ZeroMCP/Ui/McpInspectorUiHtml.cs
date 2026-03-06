@@ -84,6 +84,7 @@ internal static class McpInspectorUiHtml
         .category-group { margin-bottom: 28px; }
         .category-group h2 { margin: 0 0 12px; font-size: 1.1rem; font-weight: 600; color: #374151; text-transform: capitalize; letter-spacing: 0.02em; padding-bottom: 6px; border-bottom: 1px solid #e5e7eb; }
         .version-badge { font-size: 0.7rem; font-weight: 500; color: #6b9a00; background: rgba(255,255,255,0.3); padding: 2px 6px; border-radius: 3px; margin-left: 6px; }
+        .streaming-badge { font-size: 0.65rem; font-weight: 600; color: #fff; background: #7c3aed; padding: 2px 6px; border-radius: 3px; margin-left: 6px; letter-spacing: 0.04em; }
         .topbar select { margin-left: 12px; padding: 4px 8px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.5); background: rgba(255,255,255,0.2); color: #fff; font-size: 0.9rem; }
     </style>
 </head>
@@ -156,11 +157,13 @@ internal static class McpInspectorUiHtml
                 groupDiv.appendChild(listDiv);
                 for (const tool of groups[category]) {
                     const versionBadge = (tool.version != null) ? '<span class="version-badge">v' + tool.version + '</span>' : '';
+                    const streamBadge = tool.isStreaming ? '<span class="streaming-badge">STREAMING</span>' : '';
                     const el = document.createElement('div');
                     el.className = 'tool';
+                    el.dataset.streaming = tool.isStreaming ? '1' : '';
                     el.innerHTML = `
                         <div class="tool-header">
-                            <span><span class="tool-method">${escapeHtml(tool.httpMethod || '')}</span><span class="tool-name">${escapeHtml(tool.name)}</span>${versionBadge}</span>
+                            <span><span class="tool-method">${escapeHtml(tool.httpMethod || '')}</span><span class="tool-name">${escapeHtml(tool.name)}</span>${versionBadge}${streamBadge}</span>
                         </div>
                         <div class="tool-body" style="display:none;">
                             <div class="tool-desc">${escapeHtml(tool.description || '')}</div>
@@ -207,6 +210,7 @@ internal static class McpInspectorUiHtml
         async function invoke(toolName, toolEl) {
             const textarea = toolEl.querySelector('.args-input');
             const responseEl = toolEl.querySelector('.response');
+            const isStreaming = toolEl.dataset.streaming === '1';
             let args = {};
             try {
                 args = JSON.parse(textarea.value || '{}');
@@ -222,15 +226,54 @@ internal static class McpInspectorUiHtml
             responseEl.className = 'response';
             responseEl.innerHTML = '<div class="loading">Calling…</div>';
             try {
-                const res = await fetch(currentInvokeBase, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: toolName, arguments: args } })
-                });
-                const data = await res.json();
-                const hasError = data.error || (data.result && data.result.isError);
-                if (hasError) responseEl.classList.add('response-error');
-                responseEl.innerHTML = '<pre>' + escapeHtml(JSON.stringify(data, null, 2)) + '</pre>';
+                if (isStreaming) {
+                    const res = await fetch(currentInvokeBase, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: toolName, arguments: args } })
+                    });
+                    const reader = res.body.getReader();
+                    const decoder = new TextDecoder();
+                    let buffer = '';
+                    let chunks = [];
+                    responseEl.innerHTML = '<pre></pre>';
+                    const pre = responseEl.querySelector('pre');
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        buffer += decoder.decode(value, { stream: true });
+                        const lines = buffer.split('\\n');
+                        buffer = lines.pop();
+                        for (const line of lines) {
+                            if (line.startsWith('data: ')) {
+                                try {
+                                    const parsed = JSON.parse(line.substring(6));
+                                    const meta = parsed.result?._meta;
+                                    if (meta?.status === 'streaming') {
+                                        const txt = parsed.result?.content?.[0]?.text || '';
+                                        chunks.push(txt);
+                                        pre.textContent = chunks.map((c,i) => '[' + i + '] ' + c).join('\\n');
+                                    } else if (meta?.status === 'done') {
+                                        pre.textContent += '\\n--- Done (' + (meta.totalChunks || 0) + ' chunks) ---';
+                                    } else if (meta?.status === 'error') {
+                                        responseEl.classList.add('response-error');
+                                        pre.textContent += '\\nERROR: ' + (parsed.result?.content?.[0]?.text || 'unknown');
+                                    }
+                                } catch (_) {}
+                            }
+                        }
+                    }
+                } else {
+                    const res = await fetch(currentInvokeBase, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: toolName, arguments: args } })
+                    });
+                    const data = await res.json();
+                    const hasError = data.error || (data.result && data.result.isError);
+                    if (hasError) responseEl.classList.add('response-error');
+                    responseEl.innerHTML = '<pre>' + escapeHtml(JSON.stringify(data, null, 2)) + '</pre>';
+                }
             } catch (e) {
                 responseEl.classList.add('response-error');
                 responseEl.innerHTML = '<pre>' + escapeHtml(e.message || String(e)) + '</pre>';

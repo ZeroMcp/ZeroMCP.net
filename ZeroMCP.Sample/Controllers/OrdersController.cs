@@ -110,6 +110,21 @@ public class OrdersController : ControllerBase
         Store.Remove(order);
         return NoContent();
     }
+
+    /// <summary>
+    /// Streams all orders one at a time with a simulated delay. Demonstrates IAsyncEnumerable streaming over MCP.
+    /// </summary>
+    [HttpGet("stream")]
+    [Mcp("stream_orders", Description = "Streams all orders progressively with a simulated delay between each item.")]
+    public async IAsyncEnumerable<Order> StreamOrders([System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        foreach (var order in Store)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            await Task.Delay(250, cancellationToken);
+            yield return order;
+        }
+    }
 }
 
 public class Order

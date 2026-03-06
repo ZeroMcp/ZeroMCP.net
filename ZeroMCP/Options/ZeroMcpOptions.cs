@@ -142,6 +142,14 @@ public sealed class ZeroMCPOptions
     /// </summary>
     public long MaxFormFileSizeBytes { get; set; } = 10 * 1024 * 1024;
 
+    // --- IAsyncEnumerable<T> streaming ---
+
+    /// <summary>
+    /// Safety limit: maximum number of items yielded from an IAsyncEnumerable&lt;T&gt; before
+    /// the enumerator is cancelled and a final error chunk is emitted. 0 = unlimited. Default: 10000.
+    /// </summary>
+    public int MaxStreamingItems { get; set; } = 10_000;
+
     /// <summary>
     /// When true, registers GET {RoutePrefix}/sse and POST {RoutePrefix}/messages for the deprecated MCP HTTP+SSE transport (spec 2024-11-05).
     /// Enables backward compatibility with clients that have not migrated to Streamable HTTP.

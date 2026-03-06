@@ -1,4 +1,6 @@
 using System.Reflection;
+using System.Runtime.CompilerServices;
+using System.Threading.Channels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Policy;
 using Microsoft.AspNetCore.Http;
@@ -132,6 +134,144 @@ public sealed class McpToolDispatcher
         }
 
         return await ExtractResponseAsync(context, descriptor.Name);
+    }
+
+    /// <summary>
+    /// Dispatches a streaming tool (IAsyncEnumerable) and yields individual chunks via a Channel.
+    /// The action is invoked through the normal pipeline; the IAsyncEnumerable result is
+    /// captured by McpStreamingCaptureFormatter and enumerated in a background task.
+    /// </summary>
+    public IAsyncEnumerable<DispatchStreamChunk> DispatchStreamingAsync(
+        McpToolDescriptor descriptor,
+        IReadOnlyDictionary<string, JsonElement> args,
+        int maxItems,
+        CancellationToken cancellationToken = default,
+        HttpContext? sourceContext = null)
+    {
+        var channel = Channel.CreateUnbounded<DispatchStreamChunk>(new UnboundedChannelOptions { SingleReader = true, SingleWriter = true });
+        _ = ProduceStreamingChunksAsync(channel.Writer, descriptor, args, maxItems, cancellationToken, sourceContext);
+        return channel.Reader.ReadAllAsync(cancellationToken);
+    }
+
+    private async Task ProduceStreamingChunksAsync(
+        ChannelWriter<DispatchStreamChunk> writer,
+        McpToolDescriptor descriptor,
+        IReadOnlyDictionary<string, JsonElement> args,
+        int maxItems,
+        CancellationToken cancellationToken,
+        HttpContext? sourceContext)
+    {
+        try
+        {
+            await using var scope = _scopeFactory.CreateAsyncScope();
+
+            HttpContext context;
+            try
+            {
+                context = _contextFactory.Build(descriptor, args, scope, sourceContext, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to build synthetic HttpContext for streaming tool '{ToolName}'", descriptor.Name);
+                await writer.WriteAsync(new DispatchStreamChunk { Content = $"Failed to bind arguments: {ex.Message}", IsLast = true, IsError = true }, cancellationToken);
+                return;
+            }
+
+            if (descriptor.Endpoint is not null)
+                context.SetEndpoint(descriptor.Endpoint);
+
+            var authResult = await EnforceAuthorizationAsync(descriptor, context, scope.ServiceProvider);
+            if (authResult is not null)
+            {
+                await writer.WriteAsync(new DispatchStreamChunk { Content = authResult.Content, IsLast = true, IsError = true }, cancellationToken);
+                return;
+            }
+
+            context.Items[McpStreamingCaptureFormatter.CaptureFlag] = true;
+
+            try
+            {
+                if (descriptor.Endpoint is not null && descriptor.ActionDescriptor is null)
+                {
+                    context.SetEndpoint(descriptor.Endpoint);
+                    await descriptor.Endpoint.RequestDelegate!(context);
+                }
+                else if (descriptor.ActionDescriptor is not null)
+                {
+                    var routeData = new RouteData(context.Request.RouteValues);
+                    var actionContext = new ActionContext(context, routeData, descriptor.ActionDescriptor);
+                    var invokerFactory = scope.ServiceProvider.GetRequiredService<IActionInvokerFactory>();
+                    var invoker = invokerFactory.CreateInvoker(actionContext);
+                    if (invoker is null)
+                    {
+                        await writer.WriteAsync(new DispatchStreamChunk { Content = "Failed to create action invoker", IsLast = true, IsError = true }, cancellationToken);
+                        return;
+                    }
+                    await invoker.InvokeAsync();
+                }
+                else
+                {
+                    await writer.WriteAsync(new DispatchStreamChunk { Content = "Invalid tool descriptor", IsLast = true, IsError = true }, cancellationToken);
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unhandled exception during streaming dispatch of tool '{ToolName}'", descriptor.Name);
+                await writer.WriteAsync(new DispatchStreamChunk { Content = $"Internal error: {ex.Message}", IsLast = true, IsError = true }, cancellationToken);
+                return;
+            }
+
+            if (!context.Items.TryGetValue(McpStreamingCaptureFormatter.CapturedEnumerable, out var captured) || captured is null)
+            {
+                var fallback = await ExtractResponseAsync(context, descriptor.Name);
+                await writer.WriteAsync(new DispatchStreamChunk { Content = fallback.Content, IsLast = true, IsError = !fallback.IsSuccess }, cancellationToken);
+                return;
+            }
+
+            var itemCount = 0;
+            var jsonOptions = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+
+            await using var enumerator = ((IAsyncEnumerable<object>)captured).GetAsyncEnumerator(cancellationToken);
+            try
+            {
+                while (await enumerator.MoveNextAsync())
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    itemCount++;
+                    if (maxItems > 0 && itemCount > maxItems)
+                    {
+                        await writer.WriteAsync(new DispatchStreamChunk
+                        {
+                            Content = $"MaxStreamingItems limit ({maxItems}) exceeded",
+                            IsLast = true,
+                            IsError = true
+                        }, cancellationToken);
+                        return;
+                    }
+
+                    var json = JsonSerializer.Serialize(enumerator.Current, jsonOptions);
+                    await writer.WriteAsync(new DispatchStreamChunk { Content = json, IsLast = false, IsError = false }, cancellationToken);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                await writer.WriteAsync(new DispatchStreamChunk { Content = "Stream cancelled", IsLast = true, IsError = true }, cancellationToken);
+                return;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during streaming enumeration of tool '{ToolName}'", descriptor.Name);
+                await writer.WriteAsync(new DispatchStreamChunk { Content = $"Streaming error: {ex.Message}", IsLast = true, IsError = true }, cancellationToken);
+                return;
+            }
+
+            await writer.WriteAsync(new DispatchStreamChunk { Content = "", IsLast = true, IsError = false }, cancellationToken);
+        }
+        finally
+        {
+            writer.Complete();
+        }
     }
 
     private async Task<DispatchResult> DispatchMinimalEndpointAsync(McpToolDescriptor descriptor, HttpContext context)

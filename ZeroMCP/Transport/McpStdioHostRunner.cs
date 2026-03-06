@@ -75,10 +75,21 @@ internal sealed class McpStdioHostRunner
             {
                 using var doc = JsonDocument.Parse(line);
                 var context = CreateStdioContext(doc.RootElement, _services, _options);
-                var responseJson = await mcpHandler.ProcessMessageAsync(doc, context);
-                if (responseJson is not null)
+
+                if (mcpHandler.IsStreamingToolCall(doc))
                 {
-                    await writer.WriteLineAsync(responseJson);
+                    await foreach (var responseLine in mcpHandler.ProcessStreamingMessageAsync(doc, context))
+                    {
+                        await writer.WriteLineAsync(responseLine);
+                    }
+                }
+                else
+                {
+                    var responseJson = await mcpHandler.ProcessMessageAsync(doc, context);
+                    if (responseJson is not null)
+                    {
+                        await writer.WriteLineAsync(responseJson);
+                    }
                 }
             }
             catch (JsonException ex)

@@ -78,6 +78,12 @@ public sealed class McpToolDescriptor
     /// </summary>
     public string? InputSchemaJson { get; set; }
 
+    /// <summary>True when the action returns IAsyncEnumerable&lt;T&gt; and results should be streamed progressively.</summary>
+    public bool IsStreaming { get; init; }
+
+    /// <summary>The element type T from IAsyncEnumerable&lt;T&gt;, used for schema generation. Null for non-streaming tools.</summary>
+    public Type? StreamingElementType { get; init; }
+
     /// <summary>HTTP method (GET, POST, etc.)</summary>
     public string HttpMethod { get; init; } = default!;
 

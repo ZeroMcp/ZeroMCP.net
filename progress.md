@@ -1,5 +1,24 @@
 # Progress
 
+## 2026-03-06 – True IAsyncEnumerable<T> Streaming for tools/call
+
+- **McpToolDescriptor**: Added `IsStreaming` (bool) and `StreamingElementType` (Type?) for streaming tool metadata.
+- **ZeroMcpOptions**: Added `MaxStreamingItems` (default 10,000) — safety limit on enumeration.
+- **McpToolDiscoveryService**: `DetectAsyncEnumerable` helper unwraps `Task<T>`/`ValueTask<T>` and checks for `IAsyncEnumerable<T>` on return types; `BuildDescriptor` now sets `IsStreaming` and `StreamingElementType` on controller action descriptors.
+- **DispatchStreamChunk**: New type — `Content`, `IsLast`, `IsError` — represents a single chunk from the streaming dispatch.
+- **McpStreamingCaptureFormatter**: Custom `TextOutputFormatter` that intercepts `IAsyncEnumerable<T>` results when the `ZeroMCP.CaptureStreaming` flag is set on `HttpContext.Items`. Stores the raw enumerable in Items instead of serializing to the response body.
+- **ServiceCollectionExtensions**: Registers `McpStreamingCaptureFormatter` as the highest-priority output formatter via `MvcOptions.OutputFormatters.Insert(0, ...)`.
+- **McpToolDispatcher**: Added `DispatchStreamingAsync` — uses a `Channel<DispatchStreamChunk>` producer/consumer pattern (background task produces via `ProduceStreamingChunksAsync`, reader exposes `IAsyncEnumerable`). Invokes the action through the normal pipeline; captures the `IAsyncEnumerable` via formatter; enumerates with `MaxStreamingItems` safety, cancellation, and error handling.
+- **McpToolHandler**: Added `IsStreamingTool`, `GetStreamingDescriptorAsync`, `StreamToolAsync` methods; `McpToolDefinition.IsStreaming` property set during discovery; inspector payload includes `isStreaming` per tool.
+- **McpHttpEndpointHandler**: `TryHandleStreamingToolCallAsync` — detects streaming tools on `tools/call` and writes SSE events (`event: chunk`, `event: done`, `event: error`) with `_meta.streaming`, `_meta.status`, `_meta.chunkIndex`. `tools/list` includes `streaming: true` on streaming tools. Added `WriteSseEventAsync` helper. Also added `IsStreamingToolCall` and `ProcessStreamingMessageAsync` for stdio transport.
+- **McpStdioHostRunner**: Detects streaming tools via `IsStreamingToolCall` and writes multiple JSON-RPC lines per chunk via `ProcessStreamingMessageAsync`.
+- **Inspector UI**: Added purple "STREAMING" badge (`streaming-badge` CSS), `data-streaming` attribute on tool cards, SSE-aware `invoke` function with progressive rendering (shows `[index] content` per chunk, final "--- Done ---" line).
+- **Sample**: Added `stream_orders` endpoint on `OrdersController` — `[HttpGet("stream")][Mcp("stream_orders")]` returning `async IAsyncEnumerable<Order>` with 250ms delay per item.
+- **Tests (McpStreamingTests)**: 5 integration tests — `ToolsList_StreamOrdersMarkedAsStreaming`, `ToolsList_NonStreamingToolsLackStreamingFlag`, `StreamOrders_ReturnsSSEEventStream` (SSE events with chunks + done), `StreamOrders_ChunkContentIsValidOrderJson`, `InspectorTools_StreamOrdersHasStreamingFlag`. All 72 tests pass.
+- **Wire protocol**: SSE events for HTTP; multi-line JSON-RPC for stdio. Each chunk wraps JSON-RPC 2.0 with `result._meta` (`streaming: true`, `status: "streaming"|"done"|"error"`, `chunkIndex`, `totalChunks`).
+
+---
+
 ## 2026-03-05 – WithStdio example
 
 - **examples/WithStdio/** — New example: stdio transport via `--mcp-stdio`, Claude Desktop config, `health_check` and `echo` tools. README with run instructions, claude_desktop_config.json snippets, and manual testing. Added to ZeroMcp.slnx and README examples table.

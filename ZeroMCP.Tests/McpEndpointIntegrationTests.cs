@@ -1288,3 +1288,164 @@ public sealed class McpFormFileTests : IClassFixture<SampleAppWebApplicationFact
             .Should().Contain("MaxFormFileSizeBytes");
     }
 }
+
+public sealed class McpStreamingTests : IClassFixture<SampleAppWebApplicationFactory>
+{
+    private readonly HttpClient _client;
+
+    public McpStreamingTests(SampleAppWebApplicationFactory factory)
+    {
+        _client = factory.CreateClient();
+    }
+
+    [Fact]
+    public async Task ToolsList_StreamOrdersMarkedAsStreaming()
+    {
+        var body = new { jsonrpc = "2.0", id = 1, method = "tools/list" };
+        var content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
+        var response = await _client.PostAsync("/mcp", content);
+        var json = await response.Content.ReadAsStringAsync();
+        var node = JsonNode.Parse(json);
+
+        var tools = node!["result"]!["tools"]!.AsArray();
+        var streamTool = tools.FirstOrDefault(t => t!["name"]!.GetValue<string>() == "stream_orders");
+        streamTool.Should().NotBeNull("stream_orders should appear in tools/list");
+        streamTool!["streaming"]!.GetValue<bool>().Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ToolsList_NonStreamingToolsLackStreamingFlag()
+    {
+        var body = new { jsonrpc = "2.0", id = 1, method = "tools/list" };
+        var content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
+        var response = await _client.PostAsync("/mcp", content);
+        var json = await response.Content.ReadAsStringAsync();
+        var node = JsonNode.Parse(json);
+
+        var tools = node!["result"]!["tools"]!.AsArray();
+        var nonStreamTool = tools.FirstOrDefault(t => t!["name"]!.GetValue<string>() == "list_orders");
+        nonStreamTool.Should().NotBeNull();
+        nonStreamTool!["streaming"].Should().BeNull("non-streaming tools should not have streaming flag");
+    }
+
+    [Fact]
+    public async Task StreamOrders_ReturnsSSEEventStream()
+    {
+        var body = new
+        {
+            jsonrpc = "2.0",
+            id = 1,
+            method = "tools/call",
+            @params = new { name = "stream_orders", arguments = new { } }
+        };
+
+        var content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
+        using var response = await _client.PostAsync("/mcp", content);
+        response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
+        response.Content.Headers.ContentType!.MediaType.Should().Be("text/event-stream");
+
+        var events = await ReadSseEventsAsync(response);
+
+        events.Should().NotBeEmpty("streaming response should contain SSE events");
+
+        var chunkEvents = events.Where(e => e.eventType == "chunk").ToList();
+        chunkEvents.Should().NotBeEmpty("there should be at least one chunk event");
+
+        foreach (var (_, data) in chunkEvents)
+        {
+            var parsed = JsonNode.Parse(data);
+            parsed!["result"]!["isError"]!.GetValue<bool>().Should().BeFalse();
+            parsed["result"]!["_meta"]!["status"]!.GetValue<string>().Should().Be("streaming");
+            parsed["result"]!["content"]!.AsArray().Should().HaveCountGreaterThan(0);
+        }
+
+        var doneOrErrorEvents = events.Where(e => e.eventType == "done" || e.eventType == "error").ToList();
+        doneOrErrorEvents.Should().HaveCountGreaterThan(0, "streaming should end with a done or error event");
+
+        var doneEvents = events.Where(e => e.eventType == "done").ToList();
+        doneEvents.Should().HaveCount(1, "streaming should end with exactly one done event");
+
+        var doneData = JsonNode.Parse(doneEvents[0].data);
+        doneData!["result"]!["isError"]!.GetValue<bool>().Should().BeFalse();
+        doneData["result"]!["_meta"]!["status"]!.GetValue<string>().Should().Be("done");
+        doneData["result"]!["_meta"]!["totalChunks"]!.GetValue<int>().Should().Be(chunkEvents.Count);
+    }
+
+    private static async Task<List<(string eventType, string data)>> ReadSseEventsAsync(HttpResponseMessage response)
+    {
+        var fullBody = await response.Content.ReadAsStringAsync();
+        var events = new List<(string eventType, string data)>();
+        string? currentEvent = null;
+        string? currentData = null;
+
+        foreach (var rawLine in fullBody.Split('\n'))
+        {
+            var line = rawLine.TrimEnd('\r');
+            if (line.StartsWith("event: "))
+                currentEvent = line.Substring(7).Trim();
+            else if (line.StartsWith("data: "))
+                currentData = line.Substring(6);
+            else if (line == "" && currentEvent is not null && currentData is not null)
+            {
+                events.Add((currentEvent, currentData));
+                currentEvent = null;
+                currentData = null;
+            }
+        }
+
+        if (currentEvent is not null && currentData is not null)
+            events.Add((currentEvent, currentData));
+
+        return events;
+    }
+
+    [Fact]
+    public async Task StreamOrders_ChunkContentIsValidOrderJson()
+    {
+        var body = new
+        {
+            jsonrpc = "2.0",
+            id = 1,
+            method = "tools/call",
+            @params = new { name = "stream_orders", arguments = new { } }
+        };
+
+        var content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
+        using var response = await _client.PostAsync("/mcp", content);
+        var events = await ReadSseEventsAsync(response);
+        var chunks = new List<string>();
+
+        foreach (var (eventType, data) in events)
+        {
+            if (eventType == "chunk")
+            {
+                var parsed = JsonNode.Parse(data);
+                var text = parsed!["result"]!["content"]!.AsArray()[0]!["text"]!.GetValue<string>();
+                chunks.Add(text);
+            }
+        }
+
+        chunks.Should().NotBeEmpty();
+        foreach (var chunk in chunks)
+        {
+            var order = JsonNode.Parse(chunk);
+            order.Should().NotBeNull();
+            order!["id"].Should().NotBeNull();
+            order["customerName"].Should().NotBeNull();
+        }
+    }
+
+    [Fact]
+    public async Task InspectorTools_StreamOrdersHasStreamingFlag()
+    {
+        var response = await _client.GetAsync("/mcp/tools");
+        response.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
+        var json = await response.Content.ReadAsStringAsync();
+        var node = JsonNode.Parse(json);
+
+        var tools = node!["tools"]!.AsArray();
+        var streamTool = tools.FirstOrDefault(t => t!["name"]!.GetValue<string>() == "stream_orders");
+        streamTool.Should().NotBeNull();
+        streamTool!["isStreaming"]!.GetValue<bool>().Should().BeTrue();
+    }
+}
