@@ -55,7 +55,7 @@ jobs:
           dotnet pack ZeroMCP/ZeroMCP.csproj -c Release -o ./nupkgs --no-build -p:Version=$VERSION
 
       - name: Pack
-        run: dotnet pack ZeroMcp.Relay/ZeroMcp.Relay.csproj -c Release -p:Version=${VERSION} -o ./artifacts
+        run: dotnet pack ZeroMCP/ZeroMcp.csproj -c Release -p:Version=${VERSION} -o ./artifacts
 
       - name: Push to NuGet.org
         if: env.NUGET_API_KEY != ''
