@@ -30,7 +30,7 @@ jobs:
             VERSION=$(git tag --list "v*" --sort=-version:refname | head -n1)
             VERSION=${VERSION#v}
           fi
-           dotnet pack ZeroMcp.Relay/ZeroMcp.Relay.csproj -c Release -p:Version=${VERSION} -o ./artifacts
+           dotnet pack ZeroMCP/ZeroMCP.csproj -c Release -p:Version=${VERSION} -o ./artifacts
 
       - name: Push to NuGet.org
         if: env.NUGET_API_KEY != ''
