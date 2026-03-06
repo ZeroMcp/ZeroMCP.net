@@ -1302,7 +1302,7 @@ public sealed class McpStreamingTests : IClassFixture<SampleAppWebApplicationFac
     public async Task ToolsList_StreamOrdersMarkedAsStreaming()
     {
         var body = new { jsonrpc = "2.0", id = 1, method = "tools/list" };
-        var content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
+        using var content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
         var response = await _client.PostAsync("/mcp", content);
         var json = await response.Content.ReadAsStringAsync();
         var node = JsonNode.Parse(json);
