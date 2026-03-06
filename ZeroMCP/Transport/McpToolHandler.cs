@@ -57,7 +57,8 @@ internal sealed class McpToolHandler
                 Category = descriptor.Category,
                 Tags = descriptor.Tags,
                 Examples = descriptor.Examples,
-                Hints = descriptor.Hints
+                Hints = descriptor.Hints,
+                IsStreaming = descriptor.IsStreaming
             };
         }
     }
@@ -86,7 +87,8 @@ internal sealed class McpToolHandler
                 Category = descriptor.Category,
                 Tags = descriptor.Tags,
                 Examples = descriptor.Examples,
-                Hints = descriptor.Hints
+                Hints = descriptor.Hints,
+                IsStreaming = descriptor.IsStreaming
             });
         }
         return list;
@@ -120,7 +122,8 @@ internal sealed class McpToolHandler
                 ["inputSchema"] = schema,
                 ["requiredRoles"] = d.RequiredRoles,
                 ["requiredPolicy"] = d.RequiredPolicy,
-                ["version"] = d.Version
+                ["version"] = d.Version,
+                ["isStreaming"] = d.IsStreaming
             };
             tools.Add(entry);
         }
@@ -272,6 +275,41 @@ internal sealed class McpToolHandler
             $"Tool '{toolName}' failed with HTTP {result.StatusCode}: {result.Content}");
     }
 
+    /// <summary>
+    /// Returns true if the named tool is a streaming tool (returns IAsyncEnumerable).
+    /// </summary>
+    internal bool IsStreamingTool(string toolName, int? version = null)
+    {
+        var descriptor = _discovery.GetTool(toolName, version);
+        return descriptor?.IsStreaming == true;
+    }
+
+    /// <summary>
+    /// Returns the descriptor for a tool after checking visibility, for use by the streaming path.
+    /// Returns null if the tool doesn't exist or is not visible.
+    /// </summary>
+    internal async Task<McpToolDescriptor?> GetStreamingDescriptorAsync(string toolName, HttpContext? sourceContext, CancellationToken ct, int? version = null)
+    {
+        var descriptor = _discovery.GetTool(toolName, version);
+        if (descriptor is null) return null;
+        if (sourceContext is not null && !await IsVisibleAsync(descriptor, sourceContext, ct).ConfigureAwait(false))
+            return null;
+        return descriptor;
+    }
+
+    /// <summary>
+    /// Returns the streaming dispatch enumerable for a streaming tool.
+    /// The caller (McpHttpEndpointHandler) is responsible for writing SSE events.
+    /// </summary>
+    internal IAsyncEnumerable<DispatchStreamChunk> StreamToolAsync(
+        McpToolDescriptor descriptor,
+        IReadOnlyDictionary<string, JsonElement> args,
+        CancellationToken cancellationToken,
+        HttpContext? sourceContext = null)
+    {
+        return _dispatcher.DispatchStreamingAsync(descriptor, args, _options.MaxStreamingItems, cancellationToken, sourceContext);
+    }
+
     private static string BuildDescription(McpToolDescriptor descriptor)
     {
         var sb = new System.Text.StringBuilder();
@@ -331,6 +369,8 @@ public sealed class McpToolDefinition
     public string[]? Tags { get; init; }
     public string[]? Examples { get; init; }
     public string[]? Hints { get; init; }
+    /// <summary>True when this tool returns IAsyncEnumerable and results are streamed progressively.</summary>
+    public bool IsStreaming { get; init; }
 }
 
 /// <summary>Result returned from a tool invocation.</summary>

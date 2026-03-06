@@ -124,6 +124,10 @@ internal sealed class McpHttpEndpointHandler
             var stopwatch = Stopwatch.StartNew();
             try
             {
+                // Streaming tool detection: if tools/call targets a streaming tool, use SSE output
+                if (method == "tools/call" && await TryHandleStreamingToolCallAsync(@params, context, idValue, stopwatch))
+                    return;
+
                 object? responsePayload;
                 if (method == "tools/call" && idValue is not null)
                 {
@@ -179,6 +183,102 @@ internal sealed class McpHttpEndpointHandler
                 _logger.LogError(ex, "Unhandled error processing MCP method: Method={Method}, DurationMs={DurationMs}", method, stopwatch.ElapsedMilliseconds);
                 await WriteErrorAsync(context, idValue, -32603, "Internal error", ex.Message);
             }
+        }
+    }
+
+    /// <summary>
+    /// Checks whether a tools/call targets a streaming tool. Used by stdio to decide between single and multi-line output.
+    /// </summary>
+    internal bool IsStreamingToolCall(JsonDocument requestDoc)
+    {
+        var root = requestDoc.RootElement;
+        if (!root.TryGetProperty("method", out var methodEl) || methodEl.GetString() != "tools/call")
+            return false;
+        if (!root.TryGetProperty("params", out var @params) || @params.ValueKind != JsonValueKind.Object)
+            return false;
+        if (!@params.TryGetProperty("name", out var nameEl) || nameEl.ValueKind != JsonValueKind.String)
+            return false;
+        return _toolHandler.IsStreamingTool(nameEl.GetString()!, _endpointVersion);
+    }
+
+    /// <summary>
+    /// Processes a streaming tools/call and yields JSON-RPC lines for each chunk.
+    /// Used by the stdio transport for streaming tools.
+    /// </summary>
+    internal async IAsyncEnumerable<string> ProcessStreamingMessageAsync(JsonDocument requestDoc, HttpContext context)
+    {
+        var root = requestDoc.RootElement;
+        root.TryGetProperty("id", out var id);
+        var idValue = id.ValueKind == JsonValueKind.Undefined ? (object?)null : id.GetRawText();
+        root.TryGetProperty("params", out var @params);
+
+        var toolName = @params.GetProperty("name").GetString()!;
+        var descriptor = await _toolHandler.GetStreamingDescriptorAsync(toolName, context, context.RequestAborted, _endpointVersion);
+        if (descriptor is null)
+        {
+            yield return SerializeErrorResponse(idValue, -32602, $"Tool '{toolName}' not found or not visible", null);
+            yield break;
+        }
+
+        var args = new Dictionary<string, JsonElement>(StringComparer.OrdinalIgnoreCase);
+        if (@params.TryGetProperty("arguments", out var arguments) && arguments.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var prop in arguments.EnumerateObject())
+                args[prop.Name] = prop.Value;
+        }
+
+        var jsonOptions = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = false };
+        var chunkIndex = 0;
+
+        await foreach (var chunk in _toolHandler.StreamToolAsync(descriptor, args, context.RequestAborted, context))
+        {
+            if (chunk.IsLast && string.IsNullOrEmpty(chunk.Content) && !chunk.IsError)
+            {
+                var donePayload = new
+                {
+                    jsonrpc = "2.0",
+                    id = idValue,
+                    result = new
+                    {
+                        content = Array.Empty<object>(),
+                        isError = false,
+                        _meta = new { streaming = true, status = "done", totalChunks = chunkIndex }
+                    }
+                };
+                yield return JsonSerializer.Serialize(donePayload, jsonOptions);
+                yield break;
+            }
+
+            if (chunk.IsError)
+            {
+                var errorPayload = new
+                {
+                    jsonrpc = "2.0",
+                    id = idValue,
+                    result = new
+                    {
+                        content = new[] { new { type = "text", text = chunk.Content } },
+                        isError = true,
+                        _meta = new { streaming = true, status = "error", chunkIndex }
+                    }
+                };
+                yield return JsonSerializer.Serialize(errorPayload, jsonOptions);
+                yield break;
+            }
+
+            var chunkPayload = new
+            {
+                jsonrpc = "2.0",
+                id = idValue,
+                result = new
+                {
+                    content = new[] { new { type = "text", text = chunk.Content } },
+                    isError = false,
+                    _meta = new { streaming = true, status = "streaming", chunkIndex }
+                }
+            };
+            yield return JsonSerializer.Serialize(chunkPayload, jsonOptions);
+            chunkIndex++;
         }
     }
 
@@ -337,9 +437,117 @@ internal sealed class McpHttpEndpointHandler
             if (t.Tags is { Length: > 0 }) obj["tags"] = t.Tags;
             if (t.Examples is { Length: > 0 }) obj["examples"] = t.Examples;
             if (t.Hints is { Length: > 0 }) obj["hints"] = t.Hints;
+            if (t.IsStreaming) obj["streaming"] = true;
             return (object)obj;
         }).ToList();
         return new { tools };
+    }
+
+    /// <summary>
+    /// If the tools/call target is a streaming tool, writes SSE events and returns true.
+    /// Returns false if the tool is non-streaming (caller should use the normal path).
+    /// </summary>
+    private async Task<bool> TryHandleStreamingToolCallAsync(JsonElement @params, HttpContext httpContext, object? idValue, Stopwatch stopwatch)
+    {
+        if (@params.ValueKind == JsonValueKind.Undefined) return false;
+        if (!@params.TryGetProperty("name", out var nameEl) || nameEl.ValueKind != JsonValueKind.String) return false;
+
+        var toolName = nameEl.GetString()!;
+        if (!_toolHandler.IsStreamingTool(toolName, _endpointVersion))
+            return false;
+
+        var descriptor = await _toolHandler.GetStreamingDescriptorAsync(toolName, httpContext, httpContext.RequestAborted, _endpointVersion);
+        if (descriptor is null)
+        {
+            await WriteErrorAsync(httpContext, idValue, -32602, $"Tool '{toolName}' not found or not visible", null);
+            return true;
+        }
+
+        var args = new Dictionary<string, JsonElement>(StringComparer.OrdinalIgnoreCase);
+        if (@params.TryGetProperty("arguments", out var arguments) && arguments.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var prop in arguments.EnumerateObject())
+                args[prop.Name] = prop.Value;
+        }
+
+        var jsonOptions = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = false };
+
+        httpContext.Response.ContentType = "text/event-stream";
+        httpContext.Response.Headers.CacheControl = "no-cache";
+        httpContext.Response.Headers.Connection = "keep-alive";
+        httpContext.Response.StatusCode = 200;
+        await httpContext.Response.StartAsync(httpContext.RequestAborted);
+
+        var chunkIndex = 0;
+        var hasError = false;
+
+        await foreach (var chunk in _toolHandler.StreamToolAsync(descriptor, args, httpContext.RequestAborted, httpContext))
+        {
+            if (chunk.IsLast && string.IsNullOrEmpty(chunk.Content) && !chunk.IsError)
+            {
+                // Final empty sentinel: write the done event
+                var donePayload = new
+                {
+                    jsonrpc = "2.0",
+                    id = idValue,
+                    result = new
+                    {
+                        content = Array.Empty<object>(),
+                        isError = false,
+                        _meta = new { streaming = true, status = "done", totalChunks = chunkIndex }
+                    }
+                };
+                await WriteSseEventAsync(httpContext, "done", JsonSerializer.Serialize(donePayload, jsonOptions));
+                break;
+            }
+
+            if (chunk.IsError)
+            {
+                hasError = true;
+                var errorPayload = new
+                {
+                    jsonrpc = "2.0",
+                    id = idValue,
+                    result = new
+                    {
+                        content = new[] { new { type = "text", text = chunk.Content } },
+                        isError = true,
+                        _meta = new { streaming = true, status = "error", chunkIndex }
+                    }
+                };
+                await WriteSseEventAsync(httpContext, "error", JsonSerializer.Serialize(errorPayload, jsonOptions));
+                break;
+            }
+
+            var chunkPayload = new
+            {
+                jsonrpc = "2.0",
+                id = idValue,
+                result = new
+                {
+                    content = new[] { new { type = "text", text = chunk.Content } },
+                    isError = false,
+                    _meta = new { streaming = true, status = "streaming", chunkIndex }
+                }
+            };
+            await WriteSseEventAsync(httpContext, "chunk", JsonSerializer.Serialize(chunkPayload, jsonOptions));
+            chunkIndex++;
+        }
+
+        _logger.LogDebug("MCP streaming request completed: Tool={ToolName}, Chunks={ChunkCount}, HasError={HasError}, DurationMs={DurationMs}",
+            toolName, chunkIndex, hasError, stopwatch.ElapsedMilliseconds);
+
+        return true;
+    }
+
+    private static async Task WriteSseEventAsync(HttpContext context, string eventType, string data)
+    {
+        var sb = new StringBuilder();
+        sb.Append("event: ").AppendLine(eventType);
+        sb.Append("data: ").AppendLine(data);
+        sb.AppendLine();
+        await context.Response.WriteAsync(sb.ToString(), context.RequestAborted);
+        await context.Response.Body.FlushAsync(context.RequestAborted);
     }
 
     private async Task<object> HandleToolsCallWithCancellationAsync(JsonElement @params, HttpContext httpContext, string requestId)

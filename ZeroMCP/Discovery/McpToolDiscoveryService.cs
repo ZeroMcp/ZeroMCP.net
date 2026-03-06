@@ -424,10 +424,11 @@ public sealed class McpToolDiscoveryService
                     break;
             }
         }
+        var (isStreaming, streamingElementType) = DetectAsyncEnumerable(controllerDescriptor.MethodInfo.ReturnType);
+
         var descriptor = new McpToolDescriptor
         {
             Name = mcpAttr.Name,
-        // Use Description from the MCP Attribute, or, if EnableXMLDocAnalysis is set to true, read from XMLDoc
             Description = !string.IsNullOrWhiteSpace(mcpAttr.Description)
                 ? mcpAttr.Description
                 : _options.EnableXMLDocAnalysis?XmlDocHelper.GetMethodSummary(controllerDescriptor.MethodInfo):"",
@@ -446,6 +447,8 @@ public sealed class McpToolDiscoveryService
             Body = body,
             FormFileParameters = formFileParams,
             FormParameters = formParams,
+            IsStreaming = isStreaming,
+            StreamingElementType = streamingElementType,
             HttpMethod = apiDescription.HttpMethod ?? "GET",
             RelativeUrl = apiDescription.RelativePath ?? string.Empty
         };
@@ -477,5 +480,35 @@ public sealed class McpToolDiscoveryService
                 return endpoint;
         }
         return null;
+    }
+
+    /// <summary>
+    /// Checks whether a return type is or wraps IAsyncEnumerable&lt;T&gt;.
+    /// Handles direct IAsyncEnumerable&lt;T&gt;, Task&lt;IAsyncEnumerable&lt;T&gt;&gt;, and generic wrappers.
+    /// </summary>
+    private static (bool isStreaming, Type? elementType) DetectAsyncEnumerable(Type returnType)
+    {
+        var type = returnType;
+
+        // Unwrap Task<T> / ValueTask<T>
+        if (type.IsGenericType)
+        {
+            var gd = type.GetGenericTypeDefinition();
+            if (gd == typeof(Task<>) || gd == typeof(ValueTask<>))
+                type = type.GetGenericArguments()[0];
+        }
+
+        // Check IAsyncEnumerable<T> directly
+        if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IAsyncEnumerable<>))
+            return (true, type.GetGenericArguments()[0]);
+
+        // Check interfaces for IAsyncEnumerable<T>
+        foreach (var iface in type.GetInterfaces())
+        {
+            if (iface.IsGenericType && iface.GetGenericTypeDefinition() == typeof(IAsyncEnumerable<>))
+                return (true, iface.GetGenericArguments()[0]);
+        }
+
+        return (false, null);
     }
 }

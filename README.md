@@ -200,6 +200,34 @@ See [wiki/Tool-Versioning](wiki/Tool-Versioning.md).
 
 ---
 
+## Streaming (IAsyncEnumerable)
+
+Controller actions decorated with `[Mcp]` that return `IAsyncEnumerable<T>` are automatically detected as streaming tools at registration time. When a client calls a streaming tool:
+
+- **HTTP (Streamable HTTP)** — The response is delivered as **Server-Sent Events** (`text/event-stream`). Each enumerated item is sent as an `event: chunk` with the serialized JSON in `result.content[0].text`. A final `event: done` is emitted when enumeration completes. Errors emit `event: error`.
+- **stdio** — Each chunk is a separate JSON-RPC response line, with `result._meta.status` set to `"streaming"`, `"done"`, or `"error"`.
+- **tools/list** — Streaming tools include `"streaming": true` in the tool definition.
+- **Inspector UI** — Streaming tools show a purple "STREAMING" badge and render results progressively.
+
+```csharp
+[HttpGet("stream")]
+[Mcp("stream_orders", Description = "Streams all orders with simulated delay.")]
+public async IAsyncEnumerable<Order> StreamOrders(
+    [EnumeratorCancellation] CancellationToken ct = default)
+{
+    foreach (var order in Store)
+    {
+        ct.ThrowIfCancellationRequested();
+        await Task.Delay(250, ct);
+        yield return order;
+    }
+}
+```
+
+**Safety limit**: `MaxStreamingItems` (default 10,000) caps the number of items yielded before the stream is cancelled. Set to 0 for unlimited.
+
+---
+
 ## Examples
 
 The **examples/** folder contains standalone projects:
@@ -388,7 +416,7 @@ mcpAPI/
 - **Transports** — Streamable HTTP (primary), stdio via `--mcp-stdio`, Legacy SSE opt-in via `WithLegacySseTransport()`. See [wiki/Limitations](wiki/Limitations.md).
 - **Minimal APIs** — supported via `AsMcp`; route params are bound; query/body binding is limited
 - **[FromForm] and file uploads** — Supported for `IFormFile`/`IFormFileCollection` via base64; see [Parameters-and-Schemas](wiki/Parameters-and-Schemas.md)
-- **Streaming responses** — `IAsyncEnumerable<T>` and SSE action results are not captured correctly
+- **Streaming responses** — `IAsyncEnumerable<T>` return types on controller actions are auto-detected and streamed via SSE (HTTP) or multi-line JSON-RPC (stdio). Minimal API streaming is not yet supported. See `MaxStreamingItems` option.
 - If **CreatedAtAction** or link generation ever fails in your environment, use `return Created(Url.Action(nameof(OtherAction), new { id = entity.Id })!, entity);` as a fallback
 
 ---

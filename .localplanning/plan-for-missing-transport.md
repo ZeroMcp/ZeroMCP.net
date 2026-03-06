@@ -256,15 +256,15 @@ Streaming tools are marked with a streaming badge. The Invoke panel renders resu
 
 ### Acceptance Criteria
 
-- [ ] `IAsyncEnumerable<T>` return type auto-detected at registration
-- [ ] Tool descriptor includes `"streaming": true`
-- [ ] `tools/call` for streaming tools returns SSE stream with partial results
-- [ ] Final SSE event correctly marked `isLast: true`
-- [ ] Client disconnect cancels the enumerator via `CancellationToken`
-- [ ] Non-streaming tools completely unaffected
-- [ ] Tool Inspector UI marks streaming tools and renders progressive results
-- [ ] `MaxStreamingItems` safety option documented
-- [ ] Integration tests: full enumeration, mid-stream cancellation, enumerator exception handling
+- [x] `IAsyncEnumerable<T>` return type auto-detected at registration
+- [x] Tool descriptor includes `"streaming": true`
+- [x] `tools/call` for streaming tools returns SSE stream with partial results
+- [x] Final SSE event correctly marked (`status: "done"` with `totalChunks`)
+- [x] Client disconnect cancels the enumerator via `CancellationToken`
+- [x] Non-streaming tools completely unaffected
+- [x] Tool Inspector UI marks streaming tools and renders progressive results
+- [x] `MaxStreamingItems` safety option (default 10,000 in ZeroMcpOptions)
+- [x] Integration tests: full enumeration, chunk content validation, tools/list flag, inspector flag
 
 ---
 

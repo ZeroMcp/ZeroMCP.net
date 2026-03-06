@@ -1,4 +1,5 @@
 using System.Reflection;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using ZeroMCP.Observability;
@@ -61,6 +62,12 @@ public static class ServiceCollectionExtensions
 
         // IHttpContextFactory is needed for synthetic context creation
         services.AddSingleton<IHttpContextFactory, DefaultHttpContextFactory>();
+
+        // Register the streaming capture formatter so IAsyncEnumerable results can be intercepted during dispatch
+        services.Configure<MvcOptions>(mvc =>
+        {
+            mvc.OutputFormatters.Insert(0, new McpStreamingCaptureFormatter());
+        });
 
         return services;
     }
