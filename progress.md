@@ -719,3 +719,32 @@ After adding `AddEndpointsApiExplorer()`, restart the app; both controller and m
 - **EndpointRouteBuilderExtensions** — When **EnableToolInspector** and **EnableToolInspectorUI**, **MapGet(baseRoute + "/ui", ...)** returns the HTML with `text/html; charset=utf-8`.
 - **McpEndpointIntegrationTests** — **Phase3_InspectorUI_Get_ReturnsHtmlWithTitle** (GET /mcp/ui returns 200, text/html, body contains "ZeroMCP Tool Inspector" and "/mcp").
 - **Docs** — Configuration.md, Quick-Start.md, README.md: document **EnableToolInspectorUI** and GET /mcp/ui.
+
+## 2026-03-18 — McpResource / McpTemplate / McpPrompt sample + tests
+
+### New: ZeroMCP.Sample/Controllers/CatalogController.cs
+Demonstrates all three new MCP attributes in a product-catalog context.
+
+**Static resources via [McpResource]**
+- `GetCatalogInfo()` mapped to `catalog://info` — returns CatalogInfo (name, version, productCount, categoryCount, categories)
+- `GetCategories()` mapped to `catalog://categories` — returns the distinct category array
+
+**Parameterised resource templates via [McpTemplate]**
+- `GetProductById(int id)` mapped to `catalog://products/{id}`
+- `GetProductsByCategory(string category)` mapped to `catalog://categories/{category}/products`
+
+**Prompt templates via [McpPrompt]**
+- `SearchProductsPrompt([Required] string keyword, string? category)` → `search_products_prompt`
+- `RestockRecommendationPrompt(int productId)` → `restock_recommendation_prompt`
+
+### Model/data changes
+- `Product.cs`: added `Category` and `Description` properties; added `CatalogInfo` class
+- `SampleData.cs`: Products expanded to 5 items with categories; added `Categories` property and `BuildCatalogInfo()`; Orders expanded to 3
+
+### New: ZeroMCP.Tests/McpResourcesAndPromptsIntegrationTests.cs
+25 tests covering the full lifecycle: initialize capability advertisement, resources/list, resources/templates/list, resources/read (static + template + error cases), prompts/list (argument schema), prompts/get (message envelope, optional/required args, error cases).
+
+### Bug fix: McpPromptDiscoveryService
+Prompt argument `Required` flag was using `ApiParameterDescription.IsRequired` only. Changed to `param.IsRequired || (param.ModelMetadata?.IsRequired == true)` so `[Required]` DataAnnotations attributes on query parameters are correctly surfaced.
+
+**Build/test result:** 0 errors, 25/25 new tests passing.

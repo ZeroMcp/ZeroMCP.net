@@ -141,7 +141,9 @@ public sealed class McpPromptDiscoveryService
                     {
                         Name = param.Name,
                         ParameterType = param.Type ?? typeof(string),
-                        IsRequired = param.IsRequired,
+                        // ApiParameterDescription.IsRequired only covers route / BindRequired;
+                        // ModelMetadata.IsRequired also honours [Required] from DataAnnotations.
+                        IsRequired = param.IsRequired || (param.ModelMetadata?.IsRequired == true),
                         Description = param.ModelMetadata?.Description,
                         DefaultValue = param.DefaultValue
                     });
