@@ -160,6 +160,27 @@ public sealed class ZeroMCPOptions
     /// Use Streamable HTTP for horizontal scale.
     /// </remarks>
     public bool EnableLegacySseTransport { get; set; }
+
+    // --- MCP Resources ---
+
+    /// <summary>
+    /// When true, advertises the <c>resources</c> capability during MCP handshake and handles
+    /// <c>resources/list</c> and <c>resources/read</c> JSON-RPC methods.
+    /// Controller actions tagged with <c>[McpResource]</c> are exposed as static resources;
+    /// actions tagged with <c>[McpTemplate]</c> are exposed via <c>resources/templates/list</c>.
+    /// Default is true.
+    /// </summary>
+    public bool EnableResources { get; set; } = true;
+
+    // --- MCP Prompts ---
+
+    /// <summary>
+    /// When true, advertises the <c>prompts</c> capability during MCP handshake and handles
+    /// <c>prompts/list</c> and <c>prompts/get</c> JSON-RPC methods.
+    /// Controller actions tagged with <c>[McpPrompt]</c> are exposed as reusable prompt templates.
+    /// Default is true.
+    /// </summary>
+    public bool EnablePrompts { get; set; } = true;
 }
 
 /// <summary>Suggested follow-up tool and rationale for AI clients.</summary>

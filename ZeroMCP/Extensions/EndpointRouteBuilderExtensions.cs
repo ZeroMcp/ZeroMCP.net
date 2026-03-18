@@ -48,13 +48,29 @@ public static class EndpointRouteBuilderExtensions
         var loggerFactory = endpoints.ServiceProvider.GetRequiredService<ILoggerFactory>();
         var handlerLogger = loggerFactory.CreateLogger<McpHttpEndpointHandler>();
 
-        // Trigger discovery build so we can check for versioned tools
+        var resourceHandler = options.EnableResources
+            ? endpoints.ServiceProvider.GetService<McpResourceHandler>()
+            : null;
+        var promptHandler = options.EnablePrompts
+            ? endpoints.ServiceProvider.GetService<McpPromptHandler>()
+            : null;
+
+        // Trigger discovery builds so we can check for versioned tools and pre-warm caches
         _ = discovery.GetRegistry();
+        if (resourceHandler is not null)
+        {
+            _ = endpoints.ServiceProvider.GetRequiredService<McpResourceDiscoveryService>().GetStaticResources();
+        }
+        if (promptHandler is not null)
+        {
+            _ = endpoints.ServiceProvider.GetRequiredService<McpPromptDiscoveryService>().GetPrompts();
+        }
 
         if (!discovery.HasVersionedTools)
         {
             logger.LogInformation("ZeroMCP MCP endpoint registered at POST {Route}", route);
-            var mcpHandler = new McpHttpEndpointHandler(toolHandler, options, handlerLogger);
+            var mcpHandler = new McpHttpEndpointHandler(toolHandler, options, handlerLogger,
+                resourceHandler: resourceHandler, promptHandler: promptHandler);
 
             if (options.EnableToolInspector)
             {
@@ -93,7 +109,8 @@ public static class EndpointRouteBuilderExtensions
 
         foreach (var v in availableVersions)
         {
-            var versionedHandler = new McpHttpEndpointHandler(toolHandler, options, handlerLogger, v, availableVersions);
+            var versionedHandler = new McpHttpEndpointHandler(toolHandler, options, handlerLogger, v, availableVersions,
+                resourceHandler: resourceHandler, promptHandler: promptHandler);
             var versionedBase = baseRoute + "/v" + v;
 
             endpoints.MapMethods(versionedBase, ["GET", "POST"], (ctx) => versionedHandler.HandleAsync(ctx))
@@ -119,7 +136,8 @@ public static class EndpointRouteBuilderExtensions
             }
         }
 
-        var defaultHandler = new McpHttpEndpointHandler(toolHandler, options, handlerLogger, defaultVersion, availableVersions);
+        var defaultHandler = new McpHttpEndpointHandler(toolHandler, options, handlerLogger, defaultVersion, availableVersions,
+            resourceHandler: resourceHandler, promptHandler: promptHandler);
 
         if (options.EnableToolInspector)
         {

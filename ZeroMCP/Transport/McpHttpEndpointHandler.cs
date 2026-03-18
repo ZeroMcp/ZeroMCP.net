@@ -25,6 +25,8 @@ internal sealed class McpHttpEndpointHandler
     internal const string CorrelationIdItemKey = "McpCorrelationId";
 
     private readonly McpToolHandler _toolHandler;
+    private readonly McpResourceHandler? _resourceHandler;
+    private readonly McpPromptHandler? _promptHandler;
     private readonly ZeroMCPOptions _options;
     private readonly ILogger<McpHttpEndpointHandler> _logger;
     private readonly int? _endpointVersion;
@@ -36,9 +38,13 @@ internal sealed class McpHttpEndpointHandler
         ZeroMCPOptions options,
         ILogger<McpHttpEndpointHandler> logger,
         int? endpointVersion = null,
-        IReadOnlyList<int>? availableVersions = null)
+        IReadOnlyList<int>? availableVersions = null,
+        McpResourceHandler? resourceHandler = null,
+        McpPromptHandler? promptHandler = null)
     {
         _toolHandler = toolHandler;
+        _resourceHandler = resourceHandler;
+        _promptHandler = promptHandler;
         _options = options;
         _logger = logger;
         _endpointVersion = endpointVersion;
@@ -51,11 +57,14 @@ internal sealed class McpHttpEndpointHandler
         if (context.Request.Method == "GET")
         {
             context.Response.ContentType = "application/json";
+            var methods = new List<string> { "initialize", "tools/list", "tools/call" };
+            if (_resourceHandler is not null) methods.AddRange(["resources/list", "resources/templates/list", "resources/read"]);
+            if (_promptHandler is not null) methods.AddRange(["prompts/list", "prompts/get"]);
             await context.Response.WriteAsync(JsonSerializer.Serialize(new
             {
                 protocol = "MCP",
                 transport = "streamable HTTP",
-                message = "Send POST requests with JSON-RPC 2.0 body. Methods: initialize, tools/list, tools/call.",
+                message = $"Send POST requests with JSON-RPC 2.0 body. Methods: {string.Join(", ", methods)}.",
                 server = _options.ServerName,
                 version = _options.ServerVersion,
                 example = new
@@ -149,6 +158,21 @@ internal sealed class McpHttpEndpointHandler
                             "notifications/initialized" => null, // fire and forget, no response
                             "tools/list" => await HandleToolsListAsync(context),
                             "tools/call" => await HandleToolsCallAsync(@params, context, _endpointVersion, null),
+                            "resources/list" => _resourceHandler is not null
+                                ? _resourceHandler.HandleResourcesList()
+                                : throw new McpMethodNotFoundException($"Method not found: {method}"),
+                            "resources/templates/list" => _resourceHandler is not null
+                                ? _resourceHandler.HandleResourcesTemplatesList()
+                                : throw new McpMethodNotFoundException($"Method not found: {method}"),
+                            "resources/read" => _resourceHandler is not null
+                                ? await _resourceHandler.HandleResourcesReadAsync(@params, context, context.RequestAborted)
+                                : throw new McpMethodNotFoundException($"Method not found: {method}"),
+                            "prompts/list" => _promptHandler is not null
+                                ? _promptHandler.HandlePromptsList()
+                                : throw new McpMethodNotFoundException($"Method not found: {method}"),
+                            "prompts/get" => _promptHandler is not null
+                                ? await _promptHandler.HandlePromptsGetAsync(@params, context, context.RequestAborted)
+                                : throw new McpMethodNotFoundException($"Method not found: {method}"),
                             _ => throw new McpMethodNotFoundException($"Method not found: {method}")
                         };
                     }
@@ -329,6 +353,21 @@ internal sealed class McpHttpEndpointHandler
                         "notifications/initialized" => null,
                         "tools/list" => await HandleToolsListAsync(context),
                         "tools/call" => await HandleToolsCallAsync(@params, context, _endpointVersion, null),
+                        "resources/list" => _resourceHandler is not null
+                            ? _resourceHandler.HandleResourcesList()
+                            : throw new McpMethodNotFoundException($"Method not found: {method}"),
+                        "resources/templates/list" => _resourceHandler is not null
+                            ? _resourceHandler.HandleResourcesTemplatesList()
+                            : throw new McpMethodNotFoundException($"Method not found: {method}"),
+                        "resources/read" => _resourceHandler is not null
+                            ? await _resourceHandler.HandleResourcesReadAsync(@params, context, context.RequestAborted)
+                            : throw new McpMethodNotFoundException($"Method not found: {method}"),
+                        "prompts/list" => _promptHandler is not null
+                            ? _promptHandler.HandlePromptsList()
+                            : throw new McpMethodNotFoundException($"Method not found: {method}"),
+                        "prompts/get" => _promptHandler is not null
+                            ? await _promptHandler.HandlePromptsGetAsync(@params, context, context.RequestAborted)
+                            : throw new McpMethodNotFoundException($"Method not found: {method}"),
                         _ => throw new McpMethodNotFoundException($"Method not found: {method}")
                     };
                 }
@@ -410,14 +449,22 @@ internal sealed class McpHttpEndpointHandler
 
     private object HandleInitialize(JsonElement @params)
     {
+        var capabilities = new Dictionary<string, object>(StringComparer.Ordinal)
+        {
+            ["tools"] = new { listChanged = false }
+        };
+
+        if (_resourceHandler is not null)
+            capabilities["resources"] = new { listChanged = false, subscribe = false };
+
+        if (_promptHandler is not null)
+            capabilities["prompts"] = new { listChanged = false };
+
         return new
         {
             protocolVersion = McpProtocolConstants.ProtocolVersion,
             serverInfo = new { name = _options.ServerName, version = _options.ServerVersion },
-            capabilities = new
-            {
-                tools = new { listChanged = false }
-            }
+            capabilities
         };
     }
 

@@ -1,4 +1,5 @@
 using System.Reflection;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -46,6 +47,8 @@ public static class ServiceCollectionExtensions
         // Core infrastructure — all singletons since they cache at startup
         services.AddSingleton<McpSchemaBuilder>();
         services.AddSingleton<McpToolDiscoveryService>();
+        services.AddSingleton<McpResourceDiscoveryService>();
+        services.AddSingleton<McpPromptDiscoveryService>();
 
         // Dispatch infrastructure
         services.AddSingleton<SyntheticHttpContextFactory>();
@@ -56,6 +59,8 @@ public static class ServiceCollectionExtensions
 
         // Transport
         services.AddSingleton<McpToolHandler>();
+        services.AddSingleton<McpResourceHandler>();
+        services.AddSingleton<McpPromptHandler>();
 
         // Legacy SSE transport (opt-in via WithLegacySseTransport or EnableLegacySseTransport)
         services.AddSingleton<McpLegacySseEndpointHandler>();

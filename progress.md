@@ -1,5 +1,37 @@
 # Progress
 
+## 2026-03-18 – MCP Resources, Resource Templates, and Prompts ([McpResource], [McpTemplate], [McpPrompt])
+
+### New MCP protocol capabilities: resources and prompts support
+
+**Attributes (ZeroMCP/Attributes/):**
+- **McpResourceAttribute** — `[McpResource(uri, name)]` applied to controller actions; exposes the action as a static MCP resource at a fixed URI (e.g. `"resource://myapp/config"`). Supports `Description` and `MimeType`.
+- **McpTemplateAttribute** — `[McpTemplate(uriTemplate, name)]` applied to controller actions; exposes the action as a URI-templated resource (RFC 6570 Level 1, e.g. `"resource://myapp/users/{id}"`). Template variables must match route/query parameter names on the action.
+- **McpPromptAttribute** — `[McpPrompt(name)]` applied to controller actions; exposes the action as a reusable MCP prompt template. Action parameters become prompt arguments in `prompts/list`. Action response is wrapped as MCP prompt messages.
+
+**Descriptors (ZeroMCP/Discovery/):**
+- **McpResourceDescriptor** — Holds resource/template metadata (Name, Description, MimeType, IsTemplate, ResourceUri, UriTemplate) plus an internal `DispatchDescriptor` (McpToolDescriptor) for in-process dispatch and a pre-compiled `UriPattern` (Regex) for template matching.
+- **McpPromptDescriptor** — Holds prompt metadata (Name, Description, Arguments) plus a `DispatchDescriptor` for dispatch.
+- **McpPromptArgumentDescriptor** — Per-argument model (Name, Description, Required) derived from action parameters.
+
+**Discovery Services (ZeroMCP/Discovery/):**
+- **McpResourceDiscoveryService** — Scans `IApiDescriptionGroupCollectionProvider` for `[McpResource]` and `[McpTemplate]` on controller actions; builds separate static and template registries; caches at startup. `FindForUri(uri)` resolves exact URI matches (static) or regex template matches, returning extracted template variables for dispatch. URI templates are compiled to named-group regex patterns with Regex.Escape on literal segments.
+- **McpPromptDiscoveryService** — Scans for `[McpPrompt]` on controller actions; builds a name-indexed registry; caches at startup. Derives prompt arguments from route/query parameters.
+
+**Transport Handlers (ZeroMCP/Transport/):**
+- **McpResourceHandler** — Handles `resources/list` (all static resources), `resources/templates/list` (all URI templates), and `resources/read` (dispatches via McpToolDispatcher with extracted args, returns `{ contents: [{ uri, text, mimeType? }] }`).
+- **McpPromptHandler** — Handles `prompts/list` (all prompts with arguments) and `prompts/get` (dispatches action with provided arguments, wraps response as `{ description?, messages: [{ role: "user", content: { type: "text", text } }] }`).
+
+**Updated Files:**
+- **McpHttpEndpointHandler** — Constructor accepts optional `McpResourceHandler?` and `McpPromptHandler?`. `HandleInitialize` now dynamically builds the `capabilities` object, adding `resources: { listChanged: false, subscribe: false }` and `prompts: { listChanged: false }` when those handlers are wired in. Both `HandleAsync` and `ProcessMessageAsync` (stdio/SSE) route the five new JSON-RPC methods: `resources/list`, `resources/templates/list`, `resources/read`, `prompts/list`, `prompts/get`. Returns `-32601 Method not found` when the feature is not enabled.
+- **ZeroMcpOptions** — Added `EnableResources` (default `true`) and `EnablePrompts` (default `true`).
+- **ServiceCollectionExtensions** — Registers `McpResourceDiscoveryService`, `McpPromptDiscoveryService`, `McpResourceHandler`, `McpPromptHandler` as singletons.
+- **EndpointRouteBuilderExtensions** — Resolves `McpResourceHandler` and `McpPromptHandler` from DI (conditional on `EnableResources`/`EnablePrompts`), pre-warms discovery caches, passes handlers to all `McpHttpEndpointHandler` constructor calls (unversioned and all versioned).
+
+**Build:** `dotnet build` — 0 errors, 0 warnings on ZeroMCP library; 0 errors (53 pre-existing xUnit warnings) across full solution.
+
+---
+
 ## 2026-03-06 – True IAsyncEnumerable<T> Streaming for tools/call
 
 - **McpToolDescriptor**: Added `IsStreaming` (bool) and `StreamingElementType` (Type?) for streaming tool metadata.
