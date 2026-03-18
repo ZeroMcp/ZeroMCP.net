@@ -108,11 +108,31 @@ public sealed class SyntheticHttpContextFactory
 
         // Bind query string
         var queryParts = new List<string>();
+        var handledParams = new HashSet<string>(
+            descriptor.RouteParameters.Select(p => p.Name),
+            StringComparer.OrdinalIgnoreCase);
+
         foreach (var queryParam in descriptor.QueryParameters)
         {
+            handledParams.Add(queryParam.Name);
             if (args.TryGetValue(queryParam.Name, out var value))
             {
                 queryParts.Add($"{Uri.EscapeDataString(queryParam.Name)}={Uri.EscapeDataString(ExtractStringValue(value))}");
+            }
+        }
+
+        // For minimal API endpoints with no body, fall through any remaining args
+        // (not already placed in route values or query string) to the query string.
+        // This mirrors how .AsMcp() tools dispatch arguments and handles the case
+        // where the API description lookup doesn't find the endpoint's query parameters.
+        if (descriptor.ActionDescriptor is null && descriptor.Body is null)
+        {
+            foreach (var (key, value) in args)
+            {
+                if (!handledParams.Contains(key))
+                {
+                    queryParts.Add($"{Uri.EscapeDataString(key)}={Uri.EscapeDataString(ExtractStringValue(value))}");
+                }
             }
         }
 

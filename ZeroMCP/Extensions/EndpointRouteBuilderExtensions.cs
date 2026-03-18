@@ -55,16 +55,11 @@ public static class EndpointRouteBuilderExtensions
             ? endpoints.ServiceProvider.GetService<McpPromptHandler>()
             : null;
 
-        // Trigger discovery builds so we can check for versioned tools and pre-warm caches
+        // Pre-warm the tool registry — needed immediately to decide whether versioned endpoints exist.
+        // Resources and prompts are intentionally NOT pre-warmed here: they must stay lazy so that
+        // minimal API endpoints mapped before MapZeroMCP() are already in EndpointDataSource when
+        // the first resources/list or prompts/list request arrives.
         _ = discovery.GetRegistry();
-        if (resourceHandler is not null)
-        {
-            _ = endpoints.ServiceProvider.GetRequiredService<McpResourceDiscoveryService>().GetStaticResources();
-        }
-        if (promptHandler is not null)
-        {
-            _ = endpoints.ServiceProvider.GetRequiredService<McpPromptDiscoveryService>().GetPrompts();
-        }
 
         if (!discovery.HasVersionedTools)
         {

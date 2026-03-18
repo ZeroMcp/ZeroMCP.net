@@ -38,6 +38,7 @@ MCP Client gets structured result
 | [Quick Start](Quick-Start) | Install, register, map endpoint, tag actions |
 | [Configuration](Configuration) | Options, route prefix, tool filters, observability |
 | [The [Mcp] Attribute](The-Mcp-Attribute) | Attribute usage, name, description, tags, roles, policy |
+| [Resources and Prompts](Resources-and-Prompts) | `[McpResource]`, `[McpTemplate]`, `[McpPrompt]`; resources/list, resources/read, prompts/list, prompts/get |
 | [Parameters and Schemas](Parameters-and-Schemas) | How route/query/body map to MCP input schema |
 | [Controllers and Minimal APIs](Controllers-and-Minimal-APIs) | Using both together, minimal API `.AsMcp` |
 | [Governance and Security](Governance-and-Security) | Roles, policy, per-request visibility, auth |

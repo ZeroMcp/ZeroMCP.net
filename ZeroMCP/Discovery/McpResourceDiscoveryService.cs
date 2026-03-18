@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
 using ZeroMCP.Attributes;
+using ZeroMCP.Metadata;
 
 namespace ZeroMCP.Discovery;
 
@@ -159,6 +160,49 @@ public sealed class McpResourceDiscoveryService
             }
         }
 
+        // Minimal API endpoints tagged with .AsResource() / .AsTemplate()
+        foreach (var endpoint in _endpointDataSource.Endpoints)
+        {
+            var resourceMeta = endpoint.Metadata.GetMetadata<McpResourceEndpointMetadata>();
+            if (resourceMeta is not null)
+            {
+                var dispatch = BuildMinimalDispatchDescriptor(endpoint);
+                staticList.Add(new McpResourceDescriptor
+                {
+                    Name = resourceMeta.Name,
+                    Description = resourceMeta.Description,
+                    MimeType = resourceMeta.MimeType,
+                    IsTemplate = false,
+                    ResourceUri = resourceMeta.Uri,
+                    HttpMethod = dispatch.HttpMethod,
+                    RelativeUrl = dispatch.RelativeUrl,
+                    DispatchDescriptor = dispatch
+                });
+                _logger.LogDebug("Registered MCP resource (minimal) '{Name}' → uri={Uri}", resourceMeta.Name, resourceMeta.Uri);
+            }
+
+            var templateMeta = endpoint.Metadata.GetMetadata<McpTemplateEndpointMetadata>();
+            if (templateMeta is not null)
+            {
+                var dispatch = BuildMinimalDispatchDescriptor(endpoint);
+                var (pattern, variables) = CompileUriTemplate(templateMeta.UriTemplate);
+                templateList.Add(new McpResourceDescriptor
+                {
+                    Name = templateMeta.Name,
+                    Description = templateMeta.Description,
+                    MimeType = templateMeta.MimeType,
+                    IsTemplate = true,
+                    UriTemplate = templateMeta.UriTemplate,
+                    UriPattern = pattern,
+                    TemplateVariables = variables,
+                    HttpMethod = dispatch.HttpMethod,
+                    RelativeUrl = dispatch.RelativeUrl,
+                    DispatchDescriptor = dispatch
+                });
+                _logger.LogDebug("Registered MCP resource template (minimal) '{Name}' → template={Template}", templateMeta.Name, templateMeta.UriTemplate);
+            }
+        }
+
         _staticResources = staticList;
         _templateResources = templateList;
 
@@ -227,6 +271,90 @@ public sealed class McpResourceDiscoveryService
             HttpMethod = apiDescription.HttpMethod ?? "GET",
             RelativeUrl = apiDescription.RelativePath ?? ""
         };
+    }
+
+    /// <summary>
+    /// Builds a dispatch descriptor for a minimal API endpoint by extracting route parameters
+    /// from the route pattern and query/body parameters from ApiDescription (when available).
+    /// </summary>
+    private McpToolDescriptor BuildMinimalDispatchDescriptor(Endpoint endpoint)
+    {
+        var routeParams = new List<McpParameterDescriptor>();
+        var queryParams = new List<McpParameterDescriptor>();
+        var httpMethod = "GET";
+        var relativeUrl = "";
+
+        if (endpoint is RouteEndpoint routeEndpoint)
+        {
+            relativeUrl = routeEndpoint.RoutePattern.RawText?.TrimStart('/') ?? "";
+            foreach (var param in routeEndpoint.RoutePattern.Parameters)
+            {
+                routeParams.Add(new McpParameterDescriptor
+                {
+                    Name = param.Name ?? "",
+                    ParameterType = typeof(string),
+                    IsRequired = !param.IsOptional
+                });
+            }
+        }
+
+        var methodMeta = endpoint.Metadata.GetMetadata<HttpMethodMetadata>();
+        if (methodMeta?.HttpMethods is { Count: > 0 })
+            httpMethod = methodMeta.HttpMethods[0];
+
+        var apiDesc = FindApiDescriptionForMinimalEndpoint(relativeUrl, httpMethod);
+        if (apiDesc is not null)
+        {
+            foreach (var param in apiDesc.ParameterDescriptions)
+            {
+                if (param.Type == typeof(CancellationToken) || param.Source.Id == "Path")
+                    continue;
+                if (param.Source.Id == "Query")
+                {
+                    queryParams.Add(new McpParameterDescriptor
+                    {
+                        Name = param.Name,
+                        ParameterType = param.Type ?? typeof(string),
+                        IsRequired = param.IsRequired || (param.ModelMetadata?.IsRequired == true),
+                        Description = param.ModelMetadata?.Description,
+                        DefaultValue = param.DefaultValue
+                    });
+                }
+            }
+        }
+
+        return new McpToolDescriptor
+        {
+            Name = "",
+            ApiDescription = null,
+            ActionDescriptor = null,
+            Endpoint = endpoint,
+            RouteParameters = routeParams,
+            QueryParameters = queryParams,
+            Body = null,
+            FormFileParameters = [],
+            FormParameters = [],
+            HttpMethod = httpMethod,
+            RelativeUrl = relativeUrl
+        };
+    }
+
+    private ApiDescription? FindApiDescriptionForMinimalEndpoint(string relativeUrl, string httpMethod)
+    {
+        var normalized = relativeUrl.TrimStart('/');
+        foreach (var group in _apiDescriptionProvider.ApiDescriptionGroups.Items)
+        {
+            foreach (var desc in group.Items)
+            {
+                if (desc.ActionDescriptor is ControllerActionDescriptor)
+                    continue;
+                var descPath = (desc.RelativePath ?? "").TrimStart('/');
+                if (string.Equals(descPath, normalized, StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(desc.HttpMethod ?? "", httpMethod, StringComparison.OrdinalIgnoreCase))
+                    return desc;
+            }
+        }
+        return null;
     }
 
     private Endpoint? FindEndpointForAction(ControllerActionDescriptor controllerDescriptor)

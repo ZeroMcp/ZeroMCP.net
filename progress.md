@@ -748,3 +748,45 @@ Demonstrates all three new MCP attributes in a product-catalog context.
 Prompt argument `Required` flag was using `ApiParameterDescription.IsRequired` only. Changed to `param.IsRequired || (param.ModelMetadata?.IsRequired == true)` so `[Required]` DataAnnotations attributes on query parameters are correctly surfaced.
 
 **Build/test result:** 0 errors, 25/25 new tests passing.
+
+## 2026-03-18 — Wiki: Resources-and-Prompts page + minimal API clarification
+
+### New wiki page
+- `wiki/Resources-and-Prompts.md` and `wiki-repo/Resources-and-Prompts.md` — full documentation for `[McpResource]`, `[McpTemplate]`, and `[McpPrompt]` including attribute reference tables, JSON-RPC method mapping, URI variable extraction, argument discovery, error handling, and links to the sample controller and tests.
+
+### Updated
+- `wiki/Home.md` — added Resources and Prompts row to the page index table.
+- `wiki-repo/Home.md` — same row added to the repo-mirror index.
+
+### Minimal API support
+`[McpResource]`, `[McpTemplate]`, and `[McpPrompt]` are **controller-action only**. The discovery services filter on `ControllerActionDescriptor`; minimal API endpoints are not discovered. There is no `.AsResource()` / `.AsTemplate()` / `.AsPrompt()` extension. This limitation is documented in the new wiki page.
+
+## 2026-03-18 — Minimal API support for resources/templates/prompts
+
+Added `.AsResource()`, `.AsTemplate()`, and `.AsPrompt()` extension methods so minimal API endpoints can be exposed as MCP resources and prompts, alongside the existing controller-attribute approach.
+
+### New metadata classes
+- `ZeroMCP/Metadata/McpResourceEndpointMetadata.cs` — attaches static resource metadata to a minimal API endpoint
+- `ZeroMCP/Metadata/McpTemplateEndpointMetadata.cs` — attaches resource-template metadata
+- `ZeroMCP/Metadata/McpPromptEndpointMetadata.cs` — attaches prompt metadata
+
+### Updated extension methods (McpToolEndpointExtensions.cs)
+Added `AsResource<TBuilder>()`, `AsTemplate<TBuilder>()`, and `AsPrompt<TBuilder>()`.
+
+### Updated discovery services
+- `McpResourceDiscoveryService.BuildRegistry()` — scans `EndpointDataSource` for `McpResourceEndpointMetadata` / `McpTemplateEndpointMetadata` in addition to controller attributes.
+- `McpPromptDiscoveryService.BuildRegistry()` — scans `EndpointDataSource` for `McpPromptEndpointMetadata`; uses `RoutePattern.Parameters` to surface route-parameter arguments without needing API description lookup.
+
+### Dispatch fix (SyntheticHttpContextFactory.cs)
+For minimal API endpoints with no body (GET), any argument that is not already bound to a route value and not in the known `QueryParameters` list now falls through to the query string automatically. This mirrors the `.AsMcp()` tool dispatch and means optional query parameters (e.g. `urgency`) reach the endpoint even when the API description lookup fails.
+
+### Sample (Program.cs)
+Three new minimal API endpoints:
+- `GET /api/system/status` → `system://status` (static resource via `.AsResource()`)
+- `GET /api/orders/resource/{id:int}` → `orders://order/{id}` (template resource via `.AsTemplate()`)
+- `GET /api/prompts/fulfil/{orderId:int}` → `fulfil_order_prompt` (prompt via `.AsPrompt()`); `orderId` is a route parameter so it is auto-discovered; optional `urgency` query parameter reaches the endpoint via the fallback dispatch path.
+
+### Tests (McpResourcesAndPromptsIntegrationTests.cs)
+Expanded from 25 to 34 tests; 9 new tests cover minimal API resources and prompts.
+
+**Build/test result:** 0 errors, 106/106 tests passing.

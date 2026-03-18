@@ -71,6 +71,60 @@ app.MapPost("/api/orders/minimal", (CreateOrderRequest req) =>
     return Results.Created($"/api/orders/{order.Id}", order);
 }).AsMcp("create_order_minimal", "Creates a new order. Returns the created order with its assigned ID.", tags: new[] { "write" });
 
+// ---------------------------------------------------------------------------
+// Minimal API: MCP Resources — demonstrate .AsResource() and .AsTemplate()
+// ---------------------------------------------------------------------------
+
+// Static resource: a simple system status document at a well-known URI
+app.MapGet("/api/system/status", () => Results.Ok(new
+{
+    environment = app.Environment.EnvironmentName,
+    utcTime = DateTime.UtcNow,
+    status = "ok"
+})).AsResource(
+    "system://status",
+    "system_status",
+    "Current system status and environment information.",
+    mimeType: "application/json");
+
+// Resource template: look up any order by id using a custom URI scheme
+app.MapGet("/api/orders/resource/{id:int}", (int id) =>
+{
+    var order = SampleData.Orders.FirstOrDefault(o => o.Id == id);
+    return order is null ? Results.NotFound($"Order {id} not found.") : Results.Ok(order);
+}).AsTemplate(
+    "orders://order/{id}",
+    "order_resource",
+    "Retrieves a single order by numeric ID via the orders:// URI scheme.",
+    mimeType: "application/json");
+
+// ---------------------------------------------------------------------------
+// Minimal API: MCP Prompt — demonstrate .AsPrompt()
+// ---------------------------------------------------------------------------
+
+// Prompt: generate a fulfilment chase message for an order
+app.MapGet("/api/prompts/fulfil/{orderId:int}", (int orderId, string? urgency) =>
+{
+    var order = SampleData.Orders.FirstOrDefault(o => o.Id == orderId);
+    if (order is null) return Results.NotFound($"Order {orderId} not found.");
+
+    var urgencyClause = urgency is null ? "" : $" This is {urgency} priority.";
+    var prompt = $"""
+        You are a customer-service agent. Draft a polite fulfilment-chase email for the following order:{urgencyClause}
+
+        Order ID : {order.Id}
+        Customer : {order.CustomerName}
+        Product  : {order.Product}
+        Quantity : {order.Quantity}
+        Status   : {order.Status}
+
+        Keep the email under 120 words and end with a specific action request.
+        """;
+    return Results.Ok(prompt);
+}).AsPrompt(
+    "fulfil_order_prompt",
+    "Generates a customer-service fulfilment-chase email prompt for a given order.");
+
 app.MapZeroMCP().WithLegacySseTransport();
 
 // stdio transport: when launched with --mcp-stdio, run JSON-RPC over stdin/stdout (Claude Desktop, Claude Code)

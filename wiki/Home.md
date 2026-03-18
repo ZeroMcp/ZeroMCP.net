@@ -15,6 +15,7 @@ Read [The ZeroMCP Story](TheStory) to understand why ZeroMCP exists
 | [Tool Inspector UI](Tool-Inspector-UI) | GET /mcp/ui: browse tools (by category), view schemas, invoke tools/call from the browser; auth and production |
 | [Tool Versioning](Tool-Versioning) | Versioned endpoints /mcp/v1, /mcp/v2; Version on [Mcp] and .AsMcp; DefaultVersion; inspector version selector |
 | [The [Mcp] Attribute](The-Mcp-Attribute) | Attribute usage, name, description, tags, category, examples, hints, roles, policy |
+| [Resources and Prompts](Resources-and-Prompts) | `[McpResource]`, `[McpTemplate]`, `[McpPrompt]`; resources/list, resources/read, prompts/list, prompts/get |
 | [Parameters and Schemas](Parameters-and-Schemas) | How route/query/body map to MCP input schema |
 | [Controllers and Minimal APIs](Controllers-and-Minimal-APIs) | Using both together, minimal API `.AsMcp` |
 | [Governance and Security](Governance-and-Security) | Roles, policy, per-request visibility, auth |

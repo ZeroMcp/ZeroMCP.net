@@ -566,6 +566,186 @@ public sealed class McpResourcesAndPromptsIntegrationTests
     }
 
     // -----------------------------------------------------------------------
+    // Minimal API: resources/list includes .AsResource() endpoints
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task ResourcesList_IncludesMinimalApiStaticResource()
+    {
+        var response = await PostMcpAsync(new
+        {
+            jsonrpc = "2.0", id = 70, method = "resources/list"
+        });
+
+        var uris = response["result"]!.AsObject()["resources"]!.AsArray()
+            .Select(r => r!.AsObject()["uri"]!.GetValue<string>())
+            .ToList();
+
+        uris.Should().Contain("system://status",
+            "Program.cs maps GET /api/system/status with .AsResource(\"system://status\", ...)");
+    }
+
+    [Fact]
+    public async Task ResourcesRead_MinimalApiStaticResource_ReturnsStatusDocument()
+    {
+        var response = await PostMcpAsync(new
+        {
+            jsonrpc = "2.0",
+            id = 71,
+            method = "resources/read",
+            @params = new { uri = "system://status" }
+        });
+
+        response.Should().HaveProperty("result");
+        var content = response["result"]!.AsObject()["contents"]!.AsArray()[0]!.AsObject();
+        content["uri"]!.GetValue<string>().Should().Be("system://status");
+
+        var doc = JsonNode.Parse(content["text"]!.GetValue<string>())!.AsObject();
+        doc.Should().HaveProperty("status");
+        doc["status"]!.GetValue<string>().Should().Be("ok");
+    }
+
+    // -----------------------------------------------------------------------
+    // Minimal API: resources/templates/list includes .AsTemplate() endpoints
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task ResourcesTemplatesList_IncludesMinimalApiTemplate()
+    {
+        var response = await PostMcpAsync(new
+        {
+            jsonrpc = "2.0", id = 72, method = "resources/templates/list"
+        });
+
+        var templates = response["result"]!.AsObject()["resourceTemplates"]!.AsArray()
+            .Select(t => t!.AsObject()["uriTemplate"]!.GetValue<string>())
+            .ToList();
+
+        templates.Should().Contain("orders://order/{id}",
+            "Program.cs maps GET /api/orders/resource/{id} with .AsTemplate(\"orders://order/{id}\", ...)");
+    }
+
+    [Fact]
+    public async Task ResourcesRead_MinimalApiTemplate_ReturnsOrderById()
+    {
+        var response = await PostMcpAsync(new
+        {
+            jsonrpc = "2.0",
+            id = 73,
+            method = "resources/read",
+            @params = new { uri = "orders://order/1" }
+        });
+
+        response.Should().HaveProperty("result");
+        var content = response["result"]!.AsObject()["contents"]!.AsArray()[0]!.AsObject();
+        content["uri"]!.GetValue<string>().Should().Be("orders://order/1");
+
+        var order = JsonNode.Parse(content["text"]!.GetValue<string>())!.AsObject();
+        order["id"]!.GetValue<int>().Should().Be(1);
+        order["customerName"]!.GetValue<string>().Should().Be("Alice");
+    }
+
+    // -----------------------------------------------------------------------
+    // Minimal API: prompts/list includes .AsPrompt() endpoints
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task PromptsList_IncludesMinimalApiPrompt()
+    {
+        var response = await PostMcpAsync(new
+        {
+            jsonrpc = "2.0", id = 74, method = "prompts/list"
+        });
+
+        var names = response["result"]!.AsObject()["prompts"]!.AsArray()
+            .Select(p => p!.AsObject()["name"]!.GetValue<string>())
+            .ToList();
+
+        names.Should().Contain("fulfil_order_prompt",
+            "Program.cs maps GET /api/prompts/fulfil with .AsPrompt(\"fulfil_order_prompt\", ...)");
+    }
+
+    [Fact]
+    public async Task PromptsList_MinimalApiPrompt_HasDescription()
+    {
+        var response = await PostMcpAsync(new
+        {
+            jsonrpc = "2.0", id = 75, method = "prompts/list"
+        });
+
+        var prompt = response["result"]!.AsObject()["prompts"]!.AsArray()
+            .Select(p => p!.AsObject())
+            .First(p => p["name"]!.GetValue<string>() == "fulfil_order_prompt");
+
+        prompt.Should().HaveProperty("description");
+        prompt["description"]!.GetValue<string>().Should().NotBeNullOrWhiteSpace();
+    }
+
+    [Fact]
+    public async Task PromptsList_MinimalApiPrompt_AdvertisesArguments()
+    {
+        var response = await PostMcpAsync(new
+        {
+            jsonrpc = "2.0", id = 76, method = "prompts/list"
+        });
+
+        var prompt = response["result"]!.AsObject()["prompts"]!.AsArray()
+            .Select(p => p!.AsObject())
+            .First(p => p["name"]!.GetValue<string>() == "fulfil_order_prompt");
+
+        prompt.Should().HaveProperty("arguments");
+        var argNames = prompt["arguments"]!.AsArray()
+            .Select(a => a!.AsObject()["name"]!.GetValue<string>())
+            .ToList();
+
+        argNames.Should().Contain("orderId", "orderId is a route parameter of the minimal API prompt endpoint");
+    }
+
+    [Fact]
+    public async Task PromptsGet_MinimalApiPrompt_ReturnsMessageEnvelope()
+    {
+        var response = await PostMcpAsync(new
+        {
+            jsonrpc = "2.0",
+            id = 77,
+            method = "prompts/get",
+            @params = new
+            {
+                name = "fulfil_order_prompt",
+                arguments = new { orderId = 1 }
+            }
+        });
+
+        response.Should().HaveProperty("result");
+        var messages = response["result"]!.AsObject()["messages"]!.AsArray();
+        messages.Should().HaveCount(1);
+        messages[0]!.AsObject()["role"]!.GetValue<string>().Should().Be("user");
+
+        var text = ExtractPromptText(response);
+        text.Should().Contain("Alice", "order 1 belongs to Alice");
+        text.Should().Contain("Widget");
+    }
+
+    [Fact]
+    public async Task PromptsGet_MinimalApiPrompt_WithUrgency_IncludesUrgencyInText()
+    {
+        var response = await PostMcpAsync(new
+        {
+            jsonrpc = "2.0",
+            id = 78,
+            method = "prompts/get",
+            @params = new
+            {
+                name = "fulfil_order_prompt",
+                arguments = new { orderId = 1, urgency = "high" }
+            }
+        });
+
+        var text = ExtractPromptText(response);
+        text.Should().Contain("high", "optional urgency argument should appear in the generated prompt");
+    }
+
+    // -----------------------------------------------------------------------
     // Helpers
     // -----------------------------------------------------------------------
 
