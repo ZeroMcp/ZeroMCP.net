@@ -53,9 +53,36 @@ internal sealed class McpHttpEndpointHandler
 
     public async Task HandleAsync(HttpContext context)
     {
-        // GET: return a short description so the URL isn't blank in a browser
         if (context.Request.Method == "GET")
         {
+            // Codex (and Claude in HTTP mode) send GET /mcp with Accept: text/event-stream
+            // to open a persistent server-sent events channel for server-to-client
+            // notifications and progress events (MCP streamable HTTP spec).
+            var acceptHeader = context.Request.Headers.Accept.ToString();
+            if (acceptHeader.Contains("text/event-stream", StringComparison.OrdinalIgnoreCase))
+            {
+                context.Response.StatusCode = 200;
+                context.Response.ContentType = "text/event-stream";
+                context.Response.Headers.CacheControl = "no-cache";
+                context.Response.Headers.Connection = "keep-alive";
+                await context.Response.StartAsync(context.RequestAborted);
+
+                // Keep-alive comments every 15 s so proxies and load-balancers don't
+                // close the idle connection. The loop exits when the client disconnects.
+                try
+                {
+                    while (!context.RequestAborted.IsCancellationRequested)
+                    {
+                        await context.Response.WriteAsync(": keep-alive\n\n", context.RequestAborted);
+                        await context.Response.Body.FlushAsync(context.RequestAborted);
+                        await Task.Delay(TimeSpan.FromSeconds(15), context.RequestAborted);
+                    }
+                }
+                catch (OperationCanceledException) { /* client disconnected — normal */ }
+                return;
+            }
+
+            // Plain GET (browser / developer inspection): return a human-readable JSON description.
             context.Response.ContentType = "application/json";
             var methods = new List<string> { "initialize", "tools/list", "tools/call" };
             if (_resourceHandler is not null) methods.AddRange(["resources/list", "resources/templates/list", "resources/read"]);
@@ -158,18 +185,21 @@ internal sealed class McpHttpEndpointHandler
                             "notifications/initialized" => null, // fire and forget, no response
                             "tools/list" => await HandleToolsListAsync(context),
                             "tools/call" => await HandleToolsCallAsync(@params, context, _endpointVersion, null),
+                            // list methods fall back to empty lists rather than -32601 when the feature
+                            // is disabled — Copilot calls these unconditionally and treats Method Not
+                            // Found as "server unavailable".
                             "resources/list" => _resourceHandler is not null
                                 ? _resourceHandler.HandleResourcesList()
-                                : throw new McpMethodNotFoundException($"Method not found: {method}"),
+                                : (object)new { resources = Array.Empty<object>() },
                             "resources/templates/list" => _resourceHandler is not null
                                 ? _resourceHandler.HandleResourcesTemplatesList()
-                                : throw new McpMethodNotFoundException($"Method not found: {method}"),
+                                : (object)new { resourceTemplates = Array.Empty<object>() },
                             "resources/read" => _resourceHandler is not null
                                 ? await _resourceHandler.HandleResourcesReadAsync(@params, context, context.RequestAborted)
                                 : throw new McpMethodNotFoundException($"Method not found: {method}"),
                             "prompts/list" => _promptHandler is not null
                                 ? _promptHandler.HandlePromptsList()
-                                : throw new McpMethodNotFoundException($"Method not found: {method}"),
+                                : (object)new { prompts = Array.Empty<object>() },
                             "prompts/get" => _promptHandler is not null
                                 ? await _promptHandler.HandlePromptsGetAsync(@params, context, context.RequestAborted)
                                 : throw new McpMethodNotFoundException($"Method not found: {method}"),
@@ -180,7 +210,9 @@ internal sealed class McpHttpEndpointHandler
 
                 if (responsePayload is null)
                 {
-                    context.Response.StatusCode = 204;
+                    // notifications/initialized: Codex (and Claude HTTP) require 202 Accepted.
+                    // All other fire-and-forget notifications stay at 204 No Content.
+                    context.Response.StatusCode = method == "notifications/initialized" ? 202 : 204;
                     _logger.LogDebug("MCP request completed: Method={Method}, DurationMs={DurationMs}", method, stopwatch.ElapsedMilliseconds);
                     return;
                 }
@@ -355,16 +387,16 @@ internal sealed class McpHttpEndpointHandler
                         "tools/call" => await HandleToolsCallAsync(@params, context, _endpointVersion, null),
                         "resources/list" => _resourceHandler is not null
                             ? _resourceHandler.HandleResourcesList()
-                            : throw new McpMethodNotFoundException($"Method not found: {method}"),
+                            : (object)new { resources = Array.Empty<object>() },
                         "resources/templates/list" => _resourceHandler is not null
                             ? _resourceHandler.HandleResourcesTemplatesList()
-                            : throw new McpMethodNotFoundException($"Method not found: {method}"),
+                            : (object)new { resourceTemplates = Array.Empty<object>() },
                         "resources/read" => _resourceHandler is not null
                             ? await _resourceHandler.HandleResourcesReadAsync(@params, context, context.RequestAborted)
                             : throw new McpMethodNotFoundException($"Method not found: {method}"),
                         "prompts/list" => _promptHandler is not null
                             ? _promptHandler.HandlePromptsList()
-                            : throw new McpMethodNotFoundException($"Method not found: {method}"),
+                            : (object)new { prompts = Array.Empty<object>() },
                         "prompts/get" => _promptHandler is not null
                             ? await _promptHandler.HandlePromptsGetAsync(@params, context, context.RequestAborted)
                             : throw new McpMethodNotFoundException($"Method not found: {method}"),

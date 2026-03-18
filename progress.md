@@ -790,3 +790,37 @@ Three new minimal API endpoints:
 Expanded from 25 to 34 tests; 9 new tests cover minimal API resources and prompts.
 
 **Build/test result:** 0 errors, 106/106 tests passing.
+
+## 2026-03-18 — Client compatibility fixes (Codex / Copilot / Claude HTTP)
+
+Analysis of client findings revealed three gaps. All three are now fixed and covered by new tests.
+
+### Fix 1: GET /mcp SSE stream (Codex, Claude HTTP)
+
+`McpHttpEndpointHandler.HandleAsync()` — GET handler now checks the `Accept` header before returning the JSON description. When `Accept: text/event-stream` is present the server returns `200 OK`, `Content-Type: text/event-stream`, `Cache-Control: no-cache`, `Connection: keep-alive` and enters a keep-alive loop sending SSE comment lines (`: keep-alive\n\n`) every 15 seconds until the client disconnects. A plain GET without that header continues to return the human-readable JSON description unchanged.
+
+### Fix 2: notifications/initialized → 202 Accepted (Codex)
+
+The null-payload branch in `HandleAsync()` now returns `202 Accepted` specifically for `notifications/initialized`. All other fire-and-forget notifications (e.g. `notifications/cancelled`) continue to return `204 No Content`.
+
+### Fix 3: Empty lists for disabled features (Copilot)
+
+`resources/list`, `resources/templates/list`, and `prompts/list` now return empty lists (`{ resources: [] }` / `{ resourceTemplates: [] }` / `{ prompts: [] }`) when `EnableResources=false` or `EnablePrompts=false` instead of throwing `-32601 Method Not Found`. Copilot calls these methods unconditionally and marks the server unavailable on any error response. The `resources/read`, `prompts/get` methods still return `-32601` when disabled as those require a URI/name argument and cannot silently no-op. Both dispatch paths (`HandleAsync` and `ProcessMessageAsync`) were updated.
+
+### New test file: ZeroMCP.Tests/McpClientCompatibilityTests.cs
+
+17 new tests across two test classes:
+
+- `McpClientCompatibilityTests` (standard factory, features enabled):
+  - 4 × GET SSE: status 200, content-type, stream open, Cache-Control no-cache
+  - 2 × plain GET: no Accept header → JSON, `Accept: application/json` → JSON
+  - 2 × notifications/initialized: 202 status, empty body
+  - 1 × notifications/cancelled: 204 (regression guard)
+  - 2 × enabled baseline: resources/templates/list and prompts/list carry correct keys
+
+- `McpClientCompatibilityDisabledFeaturesTests` (`FeaturesDisabledFactory`, `EnableResources=false`, `EnablePrompts=false`):
+  - 3 × empty-list returns for resources/list, resources/templates/list, prompts/list
+  - 2 × no -32601 guard for templates and prompts
+  - 1 × capabilities check: resources and prompts not advertised when disabled
+
+**Build/test result:** 0 errors, 123/123 tests passing.
