@@ -4,12 +4,12 @@ Expose your existing ASP.NET Core API as an MCP (Model Context Protocol) server 
 
 ## How It Works
 
-Tag controller actions with `[Mcp]` or minimal APIs with `.AsMcp(...)`. ZeroMCP will:
+Tag controller actions with `[Mcp]`, `[McpResource]`, `[McpTemplate]`, or `[McpPrompt]` — or use the minimal API equivalents `.AsMcp(...)`, `.AsResource(...)`, `.AsTemplate(...)`, `.AsPrompt(...)`. ZeroMCP will:
 
-1. **Discover** tools at startup from controller API descriptions (same source as Swagger) and from minimal API endpoints that use `AsMcp`
-2. **Generate** a JSON Schema for each tool's inputs (route, query, and body merged)
+1. **Discover** tools, resources, templates, and prompts at startup from controller API descriptions (same source as Swagger) and from minimal API endpoints
+2. **Generate** JSON Schema for each tool's inputs (route, query, and body merged)
 3. **Expose** a single endpoint (GET and POST `/mcp`) that speaks the MCP Streamable HTTP transport
-4. **Dispatch** tool calls in-process through your real action or endpoint pipeline — filters, validation, and authorization run normally
+4. **Dispatch** calls in-process through your real action or endpoint pipeline — filters, validation, and authorization run normally
 
 ```
 MCP Client (Claude Desktop, Claude.ai, etc.)
@@ -90,10 +90,10 @@ app.Run();
 
 Then configure Claude Desktop with `"command": "dotnet", "args": ["run", "--project", "MyApi", "--", "--mcp-stdio"]`. See [wiki/Connecting-Clients](wiki/Connecting-Clients.md).
 
-- **GET /mcp** — Server info and example JSON-RPC payload.
+- **GET /mcp** — Server info and example JSON-RPC payload. With `Accept: text/event-stream`, opens an SSE channel for server-to-client notifications.
 - **GET /mcp/tools** — (Phase 3) JSON list of all registered tools and their schemas (when **EnableToolInspector** is true). Use for debugging or tooling.
 - **GET /mcp/ui** — (Phase 3) Swagger-like test invocation UI: list tools, view schemas, invoke tools from the browser (when **EnableToolInspectorUI** is true).
-- **POST /mcp** — JSON-RPC (`initialize`, `tools/list`, `tools/call`).
+- **POST /mcp** — JSON-RPC methods: `initialize`, `tools/list`, `tools/call`, `resources/list`, `resources/templates/list`, `resources/read`, `resources/subscribe`, `resources/unsubscribe`, `prompts/list`, `prompts/get`.
 - **Legacy SSE** — Opt-in: `app.MapZeroMCP().WithLegacySseTransport()` adds GET `/mcp/sse` and POST `/mcp/messages` for MCP spec 2024-11-05 clients.
 
 For **versioning and breaking-change policy**, see [VERSIONING.md](VERSIONING.md).
@@ -346,6 +346,91 @@ Discovery includes both controller actions (from API descriptions) and minimal e
 
 ---
 
+## MCP Resources
+
+Resources expose read-only data at well-known URIs. Clients call `resources/list` to discover them and `resources/read` to fetch content.
+
+### Controller attributes
+
+```csharp
+[HttpGet("system/status")]
+[McpResource("system://status", "system_status",
+    Description = "Current system status.", MimeType = "application/json")]
+public IActionResult GetSystemStatus() => Ok(new { status = "ok" });
+```
+
+### Minimal API
+
+```csharp
+app.MapGet("/api/system/status", () => Results.Ok(new { status = "ok" }))
+   .AsResource("system://status", "system_status",
+       "Current system status.", mimeType: "application/json");
+```
+
+---
+
+## MCP Resource Templates
+
+Templates are parameterised resources with URI patterns (RFC 6570). Clients call `resources/templates/list` to discover them, then `resources/read` with a concrete URI.
+
+### Controller attributes
+
+```csharp
+[HttpGet("products/{id}")]
+[McpTemplate("catalog://products/{id}", "product_resource",
+    Description = "Fetches a product by ID.", MimeType = "application/json")]
+public IActionResult GetProduct(int id) => Ok(Store.Find(id));
+```
+
+### Minimal API
+
+```csharp
+app.MapGet("/api/orders/resource/{id:int}", (int id) => ...)
+   .AsTemplate("orders://order/{id}", "order_resource",
+       "Retrieves a single order by ID.", mimeType: "application/json");
+```
+
+---
+
+## MCP Prompts
+
+Prompts are reusable prompt templates with typed arguments. Clients call `prompts/list` to discover them and `prompts/get` with arguments to render the prompt text.
+
+### Controller attributes
+
+```csharp
+[HttpGet("search")]
+[McpPrompt("search_products",
+    Description = "Search products by keyword and optional category.")]
+public IActionResult SearchProducts([Required] string keyword, string? category = null)
+    => Ok($"Search for '{keyword}' in category '{category ?? "all"}'.");
+```
+
+### Minimal API
+
+```csharp
+app.MapGet("/api/prompts/fulfil/{orderId:int}", (int orderId, string? urgency) =>
+    Results.Ok($"Chase email for order {orderId}, urgency: {urgency ?? "normal"}"))
+   .AsPrompt("fulfil_order_prompt",
+       "Generates a fulfilment-chase email prompt for a given order.");
+```
+
+### Configuration
+
+Resources and prompts are enabled by default. Disable them if your API only needs tools:
+
+```csharp
+builder.Services.AddZeroMCP(options =>
+{
+    options.EnableResources = false; // disables resources/list, resources/read, templates/list
+    options.EnablePrompts = false;   // disables prompts/list, prompts/get
+});
+```
+
+See [wiki/Resources-and-Prompts](wiki/Resources-and-Prompts.md) for full details, error handling, and dispatch behaviour.
+
+---
+
 ## Notifications and Subscriptions
 
 ZeroMCP supports the full MCP notification suite:
@@ -412,17 +497,19 @@ When you add features or options, update both: details and examples here, short 
 mcpAPI/
 ├── ZeroMCP/                       ← Library (NuGet package ZeroMCP)
 │   ├── README.md                  ← Package README (NuGet)
-│   ├── Attributes/                ← [Mcp]
-│   ├── Discovery/                 ← Controller + minimal API tool discovery
+│   ├── Attributes/                ← [Mcp], [McpResource], [McpTemplate], [McpPrompt]
+│   ├── Discovery/                 ← Tool, Resource, and Prompt discovery services
 │   ├── Schema/                    ← JSON Schema for tool inputs (NJsonSchema)
 │   ├── Dispatch/                  ← Synthetic HttpContext, controller/minimal invoke
-│   ├── Metadata/                  ← McpToolEndpointMetadata for minimal APIs
-│   ├── Extensions/                ← AddZeroMCP, MapZeroMCP, AsMcp
+│   ├── Metadata/                  ← Endpoint metadata for minimal APIs
+│   ├── Notifications/             ← McpNotificationService (listChanged, subscribe)
+│   ├── Transport/                 ← McpHttpEndpointHandler, resource/prompt handlers
+│   ├── Extensions/                ← AddZeroMCP, MapZeroMCP, AsMcp, AsResource, AsTemplate, AsPrompt
 │   ├── Options/                   ← ZeroMCPOptions
 │   └── ZeroMCP.csproj            (PackageId: ZeroMCP, Version: 1.0.2)
-├── ZeroMCP.Sample/                ← Sample (Orders, Customer, Product APIs; nested route Customer/{id}/orders; health minimal endpoint, optional auth)
+├── ZeroMCP.Sample/                ← Sample (Orders, Catalog, Prompts; controller + minimal API)
 ├── examples/                     ← Minimal, WithAuth, WithEnrichment, WithRateLimiting, Enterprise
-├── ZeroMCP.Tests/                 ← Integration + schema tests
+├── ZeroMCP.Tests/                 ← Integration + schema tests (152 tests)
 ├── wiki/                          ← Wiki documentation (linked Markdown pages)
 ├── nupkgs/                        ← dotnet pack -o nupkgs
 ├── progress.md

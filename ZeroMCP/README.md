@@ -1,6 +1,6 @@
 # ZeroMCP
 
-Expose your ASP.NET Core API as an **MCP (Model Context Protocol)** server. Tag controller actions with `[Mcp]` or minimal APIs with `.AsMcp(...)`; ZeroMCP discovers them, builds JSON Schema for inputs, and exposes a single **POST /mcp** endpoint that speaks the MCP Streamable HTTP transport. Tool calls are dispatched in-process through your real pipeline (filters, validation, authorization run as normal).
+Expose your ASP.NET Core API as an **MCP (Model Context Protocol)** server. Tag controller actions with `[Mcp]`, `[McpResource]`, `[McpTemplate]`, or `[McpPrompt]` — or use the minimal API equivalents `.AsMcp(...)`, `.AsResource(...)`, `.AsTemplate(...)`, `.AsPrompt(...)`. ZeroMCP discovers them, builds JSON Schema for inputs, and exposes a single **/mcp** endpoint that speaks the MCP Streamable HTTP transport. Calls are dispatched in-process through your real pipeline (filters, validation, authorization run as normal).
 
 **Full documentation** (configuration, governance, observability, minimal APIs, limitations): [repository README](https://github.com/kaladinstorm84/ZeroMCP) or your GitLab repo root `README.md`.
 
@@ -49,9 +49,23 @@ app.MapGet("/api/health", () => Results.Ok(new { status = "ok" }))
    .AsMcp("health_check", "Returns API health status.");
 ```
 
-If you use **both** controllers and minimal APIs, add `builder.Services.AddEndpointsApiExplorer();` and `app.MapControllers();` so controller tools are discovered.
+**4. Optional: resources, templates, and prompts**
 
-Point any MCP client (e.g. Claude Desktop) at your app’s `/mcp` URL.
+```csharp
+// Controller attributes
+[McpResource("system://status", "system_status", Description = "System status.")]
+[McpTemplate("catalog://products/{id}", "product_resource", Description = "Product by ID.")]
+[McpPrompt("search_products", Description = "Search products by keyword.")]
+
+// Minimal API equivalents
+app.MapGet("/api/status", () => ...).AsResource("system://status", "system_status", "System status.");
+app.MapGet("/api/products/{id}", (int id) => ...).AsTemplate("catalog://products/{id}", "product_resource", "Product by ID.");
+app.MapGet("/api/prompts/search", (string keyword) => ...).AsPrompt("search_products", "Search products.");
+```
+
+If you use **both** controllers and minimal APIs, add `builder.Services.AddEndpointsApiExplorer();` and `app.MapControllers();` so controller items are discovered.
+
+Point any MCP client (e.g. Claude Desktop) at your app's `/mcp` URL.
 
 ---
 
@@ -74,6 +88,8 @@ Point any MCP client (e.g. Claude Desktop) at your app’s `/mcp` URL.
 | `StreamingChunkSize` | `4096` | Chunk size when streaming enabled |
 | `EnableToolInspector` | `true` | GET {RoutePrefix}/tools returns full tool list as JSON |
 | `EnableToolInspectorUI` | `true` | GET {RoutePrefix}/ui serves Swagger-like test invocation UI |
+| `EnableResources` | `true` | Enable `resources/list`, `resources/read`, `resources/templates/list` |
+| `EnablePrompts` | `true` | Enable `prompts/list`, `prompts/get` |
 | `EnableLegacySseTransport` | `false` | Add GET /mcp/sse and POST /mcp/messages for MCP spec 2024-11-05 clients |
 | `MaxFormFileSizeBytes` | `10485760` (10 MB) | Max size for base64-decoded form files; enforced before decode |
 | `EnableListChangedNotifications` | `false` | Advertise `listChanged: true` and enable SSE push for list changes |
