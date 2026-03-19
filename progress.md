@@ -824,3 +824,126 @@ The null-payload branch in `HandleAsync()` now returns `202 Accepted` specifical
   - 1 × capabilities check: resources and prompts not advertised when disabled
 
 **Build/test result:** 0 errors, 123/123 tests passing.
+
+## 2026-03-18 — listChanged notification support
+
+Implemented the `listChanged` capability for the MCP protocol, enabling servers to notify connected SSE clients when tool, resource, or prompt registries change at runtime.
+
+### New: McpNotificationService (ZeroMCP/Notifications/)
+Singleton service that tracks active SSE sessions via `ConcurrentDictionary<string, ChannelWriter<string>>`. Provides:
+- `RegisterSession(ChannelWriter<string>)` / `UnregisterSession(string)` for session lifecycle
+- `NotifyToolsListChangedAsync()` / `NotifyResourcesListChangedAsync()` / `NotifyPromptsListChangedAsync()` to broadcast JSON-RPC notifications to all connected clients
+- `ActiveSessionCount` property for monitoring
+- Dead session cleanup during broadcast
+
+### SSE handler refactored (McpHttpEndpointHandler.cs)
+Replaced the `Task.Delay`-based keep-alive loop with a `Channel<string>`-based loop. When `McpNotificationService` is present, the handler registers a session before flushing headers. The loop uses `WaitToReadAsync` with a 15-second timeout — if a notification arrives, it's written as an SSE `data:` event; if no message arrives within the timeout, a keep-alive comment is sent. Diagnostic header `X-ZeroMCP-Notifications` is set on SSE responses.
+
+### Discovery cache invalidation
+Added `InvalidateCache()` to `McpToolDiscoveryService`, `McpResourceDiscoveryService`, and `McpPromptDiscoveryService`. Clears the write-once cache under the existing lock so the next access triggers a full rebuild. Designed to pair with the notification methods:
+```csharp
+_toolDiscovery.InvalidateCache();
+await _notificationService.NotifyToolsListChangedAsync();
+```
+
+### Capability advertisement (HandleInitialize)
+`listChanged` is now conditionally set to `true` in the `initialize` response when `McpNotificationService` is injected (i.e. when `EnableListChangedNotifications` is on). Previously hardcoded to `false`.
+
+### New option: EnableListChangedNotifications (ZeroMcpOptions.cs)
+Opt-in (default `false`). When true, `McpNotificationService` is wired into the SSE handler and capabilities advertise `listChanged: true`.
+
+### DI and wiring
+- `ServiceCollectionExtensions.cs` — registers `McpNotificationService` as singleton
+- `EndpointRouteBuilderExtensions.cs` — resolves `McpNotificationService` (conditional on option) and passes to all `McpHttpEndpointHandler` constructors
+
+### Tests: McpListChangedNotificationTests.cs (15 new tests)
+- 3 × capabilities: `listChanged: true` for tools, resources, prompts when enabled
+- 1 × capabilities: `listChanged: false` when disabled (default)
+- 2 × SSE handler: session registration header (enabled vs disabled)
+- 4 × direct channel broadcast: tools/resources/prompts/multi-session delivery
+- 1 × unregister cleanup
+- 1 × option verification
+- 3 × discovery cache invalidation: tools, resources, prompts
+
+Note: End-to-end SSE stream reading is not feasible in ASP.NET Core TestServer (body is buffered until handler returns). SSE delivery is verified via the direct channel tests and session registration headers.
+
+**Build/test result:** 0 errors, 141/141 tests passing.
+
+---
+
+## 2026-03-18 — Codex handshake fix: response ID type fidelity
+
+### Bug
+Codex reported `MCP startup failed: handshaking with MCP server failed: conflict initialized — response id: expected 0, got 0`.
+
+### Root cause
+In all three `idValue` computation sites in `McpHttpEndpointHandler`, the response ID was extracted with `id.GetRawText()`. `GetRawText()` returns a **C# string** (`"0"`) regardless of whether the JSON source was a number or a string. When `JsonSerializer` serializes that C# string into the response, it writes it as a JSON string (`"0"` with quotes) even when the client sent a JSON number (`0`). Codex performs strict type-matching on the echoed `id` field and rejects the response.
+
+### Fix
+Replaced all three occurrences of `id.GetRawText()` with `id.Clone()`. `JsonElement.Clone()` produces a self-contained copy that `JsonSerializer` serializes with the original JSON type — number stays number, string stays string, null stays null.
+
+Changed in `HandleAsync` (line ~136), `ProcessStreamingMessageAsync` (line ~268), and `ProcessMessageAsync` (line ~353).
+
+### New tests (McpClientCompatibilityTests.cs)
+- `ResponseId_IntegerZero_EchoedAsIntegerNotString` — `id:0` request → `id:0` (JsonValueKind.Number) in response
+- `ResponseId_PositiveInteger_EchoedAsInteger` — `id:42` → `id:42`
+- `ResponseId_StringId_EchoedAsString` — `id:"req-1"` → `id:"req-1"` (JsonValueKind.String)
+
+**Build/test result:** 0 errors, 126/126 tests passing.
+
+---
+
+## 2026-03-18 — Enabled listChanged in Sample app
+
+Enabled `EnableListChangedNotifications = true` in `ZeroMCP.Sample\Program.cs` so the Sample app advertises `listChanged: true` for tools, resources, and prompts in its `initialize` response.
+
+Updated `McpListChangedNotificationTests.cs` to add a dedicated `ListChangedDisabledFactory` (with `PostConfigure` setting `EnableListChangedNotifications = false`) for the two "disabled" tests, so they no longer rely on the Sample app's default configuration.
+
+**Build/test result:** 0 errors, 141/141 tests passing.
+
+---
+
+## 2026-03-18 — Resource subscription support (`resources/subscribe`)
+
+Implemented the MCP `resources/subscribe` and `resources/unsubscribe` methods, enabling clients to register interest in specific resource URIs and receive targeted `notifications/resources/updated` notifications when resource content changes. The framework is trigger-agnostic — the developer calls `NotifyResourceUpdatedAsync(uri)` from anywhere.
+
+### New option: EnableResourceSubscriptions (ZeroMcpOptions.cs)
+Opt-in (default `false`). When true and `EnableResources` is true, advertises `subscribe: true` in the `resources` capability and accepts `resources/subscribe`/`resources/unsubscribe` JSON-RPC methods.
+
+### McpNotificationService extended (Notifications/)
+- New `ConcurrentDictionary<string, ConcurrentDictionary<string, byte>>` for URI → subscribed session IDs
+- `SubscribeSession(sessionId, uri)` / `UnsubscribeSession(sessionId, uri)` for per-URI subscription management
+- `NotifyResourceUpdatedAsync(uri)` — sends `notifications/resources/updated` only to sessions subscribed to that URI; cleans up dead sessions
+- `GetSubscriberCount(uri)` for monitoring
+- `UnregisterSession` now calls `UnsubscribeAll(sessionId)` to clean up on disconnect
+- Renamed internal `BroadcastAsync` → `BroadcastAllAsync` for clarity
+
+### Transport: Mcp-Session-Id header
+- SSE GET response now includes `Mcp-Session-Id` header (GUID, 32 chars) so clients can associate POST requests with their SSE session
+- `resources/subscribe` and `resources/unsubscribe` resolve the session via `Mcp-Session-Id` request header
+- Missing header returns `-32602` (Invalid Params) error
+
+### Handler changes (McpHttpEndpointHandler.cs)
+- Added `resources/subscribe` and `resources/unsubscribe` to both `HandleAsync` and `ProcessMessageAsync` method switches
+- New `HandleResourceSubscribe`, `HandleResourceUnsubscribe`, `ResolveSessionId` private methods
+- `HandleInitialize` now conditionally advertises `subscribe: true` based on `EnableResourceSubscriptions` option
+
+### Capability advertisement
+```json
+"resources": { "listChanged": true, "subscribe": true }
+```
+
+### Sample app
+- Enabled `EnableResourceSubscriptions = true` in `Program.cs`
+- Added demo endpoint `POST /api/orders/resource/{id}/notify-change` that calls `NotifyResourceUpdatedAsync("orders://order/{id}")`
+
+### Tests: McpResourceSubscriptionTests.cs (11 new tests)
+- 2 × capabilities: `subscribe: true` when enabled, `false` when disabled
+- 2 × subscribe/unsubscribe: valid URI returns empty result
+- 1 × subscribe without Mcp-Session-Id returns error (-32602)
+- 1 × subscribe when feature disabled returns Method Not Found (-32601)
+- 3 × direct channel: targeted delivery, no broadcast after unsubscribe, multi-URI isolation
+- 1 × unregister session cleans up subscriptions
+- 1 × SSE response includes Mcp-Session-Id header
+
+**Build/test result:** 0 errors, 152/152 tests passing.

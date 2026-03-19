@@ -39,6 +39,12 @@ builder.Services.AddZeroMCP(options =>
 
     // Tool versioning: when set, unversioned /mcp resolves to this version instead of the highest
     options.DefaultVersion = null;              // null = use highest registered version
+
+    // listChanged notifications (opt-in)
+    options.EnableListChangedNotifications = false; // when true, advertises listChanged: true and enables SSE push
+
+    // Resource subscriptions (opt-in, requires EnableListChangedNotifications for SSE)
+    options.EnableResourceSubscriptions = false; // when true, advertises subscribe: true and handles resources/subscribe
 });
 ```
 
@@ -63,6 +69,8 @@ builder.Services.AddZeroMCP(options =>
 | **EnableToolInspectorUI** | `true` | When true and inspector is enabled, registers GET {RoutePrefix}/ui with a Swagger-like test invocation UI (list tools, view schemas, invoke from browser). |
 | **EnableXMLDocAnalysis** | `true` | When true, controller actions with `[Mcp]` but no explicit Description use the method's XML doc `<summary>` as the tool description. |
 | **DefaultVersion** | `null` | When tool versioning is used: version number for the unversioned `/mcp` endpoint. `null` = use the highest registered version. See [Tool Versioning](Tool-Versioning.md). |
+| **EnableListChangedNotifications** | `false` | When true, advertises `listChanged: true` in capabilities and enables `McpNotificationService` for pushing `notifications/tools/list_changed`, `notifications/resources/list_changed`, and `notifications/prompts/list_changed` to connected SSE clients. See [Resources and Prompts](Resources-and-Prompts.md). |
+| **EnableResourceSubscriptions** | `false` | When true (and `EnableListChangedNotifications` is true), advertises `subscribe: true` in the `resources` capability and handles `resources/subscribe` / `resources/unsubscribe`. Subscribed clients receive `notifications/resources/updated` when the app calls `NotifyResourceUpdatedAsync(uri)`. See [Resources and Prompts](Resources-and-Prompts.md). |
 
 ---
 

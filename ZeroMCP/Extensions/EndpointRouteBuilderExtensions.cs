@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using ZeroMCP.Notifications;
 using ZeroMCP.Ui;
 using ZeroMCP.Transport;
 using ZeroMCP.Options;
@@ -54,6 +55,9 @@ public static class EndpointRouteBuilderExtensions
         var promptHandler = options.EnablePrompts
             ? endpoints.ServiceProvider.GetService<McpPromptHandler>()
             : null;
+        var notificationService = options.EnableListChangedNotifications
+            ? endpoints.ServiceProvider.GetService<McpNotificationService>()
+            : null;
 
         // Pre-warm the tool registry — needed immediately to decide whether versioned endpoints exist.
         // Resources and prompts are intentionally NOT pre-warmed here: they must stay lazy so that
@@ -65,7 +69,8 @@ public static class EndpointRouteBuilderExtensions
         {
             logger.LogInformation("ZeroMCP MCP endpoint registered at POST {Route}", route);
             var mcpHandler = new McpHttpEndpointHandler(toolHandler, options, handlerLogger,
-                resourceHandler: resourceHandler, promptHandler: promptHandler);
+                resourceHandler: resourceHandler, promptHandler: promptHandler,
+                notificationService: notificationService);
 
             if (options.EnableToolInspector)
             {
@@ -105,7 +110,8 @@ public static class EndpointRouteBuilderExtensions
         foreach (var v in availableVersions)
         {
             var versionedHandler = new McpHttpEndpointHandler(toolHandler, options, handlerLogger, v, availableVersions,
-                resourceHandler: resourceHandler, promptHandler: promptHandler);
+                resourceHandler: resourceHandler, promptHandler: promptHandler,
+                notificationService: notificationService);
             var versionedBase = baseRoute + "/v" + v;
 
             endpoints.MapMethods(versionedBase, ["GET", "POST"], (ctx) => versionedHandler.HandleAsync(ctx))
@@ -132,7 +138,8 @@ public static class EndpointRouteBuilderExtensions
         }
 
         var defaultHandler = new McpHttpEndpointHandler(toolHandler, options, handlerLogger, defaultVersion, availableVersions,
-            resourceHandler: resourceHandler, promptHandler: promptHandler);
+            resourceHandler: resourceHandler, promptHandler: promptHandler,
+            notificationService: notificationService);
 
         if (options.EnableToolInspector)
         {

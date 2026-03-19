@@ -46,6 +46,21 @@ public sealed class McpPromptDiscoveryService
         }
     }
 
+    /// <summary>
+    /// Clears the cached prompt registry so the next access triggers a full rebuild.
+    /// Call this followed by <c>McpNotificationService.NotifyPromptsListChangedAsync()</c>
+    /// to inform connected clients that the prompt list has changed.
+    /// </summary>
+    public void InvalidateCache()
+    {
+        lock (_lock)
+        {
+            _prompts = null;
+            _byName = null;
+        }
+        _logger.LogInformation("ZeroMCP: prompt registry cache invalidated");
+    }
+
     /// <summary>All discovered MCP prompts.</summary>
     public IReadOnlyList<McpPromptDescriptor> GetPrompts()
     {

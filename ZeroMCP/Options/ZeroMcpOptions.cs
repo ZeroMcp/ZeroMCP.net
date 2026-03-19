@@ -161,6 +161,30 @@ public sealed class ZeroMCPOptions
     /// </remarks>
     public bool EnableLegacySseTransport { get; set; }
 
+    // --- listChanged notifications ---
+
+    /// <summary>
+    /// When true, registers <c>McpNotificationService</c> and advertises <c>listChanged: true</c>
+    /// in the <c>initialize</c> capabilities. Connected SSE clients will receive
+    /// <c>notifications/tools/list_changed</c>, <c>notifications/resources/list_changed</c>,
+    /// and <c>notifications/prompts/list_changed</c> when the application calls the
+    /// corresponding <c>Notify*ListChangedAsync()</c> methods.
+    /// Default is false (opt-in).
+    /// </summary>
+    public bool EnableListChangedNotifications { get; set; }
+
+    // --- Resource subscriptions ---
+
+    /// <summary>
+    /// When true and <see cref="EnableResources"/> is true, advertises <c>subscribe: true</c>
+    /// in the <c>resources</c> capability and handles <c>resources/subscribe</c> and
+    /// <c>resources/unsubscribe</c> JSON-RPC methods. Connected SSE clients receive
+    /// <c>notifications/resources/updated</c> when the application calls
+    /// <see cref="Notifications.McpNotificationService.NotifyResourceUpdatedAsync"/>.
+    /// Default is false (opt-in).
+    /// </summary>
+    public bool EnableResourceSubscriptions { get; set; }
+
     // --- MCP Resources ---
 
     /// <summary>

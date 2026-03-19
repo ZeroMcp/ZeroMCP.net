@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using ZeroMCP.Notifications;
 using ZeroMCP.Observability;
 using ZeroMCP.Transport;
 using ZeroMCP.Schema;
@@ -61,6 +62,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<McpToolHandler>();
         services.AddSingleton<McpResourceHandler>();
         services.AddSingleton<McpPromptHandler>();
+
+        // listChanged notification service (opt-in via EnableListChangedNotifications)
+        services.AddSingleton<McpNotificationService>();
 
         // Legacy SSE transport (opt-in via WithLegacySseTransport or EnableLegacySseTransport)
         services.AddSingleton<McpLegacySseEndpointHandler>();

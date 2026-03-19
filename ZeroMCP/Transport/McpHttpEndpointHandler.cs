@@ -2,9 +2,11 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
+using System.Threading.Channels;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using ZeroMCP.Notifications;
 using ZeroMCP.Options;
 using ZeroMCP;
 using ZeroMCP.Transport;
@@ -27,6 +29,7 @@ internal sealed class McpHttpEndpointHandler
     private readonly McpToolHandler _toolHandler;
     private readonly McpResourceHandler? _resourceHandler;
     private readonly McpPromptHandler? _promptHandler;
+    private readonly McpNotificationService? _notificationService;
     private readonly ZeroMCPOptions _options;
     private readonly ILogger<McpHttpEndpointHandler> _logger;
     private readonly int? _endpointVersion;
@@ -40,11 +43,13 @@ internal sealed class McpHttpEndpointHandler
         int? endpointVersion = null,
         IReadOnlyList<int>? availableVersions = null,
         McpResourceHandler? resourceHandler = null,
-        McpPromptHandler? promptHandler = null)
+        McpPromptHandler? promptHandler = null,
+        McpNotificationService? notificationService = null)
     {
         _toolHandler = toolHandler;
         _resourceHandler = resourceHandler;
         _promptHandler = promptHandler;
+        _notificationService = notificationService;
         _options = options;
         _logger = logger;
         _endpointVersion = endpointVersion;
@@ -61,24 +66,55 @@ internal sealed class McpHttpEndpointHandler
             var acceptHeader = context.Request.Headers.Accept.ToString();
             if (acceptHeader.Contains("text/event-stream", StringComparison.OrdinalIgnoreCase))
             {
+                // Register the SSE session BEFORE flushing headers so that the
+                // session is visible to callers as soon as SendAsync returns.
+                // Any notifications queued before the loop starts are drained
+                // on the first iteration.
+                var channel = Channel.CreateUnbounded<string>();
+                string? sessionId = null;
+                if (_notificationService is not null)
+                    sessionId = _notificationService.RegisterSession(channel.Writer);
+
                 context.Response.StatusCode = 200;
                 context.Response.ContentType = "text/event-stream";
                 context.Response.Headers.CacheControl = "no-cache";
                 context.Response.Headers.Connection = "keep-alive";
+                context.Response.Headers["X-ZeroMCP-Notifications"] = _notificationService is not null
+                    ? $"enabled;session={sessionId}"
+                    : "disabled";
+                if (sessionId is not null)
+                    context.Response.Headers["Mcp-Session-Id"] = sessionId;
                 await context.Response.StartAsync(context.RequestAborted);
-
-                // Keep-alive comments every 15 s so proxies and load-balancers don't
-                // close the idle connection. The loop exits when the client disconnects.
                 try
                 {
                     while (!context.RequestAborted.IsCancellationRequested)
                     {
-                        await context.Response.WriteAsync(": keep-alive\n\n", context.RequestAborted);
-                        await context.Response.Body.FlushAsync(context.RequestAborted);
-                        await Task.Delay(TimeSpan.FromSeconds(15), context.RequestAborted);
+                        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted);
+                        timeoutCts.CancelAfter(TimeSpan.FromSeconds(15));
+                        try
+                        {
+                            if (await channel.Reader.WaitToReadAsync(timeoutCts.Token)
+                                && channel.Reader.TryRead(out var msg))
+                            {
+                                await context.Response.WriteAsync($"data: {msg}\n\n", context.RequestAborted);
+                                await context.Response.Body.FlushAsync(context.RequestAborted);
+                            }
+                        }
+                        catch (OperationCanceledException) when (!context.RequestAborted.IsCancellationRequested)
+                        {
+                            // 15 s timeout with no message — send keep-alive
+                            await context.Response.WriteAsync(": keep-alive\n\n", context.RequestAborted);
+                            await context.Response.Body.FlushAsync(context.RequestAborted);
+                        }
                     }
                 }
                 catch (OperationCanceledException) { /* client disconnected — normal */ }
+                finally
+                {
+                    if (sessionId is not null)
+                        _notificationService!.UnregisterSession(sessionId);
+                    channel.Writer.TryComplete();
+                }
                 return;
             }
 
@@ -133,7 +169,10 @@ internal sealed class McpHttpEndpointHandler
         }
 
         root.TryGetProperty("id", out var id);
-        var idValue = id.ValueKind == JsonValueKind.Undefined ? (object?)null : id.GetRawText();
+        // Clone() preserves the original JSON type (number stays number, string stays string).
+        // GetRawText() would return a C# string that serializes as a JSON string even for
+        // numeric IDs — causing clients like Codex to reject the response with a type mismatch.
+        var idValue = id.ValueKind == JsonValueKind.Undefined ? (object?)null : (object)id.Clone();
 
         if (!root.TryGetProperty("method", out var methodEl))
         {
@@ -185,9 +224,6 @@ internal sealed class McpHttpEndpointHandler
                             "notifications/initialized" => null, // fire and forget, no response
                             "tools/list" => await HandleToolsListAsync(context),
                             "tools/call" => await HandleToolsCallAsync(@params, context, _endpointVersion, null),
-                            // list methods fall back to empty lists rather than -32601 when the feature
-                            // is disabled — Copilot calls these unconditionally and treats Method Not
-                            // Found as "server unavailable".
                             "resources/list" => _resourceHandler is not null
                                 ? _resourceHandler.HandleResourcesList()
                                 : (object)new { resources = Array.Empty<object>() },
@@ -197,6 +233,8 @@ internal sealed class McpHttpEndpointHandler
                             "resources/read" => _resourceHandler is not null
                                 ? await _resourceHandler.HandleResourcesReadAsync(@params, context, context.RequestAborted)
                                 : throw new McpMethodNotFoundException($"Method not found: {method}"),
+                            "resources/subscribe" => HandleResourceSubscribe(@params, context),
+                            "resources/unsubscribe" => HandleResourceUnsubscribe(@params, context),
                             "prompts/list" => _promptHandler is not null
                                 ? _promptHandler.HandlePromptsList()
                                 : (object)new { prompts = Array.Empty<object>() },
@@ -265,7 +303,7 @@ internal sealed class McpHttpEndpointHandler
     {
         var root = requestDoc.RootElement;
         root.TryGetProperty("id", out var id);
-        var idValue = id.ValueKind == JsonValueKind.Undefined ? (object?)null : id.GetRawText();
+        var idValue = id.ValueKind == JsonValueKind.Undefined ? (object?)null : (object)id.Clone();
         root.TryGetProperty("params", out var @params);
 
         var toolName = @params.GetProperty("name").GetString()!;
@@ -350,7 +388,7 @@ internal sealed class McpHttpEndpointHandler
             return SerializeErrorResponse(null, -32600, "Invalid Request: missing jsonrpc 2.0", null);
 
         root.TryGetProperty("id", out var id);
-        var idValue = id.ValueKind == JsonValueKind.Undefined ? (object?)null : id.GetRawText();
+        var idValue = id.ValueKind == JsonValueKind.Undefined ? (object?)null : (object)id.Clone();
 
         if (!root.TryGetProperty("method", out var methodEl))
             return SerializeErrorResponse(idValue, -32600, "Invalid Request: missing method", null);
@@ -394,6 +432,8 @@ internal sealed class McpHttpEndpointHandler
                         "resources/read" => _resourceHandler is not null
                             ? await _resourceHandler.HandleResourcesReadAsync(@params, context, context.RequestAborted)
                             : throw new McpMethodNotFoundException($"Method not found: {method}"),
+                        "resources/subscribe" => HandleResourceSubscribe(@params, context),
+                        "resources/unsubscribe" => HandleResourceUnsubscribe(@params, context),
                         "prompts/list" => _promptHandler is not null
                             ? _promptHandler.HandlePromptsList()
                             : (object)new { prompts = Array.Empty<object>() },
@@ -453,6 +493,54 @@ internal sealed class McpHttpEndpointHandler
         return Guid.NewGuid().ToString("N");
     }
 
+    private object HandleResourceSubscribe(JsonElement @params, HttpContext context)
+    {
+        if (_notificationService is null || !_options.EnableResourceSubscriptions)
+            throw new McpMethodNotFoundException("Method not found: resources/subscribe");
+
+        if (@params.ValueKind == JsonValueKind.Undefined || !@params.TryGetProperty("uri", out var uriEl))
+            throw new McpInvalidParamsException("resources/subscribe requires params.uri");
+
+        var uri = uriEl.GetString();
+        if (string.IsNullOrEmpty(uri))
+            throw new McpInvalidParamsException("resources/subscribe params.uri must be a non-empty string");
+
+        var sessionId = ResolveSessionId(context);
+        if (sessionId is null)
+            throw new McpInvalidParamsException("resources/subscribe requires an active SSE session (Mcp-Session-Id header)");
+
+        _notificationService.SubscribeSession(sessionId, uri);
+        return new { };
+    }
+
+    private object HandleResourceUnsubscribe(JsonElement @params, HttpContext context)
+    {
+        if (_notificationService is null || !_options.EnableResourceSubscriptions)
+            throw new McpMethodNotFoundException("Method not found: resources/unsubscribe");
+
+        if (@params.ValueKind == JsonValueKind.Undefined || !@params.TryGetProperty("uri", out var uriEl))
+            throw new McpInvalidParamsException("resources/unsubscribe requires params.uri");
+
+        var uri = uriEl.GetString();
+        if (string.IsNullOrEmpty(uri))
+            throw new McpInvalidParamsException("resources/unsubscribe params.uri must be a non-empty string");
+
+        var sessionId = ResolveSessionId(context);
+        if (sessionId is null)
+            throw new McpInvalidParamsException("resources/unsubscribe requires an active SSE session (Mcp-Session-Id header)");
+
+        _notificationService.UnsubscribeSession(sessionId, uri);
+        return new { };
+    }
+
+    private static string? ResolveSessionId(HttpContext context)
+    {
+        if (context.Request.Headers.TryGetValue("Mcp-Session-Id", out var value)
+            && !string.IsNullOrWhiteSpace(value))
+            return value.ToString().Trim();
+        return null;
+    }
+
     private Task HandleCancelledAsync(JsonElement @params)
     {
         if (@params.ValueKind == JsonValueKind.Undefined) return Task.CompletedTask;
@@ -481,16 +569,21 @@ internal sealed class McpHttpEndpointHandler
 
     private object HandleInitialize(JsonElement @params)
     {
+        var listChanged = _notificationService is not null;
+
         var capabilities = new Dictionary<string, object>(StringComparer.Ordinal)
         {
-            ["tools"] = new { listChanged = false }
+            ["tools"] = new { listChanged }
         };
 
         if (_resourceHandler is not null)
-            capabilities["resources"] = new { listChanged = false, subscribe = false };
+        {
+            var subscribe = _notificationService is not null && _options.EnableResourceSubscriptions;
+            capabilities["resources"] = new { listChanged, subscribe };
+        }
 
         if (_promptHandler is not null)
-            capabilities["prompts"] = new { listChanged = false };
+            capabilities["prompts"] = new { listChanged };
 
         return new
         {

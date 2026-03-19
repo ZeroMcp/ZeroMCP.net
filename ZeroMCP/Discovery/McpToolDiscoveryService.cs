@@ -69,6 +69,21 @@ public sealed class McpToolDiscoveryService
     }
 
     /// <summary>
+    /// Clears the cached tool registry so the next access triggers a full rebuild.
+    /// Call this followed by <c>McpNotificationService.NotifyToolsListChangedAsync()</c>
+    /// to inform connected clients that the tool list has changed.
+    /// </summary>
+    public void InvalidateCache()
+    {
+        lock (_lock)
+        {
+            _toolRegistry = null;
+            _registryCache = null;
+        }
+        _logger.LogInformation("ZeroMCP: tool registry cache invalidated");
+    }
+
+    /// <summary>
     /// Returns the full registry of discovered MCP tools (name to descriptor). When multiple versions define the same tool name, one is chosen for this view.
     /// Built lazily on first access, then cached.
     /// </summary>

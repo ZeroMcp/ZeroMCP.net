@@ -47,6 +47,21 @@ public sealed class McpResourceDiscoveryService
         }
     }
 
+    /// <summary>
+    /// Clears the cached resource registry so the next access triggers a full rebuild.
+    /// Call this followed by <c>McpNotificationService.NotifyResourcesListChangedAsync()</c>
+    /// to inform connected clients that the resource list has changed.
+    /// </summary>
+    public void InvalidateCache()
+    {
+        lock (_lock)
+        {
+            _staticResources = null;
+            _templateResources = null;
+        }
+        _logger.LogInformation("ZeroMCP: resource registry cache invalidated");
+    }
+
     /// <summary>All static resources (fixed URI), for resources/list.</summary>
     public IReadOnlyList<McpResourceDescriptor> GetStaticResources()
     {

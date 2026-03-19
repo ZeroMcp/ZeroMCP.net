@@ -159,6 +159,64 @@ public sealed class McpClientCompatibilityTests : IClassFixture<SampleAppWebAppl
     }
 
     // -----------------------------------------------------------------------
+    // Response ID type fidelity — Codex sends integer IDs and expects integer IDs back.
+    // A JSON-RPC id of 0 (number) must echo back as 0 (number), not "0" (string).
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task ResponseId_IntegerZero_EchoedAsIntegerNotString()
+    {
+        // Send a raw JSON body so the id is definitely a JSON number, not a string.
+        var rawJson = """{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"protocolVersion":"2024-11-05","clientInfo":{"name":"codex","version":"1.0"}}}""";
+        using var content = new StringContent(rawJson, Encoding.UTF8, "application/json");
+        var httpResponse = await _client.PostAsync("/mcp", content);
+        var responseJson = await httpResponse.Content.ReadAsStringAsync();
+
+        // Parse the raw JSON so we can inspect the actual token type of "id"
+        using var doc = JsonDocument.Parse(responseJson);
+        var idElement = doc.RootElement.GetProperty("id");
+
+        idElement.ValueKind.Should().Be(JsonValueKind.Number,
+            "Codex sends id:0 as a JSON number; echoing it back as the string \"0\" causes " +
+            "'response id: expected 0, got 0' type-mismatch errors during handshake");
+
+        idElement.GetInt32().Should().Be(0);
+    }
+
+    [Fact]
+    public async Task ResponseId_PositiveInteger_EchoedAsInteger()
+    {
+        var rawJson = """{"jsonrpc":"2.0","id":42,"method":"tools/list"}""";
+        using var content = new StringContent(rawJson, Encoding.UTF8, "application/json");
+        var httpResponse = await _client.PostAsync("/mcp", content);
+        var responseJson = await httpResponse.Content.ReadAsStringAsync();
+
+        using var doc = JsonDocument.Parse(responseJson);
+        var idElement = doc.RootElement.GetProperty("id");
+
+        idElement.ValueKind.Should().Be(JsonValueKind.Number,
+            "integer request IDs must be echoed back as JSON numbers");
+        idElement.GetInt32().Should().Be(42);
+    }
+
+    [Fact]
+    public async Task ResponseId_StringId_EchoedAsString()
+    {
+        // String IDs are also valid per JSON-RPC 2.0; these must NOT become numbers.
+        var rawJson = """{"jsonrpc":"2.0","id":"req-1","method":"tools/list"}""";
+        using var content = new StringContent(rawJson, Encoding.UTF8, "application/json");
+        var httpResponse = await _client.PostAsync("/mcp", content);
+        var responseJson = await httpResponse.Content.ReadAsStringAsync();
+
+        using var doc = JsonDocument.Parse(responseJson);
+        var idElement = doc.RootElement.GetProperty("id");
+
+        idElement.ValueKind.Should().Be(JsonValueKind.String,
+            "string request IDs must be echoed back as JSON strings");
+        idElement.GetString().Should().Be("req-1");
+    }
+
+    // -----------------------------------------------------------------------
     // notifications/initialized — must return 202 Accepted (Codex)
     // -----------------------------------------------------------------------
 

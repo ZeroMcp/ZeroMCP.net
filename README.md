@@ -346,6 +346,28 @@ Discovery includes both controller actions (from API descriptions) and minimal e
 
 ---
 
+## Notifications and Subscriptions
+
+ZeroMCP supports the full MCP notification suite:
+
+- **`listChanged`** — When `EnableListChangedNotifications = true`, connected SSE clients receive `notifications/tools/list_changed`, `notifications/resources/list_changed`, or `notifications/prompts/list_changed` when your app calls `NotifyToolsListChangedAsync()` etc.
+- **`subscribe`** — When `EnableResourceSubscriptions = true`, clients can call `resources/subscribe` with a URI to receive targeted `notifications/resources/updated` when that resource's content changes. The framework is trigger-agnostic: call `NotifyResourceUpdatedAsync(uri)` from a controller, background service, SignalR hub, or message handler.
+
+```csharp
+builder.Services.AddZeroMCP(options =>
+{
+    options.EnableListChangedNotifications = true;
+    options.EnableResourceSubscriptions = true;
+});
+
+// Anywhere in your app when data changes:
+await _notificationService.NotifyResourceUpdatedAsync("orders://order/42");
+```
+
+See [Resources and Prompts](wiki/Resources-and-Prompts.md) and [Configuration](wiki/Configuration.md) for full details.
+
+---
+
 ## Connecting MCP Clients
 
 ### Claude Desktop

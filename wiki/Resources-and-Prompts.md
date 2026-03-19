@@ -29,12 +29,33 @@ When enabled, the `initialize` response advertises the capabilities automaticall
 ```json
 {
   "capabilities": {
-    "tools":     {},
-    "resources": {},
-    "prompts":   {}
+    "tools":     { "listChanged": false },
+    "resources": { "listChanged": false, "subscribe": false },
+    "prompts":   { "listChanged": false }
   }
 }
 ```
+
+### listChanged notifications
+
+By default, `listChanged` is `false`. Set `EnableListChangedNotifications = true` to advertise `listChanged: true` and enable server-to-client notifications when registries change:
+
+```csharp
+builder.Services.AddZeroMCP(options =>
+{
+    options.EnableListChangedNotifications = true;
+});
+```
+
+Connected SSE clients receive `notifications/tools/list_changed`, `notifications/resources/list_changed`, or `notifications/prompts/list_changed` when your application invalidates a cache and broadcasts:
+
+```csharp
+// Inject these from DI:
+_toolDiscovery.InvalidateCache();
+await _notificationService.NotifyToolsListChangedAsync();
+```
+
+See [McpNotificationService](../ZeroMCP/Notifications/McpNotificationService.cs) for the full API.
 
 ---
 
@@ -257,9 +278,61 @@ Integration tests for all six JSON-RPC methods are in:
 
 ---
 
+## Resource subscriptions
+
+MCP clients can subscribe to specific resource URIs to receive `notifications/resources/updated` when the resource content changes. This is opt-in and trigger-agnostic — the framework doesn't care *why* a resource changed, only that your code signals it.
+
+### Enabling
+
+```csharp
+builder.Services.AddZeroMCP(options =>
+{
+    options.EnableListChangedNotifications = true; // required: SSE + notification service
+    options.EnableResourceSubscriptions = true;    // enables subscribe: true in capabilities
+});
+```
+
+### Client flow
+
+1. Client opens an SSE connection (`GET /mcp` with `Accept: text/event-stream`) and receives a `Mcp-Session-Id` header.
+2. Client sends `resources/subscribe` (POST) with `{ "uri": "orders://order/42" }` and the `Mcp-Session-Id` header.
+3. When the resource changes, the server pushes `notifications/resources/updated` with the URI to that client's SSE stream.
+4. Client can unsubscribe via `resources/unsubscribe` with the same URI.
+
+### Triggering notifications
+
+From anywhere in your application — a controller, background service, message handler, SignalR hub:
+
+```csharp
+public class OrdersController : ControllerBase
+{
+    private readonly McpNotificationService _notifications;
+
+    [HttpPut("{id}")]
+    public async Task<IActionResult> UpdateOrder(int id, ...)
+    {
+        // ... update order ...
+        await _notifications.NotifyResourceUpdatedAsync($"orders://order/{id}");
+        return Ok();
+    }
+}
+```
+
+### Sample app demo
+
+The Sample app includes a notify-change endpoint:
+
+```
+POST /api/orders/resource/{id}/notify-change
+```
+
+This calls `NotifyResourceUpdatedAsync("orders://order/{id}")` to push a notification to any client subscribed to that order's URI.
+
+---
+
 ## See also
 
 - [The \[Mcp\] Attribute](The-Mcp-Attribute) — Exposing actions as MCP tools
 - [Controllers and Minimal APIs](Controllers-and-Minimal-APIs) — Controller vs minimal API support
 - [Parameters and Schemas](Parameters-and-Schemas) — How parameters become JSON schema
-- [Configuration](Configuration) — `EnableResources` / `EnablePrompts` options
+- [Configuration](Configuration) — `EnableResources` / `EnablePrompts` / `EnableResourceSubscriptions` options
