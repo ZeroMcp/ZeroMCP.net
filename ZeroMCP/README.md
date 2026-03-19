@@ -1,5 +1,10 @@
 # ZeroMCP
 
+[![NuGet Version](https://img.shields.io/nuget/v/ZeroMCP.svg)](https://www.nuget.org/packages/ZeroMCP/)
+[![NuGet Downloads](https://img.shields.io/nuget/dt/ZeroMCP.svg)](https://www.nuget.org/packages/ZeroMCP/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/ZeroMCP/ZeroMCP.net/blob/main/LICENSE)
+[![Target Frameworks](https://img.shields.io/badge/.NET-8%2F9%2F10-512BD4)](https://dotnet.microsoft.com/)
+
 ZeroMCP turns your existing ASP.NET Core APIs into an MCP (Model Context Protocol) server without creating a second app or duplicating business logic.
 
 ## Why ZeroMCP

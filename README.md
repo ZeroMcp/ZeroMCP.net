@@ -1,5 +1,10 @@
 # ZeroMCP.net
 
+[![NuGet Version](https://img.shields.io/nuget/v/ZeroMCP.svg)](https://www.nuget.org/packages/ZeroMCP/)
+[![NuGet Downloads](https://img.shields.io/nuget/dt/ZeroMCP.svg)](https://www.nuget.org/packages/ZeroMCP/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/ZeroMCP/ZeroMCP.net/blob/main/LICENSE)
+[![GitHub Stars](https://img.shields.io/github/stars/ZeroMCP/ZeroMCP.net?style=social)](https://github.com/ZeroMCP/ZeroMCP.net/stargazers)
+
 Enterprise-grade MCP enablement for ASP.NET Core APIs.
 
 ZeroMCP lets teams expose existing controller and minimal API endpoints as MCP (Model Context Protocol) tools, resources, templates, and prompts, without creating a second service or duplicating logic.

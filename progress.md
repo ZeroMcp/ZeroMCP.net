@@ -5,6 +5,11 @@
 - **ZeroMCP/README.md** (package-level): rewritten as a professional NuGet-focused README with concise install/quick-start guidance, feature matrix, configuration summary, transport options, security/governance notes, and links to full documentation.
 - **ZeroMCP/README.md** (package-level): corrected a merge artifact where legacy README content remained appended; final file now contains only the new NuGet-focused content.
 - **README.md** (solution-level): rewritten as an enterprise-ready project README with executive summary, architecture, deployment/security guidance, governance, observability, reliability recommendations, supported MCP surface, transport guidance, and build/test instructions.
+- **README badges:** added professional badges to both `README.md` and `ZeroMCP/README.md`:
+  - NuGet version
+  - NuGet total downloads
+  - MIT license
+  - GitHub stars (solution README) / target frameworks badge (package README)
 - **Intent:** establish clearer audience separation between package consumers (NuGet page) and enterprise adopters evaluating solution-level production readiness.
 
 ---
