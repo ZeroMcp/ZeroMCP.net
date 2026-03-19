@@ -10,6 +10,12 @@
   - NuGet total downloads
   - MIT license
   - GitHub stars (solution README) / target frameworks badge (package README)
+- **README.md follow-up improvements:**
+  - Added explicit streaming differentiator (`IAsyncEnumerable<T>`) in Core Capabilities.
+  - Expanded stdio section with a practical Claude Desktop JSON snippet and pointer to `wiki/Connecting-Clients.md`.
+  - Expanded Solution Layout examples list to explicitly include `WithStdio` and `WithRateLimiting`.
+  - Added a compact `[Mcp]` attribute quick-reference section and link to `wiki/The-Mcp-Attribute.md`.
+  - Strengthened Contributing text with concrete high-value contribution areas.
 - **Intent:** establish clearer audience separation between package consumers (NuGet page) and enterprise adopters evaluating solution-level production readiness.
 
 ---

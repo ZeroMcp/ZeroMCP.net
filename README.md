@@ -20,6 +20,7 @@ ZeroMCP lets teams expose existing controller and minimal API endpoints as MCP (
 - In-process dispatch through your real ASP.NET Core pipeline
 - Streamable HTTP MCP endpoint (`GET` and `POST`)
 - Optional stdio transport for local/desktop MCP clients
+- Streaming tool results via `IAsyncEnumerable<T>`
 - Tools, resources, templates, and prompts in one framework
 - Per-tool governance (roles, policies, filters)
 - Observability hooks (correlation, logs, metrics sink, OpenTelemetry tags)
@@ -169,6 +170,21 @@ if (args.Contains("--mcp-stdio"))
 
 Useful for local-first MCP clients that spawn your service process directly.
 
+#### Claude Desktop stdio example
+
+```json
+{
+  "mcpServers": {
+    "orders-api": {
+      "command": "dotnet",
+      "args": ["run", "--project", "ZeroMCP.Sample", "--", "--mcp-stdio"]
+    }
+  }
+}
+```
+
+For full client setup options (stdio and HTTP), see `wiki/Connecting-Clients.md`.
+
 ## Inspector Endpoints
 
 - `GET /mcp/tools`: JSON inventory of tools and schemas
@@ -187,9 +203,35 @@ Recommended usage: enable in development and internal test environments only.
 - `ZeroMCP/`: core framework package (NuGet artifact source)
 - `ZeroMCP.Sample/`: reference host with practical patterns
 - `ZeroMCP.Tests/`: integration and schema/compatibility tests
-- `examples/`: focused scenario samples (auth, enrichment, enterprise, stdio)
+- `examples/`: focused scenario samples:
+  - `Minimal`
+  - `WithAuth`
+  - `WithEnrichment`
+  - `WithStdio`
+  - `WithRateLimiting`
+  - `Enterprise`
 - `wiki/`: implementation and operations documentation
 - `progress.md`: persistent engineering change log
+
+## `[Mcp]` Attribute Quick Reference
+
+`[Mcp]` supports a required tool name plus optional metadata used for discoverability and governance.
+
+```csharp
+[Mcp(
+    "create_order",
+    Description = "Creates an order.",
+    Tags = new[] { "orders", "write" },
+    Category = "orders",
+    Examples = new[] { "Create order for Alice, quantity 2" },
+    Hints = new[] { "idempotent", "cost=low" },
+    Roles = new[] { "Admin" },
+    Policy = "RequireEditor",
+    Version = 2
+)]
+```
+
+Full details: `wiki/The-Mcp-Attribute.md`.
 
 ## Build and Test
 
@@ -209,4 +251,4 @@ dotnet test ZeroMCP.Tests/ZeroMCP.Tests.csproj -v detailed
 
 ## Contributing
 
-Contributions are welcome for enterprise hardening, protocol compatibility, and new sample implementations. Please include tests and documentation updates with each functional change.
+Contributions are welcome, especially around protocol compatibility hardening, minimal API binding parity, and production-focused samples. Please include integration tests and documentation updates with each functional change.
