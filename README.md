@@ -1,83 +1,158 @@
-# ZeroMCP
+# ZeroMCP.net
 
-Expose your existing ASP.NET Core API as an MCP (Model Context Protocol) server with a single attribute and two lines of setup. No separate process. No code duplication.
+Enterprise-grade MCP enablement for ASP.NET Core APIs.
 
-## How It Works
+ZeroMCP lets teams expose existing controller and minimal API endpoints as MCP (Model Context Protocol) tools, resources, templates, and prompts, without creating a second service or duplicating logic.
 
-Tag controller actions with `[Mcp]`, `[McpResource]`, `[McpTemplate]`, or `[McpPrompt]` — or use the minimal API equivalents `.AsMcp(...)`, `.AsResource(...)`, `.AsTemplate(...)`, `.AsPrompt(...)`. ZeroMCP will:
+## Executive Summary
 
-1. **Discover** tools, resources, templates, and prompts at startup from controller API descriptions (same source as Swagger) and from minimal API endpoints
-2. **Generate** JSON Schema for each tool's inputs (route, query, and body merged)
-3. **Expose** a single endpoint (GET and POST `/mcp`) that speaks the MCP Streamable HTTP transport
-4. **Dispatch** calls in-process through your real action or endpoint pipeline — filters, validation, and authorization run normally
+- **What it solves:** Connect LLM clients to established ASP.NET Core APIs safely and quickly.
+- **How it works:** Annotate endpoints (`[Mcp]`, `[McpResource]`, `[McpTemplate]`, `[McpPrompt]`) or use minimal API metadata (`.AsMcp`, `.AsResource`, `.AsTemplate`, `.AsPrompt`), then map one MCP route.
+- **Why enterprises adopt it:** Keeps existing auth, policy, validation, observability, and release controls in place.
 
-```
-MCP Client (Claude Desktop, Claude.ai, etc.)
-    │
-    │  GET /mcp (info)  or  POST /mcp (JSON-RPC 2.0)
-    ▼
-ZeroMCP Endpoint
-    │
-    │  in-process dispatch (controller or minimal endpoint)
-    ▼
-Your Action / Endpoint  ← [Mcp] or .AsMcp(...)
-    │
-    │  real response
-    ▼
-MCP Client gets structured result
-```
+## Core Capabilities
 
----
+- In-process dispatch through your real ASP.NET Core pipeline
+- Streamable HTTP MCP endpoint (`GET` and `POST`)
+- Optional stdio transport for local/desktop MCP clients
+- Tools, resources, templates, and prompts in one framework
+- Per-tool governance (roles, policies, filters)
+- Observability hooks (correlation, logs, metrics sink, OpenTelemetry tags)
+- Inspector endpoints for discovery and controlled testing
+- Versioned MCP routes for phased client migration
+
+## Architecture at a Glance
+
+1. API startup discovers MCP metadata from controllers and minimal APIs.
+2. ZeroMCP builds schemas and endpoint descriptors.
+3. MCP clients call `/mcp` using JSON-RPC methods.
+4. ZeroMCP dispatches in-process to your original endpoint.
+5. Response is normalized back into MCP-compatible output.
+
+This model preserves middleware behavior and avoids "shadow implementations."
 
 ## Quick Start
 
-### 1. Install
+### 1) Install package
 
 ```xml
 <PackageReference Include="ZeroMCP" Version="1.*" />
 ```
 
-### 2. Register services
+### 2) Register and map
 
 ```csharp
-// Program.cs
+builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+
 builder.Services.AddZeroMCP(options =>
 {
-    options.ServerName = "My Orders API";
+    options.ServerName = "Orders Platform";
     options.ServerVersion = "1.0.0";
+});
+
+var app = builder.Build();
+
+app.MapControllers();
+app.MapZeroMCP(); // registers GET+POST /mcp
+
+app.Run();
+```
+
+### 3) Expose endpoints as MCP
+
+```csharp
+[HttpGet("{id:int}")]
+[Mcp("get_order", Description = "Retrieves an order by ID.")]
+public IActionResult GetOrder(int id) => Ok(new { id });
+
+app.MapGet("/api/health", () => Results.Ok(new { status = "ok" }))
+   .AsMcp("health_check", "Returns API health status.");
+```
+
+## Enterprise Deployment Guidance
+
+### Security baseline
+
+- Protect MCP endpoint using existing authentication/authorization:
+
+```csharp
+app.MapZeroMCP().RequireAuthorization("McpPolicy");
+```
+
+- Enforce least privilege with `Roles` and `Policy` on tool metadata.
+- Keep inspector endpoints disabled or restricted outside trusted environments.
+- Forward only required security headers via `ForwardHeaders`.
+
+### Governance
+
+- `ToolFilter`: discovery-time exclusion by name/environment.
+- `ToolVisibilityFilter`: per-request dynamic visibility based on context.
+- Roles/policies are enforced at listing and invocation boundaries.
+- Use versioned routes to run controlled cutovers across client populations.
+
+### Observability and operations
+
+- Correlation IDs via configurable header propagation.
+- Structured logging around MCP request lifecycle and tool calls.
+- `IMcpMetricsSink` for custom telemetry export.
+- Optional OpenTelemetry enrichment for traces.
+- SSE-based keep-alive behavior for long-lived MCP connections.
+
+### Reliability recommendations
+
+- Set endpoint auth and rate limiting policies at the ASP.NET Core layer.
+- Treat `/mcp` as a production API surface with normal SLO/SLA controls.
+- Keep inspector UI behind environment checks or internal access controls.
+- Validate key tool flows with integration tests before client rollout.
+
+## Configuration Example
+
+```csharp
+builder.Services.AddZeroMCP(options =>
+{
+    options.ServerName = "Orders Platform";
+    options.ServerVersion = "2.3.0";
+    options.RoutePrefix = "/mcp";
+
+    // Core behavior
+    options.IncludeInputSchemas = true;
+    options.ForwardHeaders = ["Authorization"];
+
+    // Governance
+    options.ToolFilter = name => !name.StartsWith("internal_");
+    options.ToolVisibilityFilter = (name, ctx) =>
+        ctx.User.IsInRole("Admin") || !name.StartsWith("admin_");
+
+    // Observability
+    options.CorrelationIdHeader = "X-Correlation-ID";
+    options.EnableOpenTelemetryEnrichment = true;
+
+    // Optional MCP capabilities
+    options.EnableResources = true;
+    options.EnablePrompts = true;
+    options.EnableToolInspector = false;
+    options.EnableToolInspectorUI = false;
 });
 ```
 
-### 3. Map the endpoint
+## Supported MCP Surface
 
-```csharp
-app.MapZeroMCP(); // registers GET and POST /mcp
-```
+- `initialize`
+- `tools/list`, `tools/call`
+- `resources/list`, `resources/templates/list`, `resources/read`
+- `resources/subscribe`, `resources/unsubscribe` (when enabled)
+- `prompts/list`, `prompts/get`
+- notification flows such as list-changed updates (when enabled)
 
-### 4. Tag your actions
+## Transport Options
 
-```csharp
-[ApiController]
-[Route("api/[controller]")]
-public class OrdersController : ControllerBase
-{
-    [HttpGet("{id}")]
-    [Mcp("get_order", Description = "Retrieves a single order by ID.")]
-    public ActionResult<Order> GetOrder(int id) { ... }
+### Streamable HTTP (default)
 
-    [HttpPost]
-    [Mcp("create_order", Description = "Creates a new order. Returns the created order.")]
-    public ActionResult<Order> CreateOrder([FromBody] CreateOrderRequest request) { ... }
+- `GET /mcp` for metadata and SSE scenarios
+- `POST /mcp` for JSON-RPC methods
 
-    [HttpDelete("{id}")]
-    // No [Mcp] — invisible to MCP clients
-    public IActionResult Delete(int id) { ... }
-}
-```
-
-Point any MCP client at your app's `/mcp` URL; it will see your tagged controller actions and minimal endpoints as tools.
-
-ZeroMCP supports **HTTP** and **stdio** transports. For Claude Desktop and Claude Code (which default to stdio), add a stdio branch before `app.Run()`:
+### stdio (optional)
 
 ```csharp
 if (args.Contains("--mcp-stdio"))
@@ -85,469 +160,48 @@ if (args.Contains("--mcp-stdio"))
     await app.RunMcpStdioAsync();
     return;
 }
-app.Run();
 ```
 
-Then configure Claude Desktop with `"command": "dotnet", "args": ["run", "--project", "MyApi", "--", "--mcp-stdio"]`. See [wiki/Connecting-Clients](wiki/Connecting-Clients.md).
+Useful for local-first MCP clients that spawn your service process directly.
 
-- **GET /mcp** — Server info and example JSON-RPC payload. With `Accept: text/event-stream`, opens an SSE channel for server-to-client notifications.
-- **GET /mcp/tools** — (Phase 3) JSON list of all registered tools and their schemas (when **EnableToolInspector** is true). Use for debugging or tooling.
-- **GET /mcp/ui** — (Phase 3) Swagger-like test invocation UI: list tools, view schemas, invoke tools from the browser (when **EnableToolInspectorUI** is true).
-- **POST /mcp** — JSON-RPC methods: `initialize`, `tools/list`, `tools/call`, `resources/list`, `resources/templates/list`, `resources/read`, `resources/subscribe`, `resources/unsubscribe`, `prompts/list`, `prompts/get`.
-- **Legacy SSE** — Opt-in: `app.MapZeroMCP().WithLegacySseTransport()` adds GET `/mcp/sse` and POST `/mcp/messages` for MCP spec 2024-11-05 clients.
+## Inspector Endpoints
 
-For **versioning and breaking-change policy**, see [VERSIONING.md](VERSIONING.md).
+- `GET /mcp/tools`: JSON inventory of tools and schemas
+- `GET /mcp/ui`: browser-based invocation UI
 
----
+Recommended usage: enable in development and internal test environments only.
 
-## Configuration
+## Versioning and Compatibility
 
-```csharp
-builder.Services.AddZeroMCP(options =>
-{
-    options.ServerName = "My API";         // shown during MCP handshake
-    options.ServerVersion = "2.0.0";       // shown during MCP handshake
-    options.RoutePrefix = "/mcp";          // where the endpoint is mounted
-    options.IncludeInputSchemas = true;    // attach JSON Schema to tools (helps LLM)
-    options.ForwardHeaders = ["Authorization"];  // copy these from MCP request to tool dispatch
+- Semantic versioning policy is defined in `VERSIONING.md`.
+- MCP protocol behavior is implemented with explicit compatibility tests.
+- Versioned endpoint support allows non-breaking migration paths for clients.
 
-    // Optional: filter which tagged tools are exposed at discovery time (by name)
-    options.ToolFilter = name => !name.StartsWith("admin_");
+## Solution Layout
 
-    // Optional: filter which tools appear in tools/list per request (e.g. by user, headers)
-    options.ToolVisibilityFilter = (name, ctx) => ctx.Request.Headers.TryGetValue("X-Show-Admin", out _) || !name.StartsWith("admin_");
+- `ZeroMCP/`: core framework package (NuGet artifact source)
+- `ZeroMCP.Sample/`: reference host with practical patterns
+- `ZeroMCP.Tests/`: integration and schema/compatibility tests
+- `examples/`: focused scenario samples (auth, enrichment, enterprise, stdio)
+- `wiki/`: implementation and operations documentation
+- `progress.md`: persistent engineering change log
 
-    // Observability (Phase 1)
-    options.CorrelationIdHeader = "X-Correlation-ID";  // read from request, echo in response and logs; default
-    options.EnableOpenTelemetryEnrichment = true;     // tag Activity.Current with mcp.tool, mcp.duration_ms, etc.
+## Build and Test
 
-    // Phase 2: result enrichment and streaming (all optional, default off)
-    options.EnableResultEnrichment = true;            // tools/call result includes metadata (statusCode, durationMs, correlationId) and optional hints
-    options.EnableSuggestedFollowUps = true;          // when SuggestedFollowUpsProvider is set, result includes suggested next tools
-    options.EnableStreamingToolResults = false;       // when true, content is returned as chunks (chunkIndex, isFinal, text)
-    options.StreamingChunkSize = 4096;
-
-    // Phase 3: XML Doc and Inspector (defaults)
-    options.EnableXMLDocAnalysis = true;   // when true, use XML doc <summary> as tool description if [Mcp] Description is blank
-    options.EnableToolInspector = true;   // GET {RoutePrefix}/tools returns full tool list as JSON
-    options.EnableToolInspectorUI = true; // GET {RoutePrefix}/ui serves Swagger-like test invocation UI
-});
+```bash
+dotnet build ZeroMCP.slnx -v detailed
+dotnet test ZeroMCP.Tests/ZeroMCP.Tests.csproj -v detailed
 ```
 
-### Observability (Phase 1)
-
-- **Structured logging** — Each MCP request is logged with a scope containing `CorrelationId`, `JsonRpcId`, and `Method`. Tool invocations log `ToolName`, `StatusCode`, `IsError`, `DurationMs`, and `CorrelationId`.
-- **Execution timing** — Request duration and per-tool duration are recorded and included in log messages.
-- **Correlation ID** — Send `X-Correlation-ID` (or the header name in `CorrelationIdHeader`) on the request; the same value is echoed in the response and propagated to the synthetic request (`TraceIdentifier` and `HttpContext.Items`). If omitted, a new GUID is generated.
-- **Metrics sink** — Implement `IMcpMetricsSink` and register it after `AddZeroMCP()` to record tool invocations (tool name, status code, success/failure, duration). The default is a no-op.
-- **OpenTelemetry** — Set `EnableOpenTelemetryEnrichment = true` to tag the current `Activity` with `mcp.tool`, `mcp.status_code`, `mcp.is_error`, `mcp.duration_ms`, and `mcp.correlation_id` when present.
-
-### Governance & tool control (Phase 1)
-
-You can control which tools appear in `tools/list` per request:
-
-- **Role-based exposure** — On `[Mcp]` set `Roles = new[] { "Admin" }`. The tool is only listed if the current user is in at least one of the roles. Requires `AddAuthentication()` and `AddAuthorization()`.
-- **Policy-based exposure** — Set `Policy = "RequireEditor"` (or any policy name). The tool is only listed if `IAuthorizationService.AuthorizeAsync(user, null, policy)` succeeds.
-- **Environment / custom filter** — Use **`ToolFilter`** for discovery-time filtering by name (e.g. exclude `admin_*` in non-production). Use **`ToolVisibilityFilter`** for per-request filtering: `(toolName, httpContext) => bool` (e.g. hide tools based on user, headers, or feature flags).
-
-Minimal APIs support the same via `.AsMcp("name", "description", tags: null, roles: new[] { "Admin" }, policy: "RequireEditor")`.
-
-Tools that are hidden from `tools/list` are also not callable: a direct `tools/call` for that tool name will still be rejected (unknown tool). Authorization on the underlying action/endpoint is still enforced when the tool is invoked.
-
-### Custom route
-
-```csharp
-app.MapZeroMCP("/api/mcp");  // overrides options.RoutePrefix
-```
-
-### Using controllers and minimal APIs together
-
-If you expose **both** controller actions (with `[Mcp]`) and minimal API endpoints (with `.AsMcp(...)`), you must register the API explorer so controller actions are discovered:
-
-```csharp
-builder.Services.AddControllers();
-builder.Services.AddEndpointsApiExplorer();   // required for controller tool discovery
-// ... AddZeroMCP(...) ...
-
-app.MapControllers();
-// minimal APIs with .AsMcp(...)
-app.MapZeroMCP();
-```
-
-Without `AddEndpointsApiExplorer()`, only minimal API tools will appear in `tools/list`; controller actions will be missing because they are discovered from the same API description source as Swagger.
-
----
-
-## Tool Inspector (Phase 3)
-
-When **EnableToolInspector** is true (default), **GET {RoutePrefix}/tools** returns a JSON payload with `serverName`, `serverVersion`, `protocolVersion`, `toolCount`, and a `tools` array. Each tool entry includes `name`, `description`, `httpMethod`, `route`, `inputSchema`, and optional `category`, `tags`, `examples`, `hints`, `requiredRoles`, `requiredPolicy`. Use it for debugging or to build tooling.
-
-When **EnableToolInspectorUI** is also true (default), **GET {RoutePrefix}/ui** serves a Swagger-like test invocation UI: you can browse tools, view input schemas, and invoke `tools/call` from the browser with editable JSON arguments.
-
-Set **EnableToolInspector** or **EnableToolInspectorUI** to `false` to disable the JSON endpoint or the UI (e.g. in production if sensitive). The sample app (**ZeroMCP.Sample**) enables them only when `builder.Environment.IsDevelopment()` is true. See [wiki/Configuration](wiki/Configuration.md) and [wiki/Enterprise-Usage](wiki/Enterprise-Usage.md).
-
----
-
-## Tool Versioning
-
-You can expose tools on versioned endpoints so clients can target a specific API version. Use **Version** on **`[Mcp]`** or **`.AsMcp(..., version: n)`** for tools that differ by version; leave **Version** unset for tools that appear on all versions.
-
-- **Without versioning** — Only **/mcp**, **/mcp/tools**, and **/mcp/ui** are registered (unchanged behaviour).
-- **With versioning** — For each version (e.g. 1, 2) you get **/mcp/v1**, **/mcp/v2**, plus **/mcp/v1/tools**, **/mcp/v2/ui**, etc. The unversioned **/mcp** resolves to the highest version (or **DefaultVersion** in options).
-- **Inspector** — The UI shows a version selector and version badges on tools when multiple versions exist.
-
-See [wiki/Tool-Versioning](wiki/Tool-Versioning.md).
-
----
-
-## Streaming (IAsyncEnumerable)
-
-Controller actions decorated with `[Mcp]` that return `IAsyncEnumerable<T>` are automatically detected as streaming tools at registration time. When a client calls a streaming tool:
-
-- **HTTP (Streamable HTTP)** — The response is delivered as **Server-Sent Events** (`text/event-stream`). Each enumerated item is sent as an `event: chunk` with the serialized JSON in `result.content[0].text`. A final `event: done` is emitted when enumeration completes. Errors emit `event: error`.
-- **stdio** — Each chunk is a separate JSON-RPC response line, with `result._meta.status` set to `"streaming"`, `"done"`, or `"error"`.
-- **tools/list** — Streaming tools include `"streaming": true` in the tool definition.
-- **Inspector UI** — Streaming tools show a purple "STREAMING" badge and render results progressively.
-
-```csharp
-[HttpGet("stream")]
-[Mcp("stream_orders", Description = "Streams all orders with simulated delay.")]
-public async IAsyncEnumerable<Order> StreamOrders(
-    [EnumeratorCancellation] CancellationToken ct = default)
-{
-    foreach (var order in Store)
-    {
-        ct.ThrowIfCancellationRequested();
-        await Task.Delay(250, ct);
-        yield return order;
-    }
-}
-```
-
-**Safety limit**: `MaxStreamingItems` (default 10,000) caps the number of items yielded before the stream is cancelled. Set to 0 for unlimited.
-
----
-
-## Examples
-
-The **examples/** folder contains standalone projects:
-
-| Example | Description |
-|--------|-------------|
-| **Minimal** | Bare-minimum: one controller action, one minimal API, no auth |
-| **WithStdio** | stdio transport: `--mcp-stdio`, Claude Desktop config, JSON-RPC over stdin/stdout |
-| **WithAuth** | API-key auth, role-based tool visibility, `[Authorize]` |
-| **WithEnrichment** | Phase 2 result enrichment, suggested follow-ups, streaming options |
-| **WithRateLimiting** | Phase 4 (Option A): ASP.NET Core rate limiting on the MCP endpoint, 429 + JSON-RPC error |
-| **Enterprise** | Auth, enrichment, observability, ToolFilter, ToolVisibilityFilter |
-
-Run any example with `dotnet run` from its folder. See each project's **README.md** for details.
-
----
-
-## The `[Mcp]` Attribute
-
-```csharp
-[Mcp(
-    name: "create_order",               // Required. Snake_case tool name for the LLM.
-    Description = "Creates an order.",  // Shown to the LLM. Be descriptive.
-    Tags = ["write", "orders"],         // Optional. For grouping/filtering.
-    Category = "orders",                // Optional (Phase 2). Primary category for tools/list.
-    Examples = ["Create order for Alice, 2 Widgets"], // Optional (Phase 2). Usage examples.
-    Hints = ["idempotent", "cost=low"], // Optional (Phase 2). AI-facing hints.
-    Roles = ["Editor", "Admin"],        // Optional. Tool only in tools/list if user in one of these roles.
-    Policy = "RequireEditor"            // Optional. Tool only in tools/list if user satisfies this policy.
-)]
-```
-
-### Placement rules
-
-- **Per-action only** — `[Mcp]` goes on individual action methods, not controllers
-- **One name per version** — duplicate names within the same version are logged and skipped; the same name in different versions (e.g. `get_order` in v1 and v2) is allowed. Without versioning, one name per application.
-- **Any HTTP method** — GET, POST, PATCH, DELETE all work
-- **Description** — If you omit `Description`, ZeroMCP uses the method's XML doc `<summary>` when available.
-
----
-
-## How Parameters Are Mapped
-
-ZeroMCP merges all parameter sources into a single flat JSON Schema object that the LLM fills in:
-
-| Parameter source | MCP mapping |
-|---|---|
-| Route params (`{id}`) | Always required properties |
-| Query params (`?status=`) | Optional (or required if `[Required]`) |
-| `[FromBody]` object | Properties expanded inline from JSON Schema |
-
-**Example:**
-
-```csharp
-[HttpPatch("{id}/status")]
-[Mcp("update_order_status", Description = "Updates an order's status.")]
-public IActionResult UpdateStatus(int id, [FromBody] UpdateStatusRequest req) { ... }
-
-public class UpdateStatusRequest
-{
-    [Required] public string Status { get; set; }
-    public string? Reason { get; set; }
-}
-```
-
-Produces this MCP input schema:
-
-```json
-{
-  "type": "object",
-  "properties": {
-    "id":     { "type": "integer" },
-    "status": { "type": "string" },
-    "reason": { "type": "string" }
-  },
-  "required": ["id", "status"]
-}
-```
-
----
-
-## In-Process Dispatch
-
-When the MCP client calls a tool, ZeroMCP:
-
-1. Creates a fresh **DI scope** (same as a real request)
-2. Builds a **synthetic `HttpContext`** with route values (including ambient `controller`/`action` for link generation), query string, and body from the JSON arguments
-3. Sets the matched **endpoint** on the context so `CreatedAtAction` and `LinkGenerator` work
-4. Invokes the controller action via `IActionInvokerFactory` or the minimal endpoint's `RequestDelegate`
-5. Captures the response body and forwards it as the MCP result
-
-This means:
-- `[Authorize]` works — set up auth on the MCP endpoint and your action filters enforce it
-- **Auth forwarding** — Headers in `ForwardHeaders` (e.g. `Authorization`) are copied from the MCP request to the synthetic request
-- **CreatedAtAction** works — synthetic request has endpoint and controller/action route values so link generation succeeds
-- `[ValidateModel]` / `ModelState` works — validation errors return as MCP error results
-- Exception filters work — unhandled exceptions are caught and returned gracefully
-- Your existing DI services, repositories, and business logic are called as-is
-
----
-
-## Minimal API endpoints
-
-You can expose minimal API endpoints as MCP tools by calling `.AsMcp(...)` when mapping:
-
-```csharp
-app.MapGet("/api/health", () => Results.Ok(new { status = "ok" }))
-   .AsMcp("health_check", "Returns API health status.", tags: new[] { "system" });
-```
-
-- **Name** (required) — snake_case tool name for the LLM
-- **Description** (optional) — shown to the LLM
-- **Tags** (optional) — for grouping/filtering
-
-Discovery includes both controller actions (from API descriptions) and minimal endpoints (from `EndpointDataSource`). Route parameters on minimal APIs are supported; query/body binding is limited to what the route pattern exposes.
-
----
-
-## MCP Resources
-
-Resources expose read-only data at well-known URIs. Clients call `resources/list` to discover them and `resources/read` to fetch content.
-
-### Controller attributes
-
-```csharp
-[HttpGet("system/status")]
-[McpResource("system://status", "system_status",
-    Description = "Current system status.", MimeType = "application/json")]
-public IActionResult GetSystemStatus() => Ok(new { status = "ok" });
-```
-
-### Minimal API
-
-```csharp
-app.MapGet("/api/system/status", () => Results.Ok(new { status = "ok" }))
-   .AsResource("system://status", "system_status",
-       "Current system status.", mimeType: "application/json");
-```
-
----
-
-## MCP Resource Templates
-
-Templates are parameterised resources with URI patterns (RFC 6570). Clients call `resources/templates/list` to discover them, then `resources/read` with a concrete URI.
-
-### Controller attributes
-
-```csharp
-[HttpGet("products/{id}")]
-[McpTemplate("catalog://products/{id}", "product_resource",
-    Description = "Fetches a product by ID.", MimeType = "application/json")]
-public IActionResult GetProduct(int id) => Ok(Store.Find(id));
-```
-
-### Minimal API
-
-```csharp
-app.MapGet("/api/orders/resource/{id:int}", (int id) => ...)
-   .AsTemplate("orders://order/{id}", "order_resource",
-       "Retrieves a single order by ID.", mimeType: "application/json");
-```
-
----
-
-## MCP Prompts
-
-Prompts are reusable prompt templates with typed arguments. Clients call `prompts/list` to discover them and `prompts/get` with arguments to render the prompt text.
-
-### Controller attributes
-
-```csharp
-[HttpGet("search")]
-[McpPrompt("search_products",
-    Description = "Search products by keyword and optional category.")]
-public IActionResult SearchProducts([Required] string keyword, string? category = null)
-    => Ok($"Search for '{keyword}' in category '{category ?? "all"}'.");
-```
-
-### Minimal API
-
-```csharp
-app.MapGet("/api/prompts/fulfil/{orderId:int}", (int orderId, string? urgency) =>
-    Results.Ok($"Chase email for order {orderId}, urgency: {urgency ?? "normal"}"))
-   .AsPrompt("fulfil_order_prompt",
-       "Generates a fulfilment-chase email prompt for a given order.");
-```
-
-### Configuration
-
-Resources and prompts are enabled by default. Disable them if your API only needs tools:
-
-```csharp
-builder.Services.AddZeroMCP(options =>
-{
-    options.EnableResources = false; // disables resources/list, resources/read, templates/list
-    options.EnablePrompts = false;   // disables prompts/list, prompts/get
-});
-```
-
-See [wiki/Resources-and-Prompts](wiki/Resources-and-Prompts.md) for full details, error handling, and dispatch behaviour.
-
----
-
-## Notifications and Subscriptions
-
-ZeroMCP supports the full MCP notification suite:
-
-- **`listChanged`** — When `EnableListChangedNotifications = true`, connected SSE clients receive `notifications/tools/list_changed`, `notifications/resources/list_changed`, or `notifications/prompts/list_changed` when your app calls `NotifyToolsListChangedAsync()` etc.
-- **`subscribe`** — When `EnableResourceSubscriptions = true`, clients can call `resources/subscribe` with a URI to receive targeted `notifications/resources/updated` when that resource's content changes. The framework is trigger-agnostic: call `NotifyResourceUpdatedAsync(uri)` from a controller, background service, SignalR hub, or message handler.
-
-```csharp
-builder.Services.AddZeroMCP(options =>
-{
-    options.EnableListChangedNotifications = true;
-    options.EnableResourceSubscriptions = true;
-});
-
-// Anywhere in your app when data changes:
-await _notificationService.NotifyResourceUpdatedAsync("orders://order/42");
-```
-
-See [Resources and Prompts](wiki/Resources-and-Prompts.md) and [Configuration](wiki/Configuration.md) for full details.
-
----
-
-## Connecting MCP Clients
-
-### Claude Desktop
-
-Add to `claude_desktop_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "my-api": {
-      "type": "http",
-      "url": "http://localhost:5000/mcp"
-    }
-  }
-}
-```
-
-### Claude.ai (remote MCP)
-
-Point at your deployed API's `/mcp` endpoint. For production, add authentication — ZeroMCP doesn't impose any auth on the `/mcp` route itself, so you can apply standard ASP.NET Core auth middleware or `.RequireAuthorization()` as needed:
-
-```csharp
-app.MapZeroMCP().RequireAuthorization("McpPolicy");
-```
-
----
-
-## Two READMEs
-
-| File | Purpose |
-|------|--------|
-| **README.md** (this file) | Repository / GitLab: full docs, build, tests, contributing, project layout. |
-| **ZeroMCP/README.md** | NuGet package: install, quick start, config summary. Shipped inside the package; keep it consumer-focused. |
-
-When you add features or options, update both: details and examples here, short summary and link in `ZeroMCP/README.md`.
-
----
-
-## Project Structure
-
-```
-mcpAPI/
-├── ZeroMCP/                       ← Library (NuGet package ZeroMCP)
-│   ├── README.md                  ← Package README (NuGet)
-│   ├── Attributes/                ← [Mcp], [McpResource], [McpTemplate], [McpPrompt]
-│   ├── Discovery/                 ← Tool, Resource, and Prompt discovery services
-│   ├── Schema/                    ← JSON Schema for tool inputs (NJsonSchema)
-│   ├── Dispatch/                  ← Synthetic HttpContext, controller/minimal invoke
-│   ├── Metadata/                  ← Endpoint metadata for minimal APIs
-│   ├── Notifications/             ← McpNotificationService (listChanged, subscribe)
-│   ├── Transport/                 ← McpHttpEndpointHandler, resource/prompt handlers
-│   ├── Extensions/                ← AddZeroMCP, MapZeroMCP, AsMcp, AsResource, AsTemplate, AsPrompt
-│   ├── Options/                   ← ZeroMCPOptions
-│   └── ZeroMCP.csproj            (PackageId: ZeroMCP, Version: 1.0.2)
-├── ZeroMCP.Sample/                ← Sample (Orders, Catalog, Prompts; controller + minimal API)
-├── examples/                     ← Minimal, WithAuth, WithEnrichment, WithRateLimiting, Enterprise
-├── ZeroMCP.Tests/                 ← Integration + schema tests (152 tests)
-├── wiki/                          ← Wiki documentation (linked Markdown pages)
-├── nupkgs/                        ← dotnet pack -o nupkgs
-├── progress.md
-└── README.md
-```
-
-**Wiki:** Detailed documentation can be found on [Our Wiki pages](https://github.com/ZeroMCP/ZeroMCP.net/wiki). 
-
----
-
-## Known Limitations
-
-- **Transports** — Streamable HTTP (primary), stdio via `--mcp-stdio`, Legacy SSE opt-in via `WithLegacySseTransport()`. See [wiki/Limitations](wiki/Limitations.md).
-- **Minimal APIs** — supported via `AsMcp`; route params are bound; query/body binding is limited
-- **[FromForm] and file uploads** — Supported for `IFormFile`/`IFormFileCollection` via base64; see [Parameters-and-Schemas](wiki/Parameters-and-Schemas.md)
-- **Streaming responses** — `IAsyncEnumerable<T>` return types on controller actions are auto-detected and streamed via SSE (HTTP) or multi-line JSON-RPC (stdio). Minimal API streaming is not yet supported. See `MaxStreamingItems` option.
-- If **CreatedAtAction** or link generation ever fails in your environment, use `return Created(Url.Action(nameof(OtherAction), new { id = entity.Id })!, entity);` as a fallback
-
----
-
-## Build
-
-- **Targets:** .NET 9.0 and .NET 10.0 (library); sample and tests may target a single framework.
-- **Library:** `dotnet build ZeroMCP\ZeroMCP.csproj`
-- **Sample:** `dotnet build ZeroMCP.Sample\ZeroMCP.Sample.csproj`
-- **Tests:** `dotnet build ZeroMCP.Tests\ZeroMCP.Tests.csproj` then `dotnet test ZeroMCP.Tests\ZeroMCP.Tests.csproj`
-- **TestService:** `dotnet build TestService\TestService.csproj`
-
-### Test coverage
-
-Integration and schema tests cover JSON-RPC validation and errors, model binding failures, wrong/empty arguments, unauthorized `[Authorize]` tool calls, `tools/list` schema shape, and schema edge cases (nested objects, arrays, enums, route+body merging).
-
----
-
-
+## Documentation Map
+
+- Package README: `ZeroMCP/README.md`
+- Configuration: `wiki/Configuration.md`
+- Security model: `wiki/Security-Model.md`
+- Enterprise usage: `wiki/Enterprise-Usage.md`
+- Tool versioning: `wiki/Tool-Versioning.md`
+- Resources and prompts: `wiki/Resources-and-Prompts.md`
 
 ## Contributing
 
-PRs welcome. The most impactful next additions would be:
-
-1. Richer minimal API parameter binding (query/body from route delegate)
+Contributions are welcome for enterprise hardening, protocol compatibility, and new sample implementations. Please include tests and documentation updates with each functional change.

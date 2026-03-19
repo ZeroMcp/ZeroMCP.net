@@ -1,5 +1,14 @@
 # Progress
 
+## 2026-03-19 – Documentation upgrade: enterprise solution README + NuGet package README
+
+- **ZeroMCP/README.md** (package-level): rewritten as a professional NuGet-focused README with concise install/quick-start guidance, feature matrix, configuration summary, transport options, security/governance notes, and links to full documentation.
+- **ZeroMCP/README.md** (package-level): corrected a merge artifact where legacy README content remained appended; final file now contains only the new NuGet-focused content.
+- **README.md** (solution-level): rewritten as an enterprise-ready project README with executive summary, architecture, deployment/security guidance, governance, observability, reliability recommendations, supported MCP surface, transport guidance, and build/test instructions.
+- **Intent:** establish clearer audience separation between package consumers (NuGet page) and enterprise adopters evaluating solution-level production readiness.
+
+---
+
 ## 2026-03-18 – MCP Resources, Resource Templates, and Prompts ([McpResource], [McpTemplate], [McpPrompt])
 
 ### New MCP protocol capabilities: resources and prompts support

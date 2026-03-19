@@ -1,10 +1,13 @@
 # ZeroMCP
 
-Expose your ASP.NET Core API as an **MCP (Model Context Protocol)** server. Tag controller actions with `[Mcp]`, `[McpResource]`, `[McpTemplate]`, or `[McpPrompt]` — or use the minimal API equivalents `.AsMcp(...)`, `.AsResource(...)`, `.AsTemplate(...)`, `.AsPrompt(...)`. ZeroMCP discovers them, builds JSON Schema for inputs, and exposes a single **/mcp** endpoint that speaks the MCP Streamable HTTP transport. Calls are dispatched in-process through your real pipeline (filters, validation, authorization run as normal).
+ZeroMCP turns your existing ASP.NET Core APIs into an MCP (Model Context Protocol) server without creating a second app or duplicating business logic.
 
-**Full documentation** (configuration, governance, observability, minimal APIs, limitations): [repository README](https://github.com/kaladinstorm84/ZeroMCP) or your GitLab repo root `README.md`.
+## Why ZeroMCP
 
----
+- Reuse existing controllers and minimal APIs
+- Expose MCP tools, resources, templates, and prompts from one codebase
+- Keep your normal ASP.NET Core pipeline (auth, validation, filters, DI)
+- Support Streamable HTTP and stdio transports for common MCP clients
 
 ## Install
 
@@ -12,97 +15,108 @@ Expose your ASP.NET Core API as an **MCP (Model Context Protocol)** server. Tag 
 <PackageReference Include="ZeroMCP" Version="1.*" />
 ```
 
----
-
 ## Quick Start
-
-**1. Register and map**
 
 ```csharp
 // Program.cs
+builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+
 builder.Services.AddZeroMCP(options =>
 {
-    options.ServerName = "My API";
+    options.ServerName = "Orders API";
     options.ServerVersion = "1.0.0";
 });
 
-// After UseRouting(), UseAuthorization()
-app.MapZeroMCP();  // GET and POST /mcp; GET /mcp/tools and GET /mcp/ui when inspector/UI are enabled
+var app = builder.Build();
+
+app.MapControllers();
+app.MapZeroMCP(); // GET/POST /mcp
+
+app.Run();
 ```
 
-**2. Tag controller actions**
+### Expose a tool from a controller
 
 ```csharp
-[HttpGet("{id}")]
-[Mcp("get_order", Description = "Retrieves a single order by ID.")]
-public ActionResult<Order> GetOrder(int id) { ... }
-
-[HttpPost]
-[Mcp("create_order", Description = "Creates a new order.")]
-public ActionResult<Order> CreateOrder([FromBody] CreateOrderRequest request) { ... }
+[ApiController]
+[Route("api/[controller]")]
+public class OrdersController : ControllerBase
+{
+    [HttpGet("{id:int}")]
+    [Mcp("get_order", Description = "Retrieves an order by ID.")]
+    public IActionResult GetOrder(int id) => Ok(new { id, status = "pending" });
+}
 ```
 
-**3. Optional: minimal APIs**
+### Expose a tool from a minimal API
 
 ```csharp
 app.MapGet("/api/health", () => Results.Ok(new { status = "ok" }))
    .AsMcp("health_check", "Returns API health status.");
 ```
 
-**4. Optional: resources, templates, and prompts**
+## Features
 
-```csharp
-// Controller attributes
-[McpResource("system://status", "system_status", Description = "System status.")]
-[McpTemplate("catalog://products/{id}", "product_resource", Description = "Product by ID.")]
-[McpPrompt("search_products", Description = "Search products by keyword.")]
+- **Tools**: `[Mcp]` and `.AsMcp(...)`
+- **Resources**: `[McpResource]` and `.AsResource(...)`
+- **Resource templates**: `[McpTemplate]` and `.AsTemplate(...)`
+- **Prompts**: `[McpPrompt]` and `.AsPrompt(...)`
+- **Versioned MCP routes** when tool versions are defined
+- **Streaming tool results** for `IAsyncEnumerable<T>` actions
+- **Inspector endpoints** for discovery and UI testing
 
-// Minimal API equivalents
-app.MapGet("/api/status", () => ...).AsResource("system://status", "system_status", "System status.");
-app.MapGet("/api/products/{id}", (int id) => ...).AsTemplate("catalog://products/{id}", "product_resource", "Product by ID.");
-app.MapGet("/api/prompts/search", (string keyword) => ...).AsPrompt("search_products", "Search products.");
-```
-
-If you use **both** controllers and minimal APIs, add `builder.Services.AddEndpointsApiExplorer();` and `app.MapControllers();` so controller items are discovered.
-
-Point any MCP client (e.g. Claude Desktop) at your app's `/mcp` URL.
-
----
-
-## Configuration (summary)
+## Configuration (common options)
 
 | Option | Default | Description |
-|--------|---------|-------------|
-| `RoutePrefix` | `"/mcp"` | Endpoint path |
-| `ServerName` / `ServerVersion` | — | Shown in MCP handshake |
-| `IncludeInputSchemas` | `true` | Include JSON Schema in tools/list |
-| `EnableXMLDocAnalysis` | `true` | Use XML doc summary as tool description when [Mcp] Description is blank |
-| `ForwardHeaders` | `["Authorization"]` | Headers copied to tool dispatch |
-| `ToolFilter` | `null` | Discovery-time filter by tool name |
-| `ToolVisibilityFilter` | `null` | Per-request filter `(name, ctx) => bool` |
-| `CorrelationIdHeader` | `"X-Correlation-ID"` | Request/response correlation ID |
-| `EnableOpenTelemetryEnrichment` | `false` | Tag `Activity.Current` with MCP tool details |
-| `EnableResultEnrichment` | `false` | tools/call result includes metadata, optional hints |
-| `EnableSuggestedFollowUps` | `false` | Include suggestedNextActions when provider is set |
-| `EnableStreamingToolResults` | `false` | Return content as chunks (chunkIndex, isFinal) |
-| `StreamingChunkSize` | `4096` | Chunk size when streaming enabled |
-| `EnableToolInspector` | `true` | GET {RoutePrefix}/tools returns full tool list as JSON |
-| `EnableToolInspectorUI` | `true` | GET {RoutePrefix}/ui serves Swagger-like test invocation UI |
-| `EnableResources` | `true` | Enable `resources/list`, `resources/read`, `resources/templates/list` |
-| `EnablePrompts` | `true` | Enable `prompts/list`, `prompts/get` |
-| `EnableLegacySseTransport` | `false` | Add GET /mcp/sse and POST /mcp/messages for MCP spec 2024-11-05 clients |
-| `MaxFormFileSizeBytes` | `10485760` (10 MB) | Max size for base64-decoded form files; enforced before decode |
-| `EnableListChangedNotifications` | `false` | Advertise `listChanged: true` and enable SSE push for list changes |
-| `EnableResourceSubscriptions` | `false` | Advertise `subscribe: true` in resources; handle `resources/subscribe` / `resources/unsubscribe` |
+|---|---|---|
+| `RoutePrefix` | `"/mcp"` | MCP endpoint base route |
+| `ServerName` / `ServerVersion` | unset | Reported during MCP initialize |
+| `IncludeInputSchemas` | `true` | Include JSON schema in tool definitions |
+| `ForwardHeaders` | `["Authorization"]` | Headers copied into synthetic dispatch |
+| `EnableResources` | `true` | Enable `resources/list` and `resources/read` |
+| `EnablePrompts` | `true` | Enable `prompts/list` and `prompts/get` |
+| `EnableToolInspector` | `true` | Enable `GET {RoutePrefix}/tools` |
+| `EnableToolInspectorUI` | `true` | Enable `GET {RoutePrefix}/ui` |
+| `EnableResultEnrichment` | `false` | Add result metadata to `tools/call` |
+| `EnableStreamingToolResults` | `false` | Return chunked content responses |
+| `EnableListChangedNotifications` | `false` | Advertise and emit listChanged notifications |
+| `EnableResourceSubscriptions` | `false` | Enable `resources/subscribe` and update notifications |
 
-Set `EnableToolInspector` or `EnableToolInspectorUI` to `false` to disable the JSON endpoint or the UI (e.g. in production if the list is sensitive). The sample app uses `builder.Environment.IsDevelopment()` to enable them only in Development.
+## Optional stdio mode
 
-**Governance:** Use `[Mcp(..., Roles = new[] { "Admin" }, Policy = "RequireEditor")]` or `.AsMcp(..., roles: ..., policy: ...)` to restrict which tools appear in `tools/list` per user.
+```csharp
+if (args.Contains("--mcp-stdio"))
+{
+    await app.RunMcpStdioAsync();
+    return;
+}
 
-**Metrics:** Implement `IMcpMetricsSink` and register it after `AddZeroMCP()` to record tool invocations (name, status code, duration, success/failure).
+app.Run();
+```
 
----
+## Security and governance
 
-## Versioning
+- Protect MCP endpoints with normal ASP.NET Core auth:
 
-We follow [Semantic Versioning](https://semver.org/). Breaking changes are documented in the repository (e.g. `VERSIONING.md`).
+```csharp
+app.MapZeroMCP().RequireAuthorization("McpPolicy");
+```
+
+- Restrict tool visibility with role and policy metadata:
+  - `[Mcp("admin_tool", Roles = new[] { "Admin" }, Policy = "RequireAdmin")]`
+  - `.AsMcp("admin_tool", "Admin only", roles: new[] { "Admin" }, policy: "RequireAdmin")`
+
+## Operational endpoints
+
+- `GET /mcp`: server info or SSE stream (when `Accept: text/event-stream`)
+- `POST /mcp`: MCP JSON-RPC methods (`initialize`, `tools/list`, `tools/call`, and others)
+- `GET /mcp/tools`: full tool inspector JSON payload (when enabled)
+- `GET /mcp/ui`: browser UI for tool invocation testing (when enabled)
+
+## Learn More
+
+- Repository and full docs: [ZeroMCP.net](https://github.com/ZeroMCP/ZeroMCP.net)
+- Configuration details: [wiki/Configuration.md](https://github.com/ZeroMCP/ZeroMCP.net/blob/main/wiki/Configuration.md)
+- Enterprise guidance: [wiki/Enterprise-Usage.md](https://github.com/ZeroMCP/ZeroMCP.net/blob/main/wiki/Enterprise-Usage.md)
+- Versioning policy: [VERSIONING.md](https://github.com/ZeroMCP/ZeroMCP.net/blob/main/VERSIONING.md)
