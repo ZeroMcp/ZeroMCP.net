@@ -24,6 +24,8 @@ builder.Services.AddZeroMCP(options =>
     var isDev = builder.Environment.IsDevelopment();
     options.EnableToolInspector = isDev;
     options.EnableToolInspectorUI = isDev;
+    options.EnableListChangedNotifications = true;
+    options.EnableResourceSubscriptions = true;
 });
 
 var app = builder.Build();
@@ -97,6 +99,17 @@ app.MapGet("/api/orders/resource/{id:int}", (int id) =>
     "order_resource",
     "Retrieves a single order by numeric ID via the orders:// URI scheme.",
     mimeType: "application/json");
+
+// ---------------------------------------------------------------------------
+// Minimal API: Demo notify-change — triggers notifications/resources/updated
+// for clients subscribed to an order resource URI.
+// ---------------------------------------------------------------------------
+app.MapPost("/api/orders/resource/{id:int}/notify-change", async (int id, ZeroMCP.Notifications.McpNotificationService notificationService) =>
+{
+    var uri = $"orders://order/{id}";
+    await notificationService.NotifyResourceUpdatedAsync(uri);
+    return Results.Ok(new { notified = uri });
+});
 
 // ---------------------------------------------------------------------------
 // Minimal API: MCP Prompt — demonstrate .AsPrompt()
