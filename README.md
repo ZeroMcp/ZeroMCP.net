@@ -233,6 +233,38 @@ Recommended usage: enable in development and internal test environments only.
 
 Full details: `wiki/The-Mcp-Attribute.md`.
 
+## Other Attribute Quick Reference
+
+Use these when exposing MCP resources and prompts from controller actions:
+
+```csharp
+[McpResource("catalog://info", "catalog_info",
+    Description = "Returns catalog metadata.",
+    MimeType = "application/json")]
+
+[McpTemplate("catalog://products/{id}", "product_resource",
+    Description = "Returns a product by ID.",
+    MimeType = "application/json")]
+
+[McpPrompt("restock_recommendation_prompt",
+    Description = "Generates a restock recommendation prompt.")]
+```
+
+Minimal API equivalents:
+
+```csharp
+app.MapGet("/api/catalog/info", () => Results.Ok(...))
+   .AsResource("catalog://info", "catalog_info", "Returns catalog metadata.", mimeType: "application/json");
+
+app.MapGet("/api/catalog/products/{id:int}", (int id) => Results.Ok(...))
+   .AsTemplate("catalog://products/{id}", "product_resource", "Returns a product by ID.", mimeType: "application/json");
+
+app.MapGet("/api/catalog/prompts/restock/{productId:int}", (int productId) => Results.Ok(...))
+   .AsPrompt("restock_recommendation_prompt", "Generates a restock recommendation prompt.");
+```
+
+Full details: `wiki/Resources-and-Prompts.md`.
+
 ## Build and Test
 
 ```bash

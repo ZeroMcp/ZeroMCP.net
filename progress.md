@@ -15,6 +15,7 @@
   - Expanded stdio section with a practical Claude Desktop JSON snippet and pointer to `wiki/Connecting-Clients.md`.
   - Expanded Solution Layout examples list to explicitly include `WithStdio` and `WithRateLimiting`.
   - Added a compact `[Mcp]` attribute quick-reference section and link to `wiki/The-Mcp-Attribute.md`.
+  - Added "Other Attribute Quick Reference" section covering `[McpResource]`, `[McpTemplate]`, `[McpPrompt]`, plus `.AsResource()`, `.AsTemplate()`, and `.AsPrompt()` minimal API equivalents with link to `wiki/Resources-and-Prompts.md`.
   - Strengthened Contributing text with concrete high-value contribution areas.
 - **Intent:** establish clearer audience separation between package consumers (NuGet page) and enterprise adopters evaluating solution-level production readiness.
 
