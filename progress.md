@@ -18,6 +18,15 @@
   - Added "Other Attribute Quick Reference" section covering `[McpResource]`, `[McpTemplate]`, `[McpPrompt]`, plus `.AsResource()`, `.AsTemplate()`, and `.AsPrompt()` minimal API equivalents with link to `wiki/Resources-and-Prompts.md`.
   - Strengthened Contributing text with concrete high-value contribution areas.
 - **ZeroMCP/README.md (NuGet):** expanded stdio documentation with a copy-paste client config JSON snippet (`command` + `args` for `dotnet ... --mcp-stdio`) and explicit note that this pattern applies across Claude and similar stdio MCP clients; linked to `wiki/Connecting-Clients.md` for full setup.
+- **ZeroMCP/README.md (NuGet) final polish:**
+  - Added compact `[Mcp(...)]` parameter reference directly under the controller example for quick discoverability (`Description`, `Tags`, `Category`, `Examples`, `Hints`, `Roles`, `Policy`).
+  - Confirmed from `ZeroMCP/Options/ZeroMcpOptions.cs` that `ForwardHeaders` truly defaults to `["Authorization"]`, and clarified that explicitly in the configuration table description.
+- **ZeroMCP/README.md regression recovery (post-revert):**
+  - Restored professional badges (NuGet version, NuGet downloads, MIT license, .NET target frameworks).
+  - Restored "Why ZeroMCP" bullets near the top for faster scanning.
+  - Restored Quick Start stdio section with `RunMcpStdioAsync` branch and client JSON config snippet for Claude/stdio clients.
+  - Restored compact `[Mcp]` parameter block under Quick Start step 2 to surface `Description`, `Tags`, `Category`, `Examples`, `Hints`, `Roles`, `Policy`.
+  - Removed stale "GitLab repo root README" note from the package README intro; kept GitHub link only.
 - **Intent:** establish clearer audience separation between package consumers (NuGet page) and enterprise adopters evaluating solution-level production readiness.
 
 ---
