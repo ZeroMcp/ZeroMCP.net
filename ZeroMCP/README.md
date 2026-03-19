@@ -100,6 +100,24 @@ if (args.Contains("--mcp-stdio"))
 app.Run();
 ```
 
+### Client stdio setup (Claude and similar clients)
+
+For stdio-based MCP clients, configure the client to launch your app with the `--mcp-stdio` switch.
+
+```json
+{
+  "mcpServers": {
+    "orders-api": {
+      "command": "dotnet",
+      "args": ["run", "--project", "ZeroMCP.Sample", "--", "--mcp-stdio"]
+    }
+  }
+}
+```
+
+This same `command` + `args` pattern is used by most stdio clients (for example Claude Desktop and other MCP-compatible desktop/CLI tools).
+For HTTP/remote MCP setup and additional client notes, see `wiki/Connecting-Clients.md`.
+
 ## Security and governance
 
 - Protect MCP endpoints with normal ASP.NET Core auth:

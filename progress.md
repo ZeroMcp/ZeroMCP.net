@@ -17,6 +17,7 @@
   - Added a compact `[Mcp]` attribute quick-reference section and link to `wiki/The-Mcp-Attribute.md`.
   - Added "Other Attribute Quick Reference" section covering `[McpResource]`, `[McpTemplate]`, `[McpPrompt]`, plus `.AsResource()`, `.AsTemplate()`, and `.AsPrompt()` minimal API equivalents with link to `wiki/Resources-and-Prompts.md`.
   - Strengthened Contributing text with concrete high-value contribution areas.
+- **ZeroMCP/README.md (NuGet):** expanded stdio documentation with a copy-paste client config JSON snippet (`command` + `args` for `dotnet ... --mcp-stdio`) and explicit note that this pattern applies across Claude and similar stdio MCP clients; linked to `wiki/Connecting-Clients.md` for full setup.
 - **Intent:** establish clearer audience separation between package consumers (NuGet page) and enterprise adopters evaluating solution-level production readiness.
 
 ---
