@@ -272,6 +272,8 @@ dotnet build ZeroMCP.slnx -v detailed
 dotnet test ZeroMCP.Tests/ZeroMCP.Tests.csproj -v detailed
 ```
 
+Integration tests include MCP streamable HTTP behaviour (e.g. GET `/mcp` with `Accept: text/event-stream` and **`Mcp-Session-Id`**, `resources/subscribe` with session header, and **`notifications/resources/updated`** on the SSE channel). See `McpResourceSubscriptionTests` and `McpClientCompatibilityTests` in `ZeroMCP.Tests/`.
+
 ## Documentation Map
 
 - Package README: `ZeroMCP/README.md`

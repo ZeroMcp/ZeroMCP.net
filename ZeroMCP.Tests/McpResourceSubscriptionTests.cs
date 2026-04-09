@@ -203,6 +203,8 @@ public sealed class McpResourceSubscriptionTests
 
         response["error"].Should().NotBeNull("should return error when no Mcp-Session-Id header");
         response["error"]!.AsObject()["code"]!.GetValue<int>().Should().Be(-32602);
+        response["error"]!.AsObject()["message"]!.GetValue<string>().Should().Contain("Mcp-Session-Id",
+            "error should explain that an SSE session id header is required");
     }
 
     // -----------------------------------------------------------------------
@@ -336,7 +338,93 @@ public sealed class McpResourceSubscriptionTests
     }
 
     // -----------------------------------------------------------------------
-    // 11. SSE response includes Mcp-Session-Id header
+    // 11. End-to-end: active SSE + resources/subscribe + NotifyResourceUpdatedAsync
+    //     delivers notifications/resources/updated on the SSE stream (shell parity).
+    // -----------------------------------------------------------------------
+    [Fact]
+    public async Task Subscribe_WithActiveSseConnection_SseReceivesResourceUpdatedNotification()
+    {
+        var svc = _factory.Services.GetRequiredService<McpNotificationService>();
+        const string uri = "catalog://e2e-subscribe-notification";
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+
+        using var sseClient = _factory.CreateClient();
+        sseClient.Timeout = TimeSpan.FromMinutes(2);
+
+        using var getRequest = new HttpRequestMessage(HttpMethod.Get, "/mcp");
+        getRequest.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/event-stream"));
+
+        using var sseResponse = await sseClient.SendAsync(
+            getRequest, HttpCompletionOption.ResponseHeadersRead, cts.Token);
+
+        sseResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        sseResponse.Headers.Contains("Mcp-Session-Id").Should().BeTrue();
+        var sessionId = sseResponse.Headers.GetValues("Mcp-Session-Id").First();
+        sessionId.Should().NotBeNullOrWhiteSpace();
+
+        await using var bodyStream = await sseResponse.Content.ReadAsStreamAsync(cts.Token);
+        using var reader = new StreamReader(bodyStream);
+
+        var notificationLineTcs = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var readLoop = Task.Run(async () =>
+        {
+            try
+            {
+                while (!cts.Token.IsCancellationRequested)
+                {
+                    var line = await reader.ReadLineAsync(cts.Token).ConfigureAwait(false);
+                    if (line is null)
+                        break;
+                    if (line.StartsWith("data: ", StringComparison.Ordinal)
+                        && line.Contains("notifications/resources/updated", StringComparison.Ordinal)
+                        && line.Contains(uri, StringComparison.Ordinal))
+                    {
+                        notificationLineTcs.TrySetResult(line);
+                        return;
+                    }
+                }
+            }
+            catch (OperationCanceledException) when (cts.Token.IsCancellationRequested) { /* expected */ }
+        }, cts.Token);
+
+        using var postClient = _factory.CreateClient();
+        var subscribeJson = JsonSerializer.Serialize(new
+        {
+            jsonrpc = "2.0",
+            id = 200,
+            method = "resources/subscribe",
+            @params = new { uri }
+        });
+        using var subscribeRequest = new HttpRequestMessage(HttpMethod.Post, "/mcp")
+        {
+            Content = new StringContent(subscribeJson, Encoding.UTF8, "application/json")
+        };
+        subscribeRequest.Headers.Add("Mcp-Session-Id", sessionId);
+
+        var subscribeResponse = await postClient.SendAsync(subscribeRequest, cts.Token);
+        subscribeResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var subscribeBody = await subscribeResponse.Content.ReadAsStringAsync(cts.Token);
+        JsonNode.Parse(subscribeBody)!["error"].Should().BeNull("subscribe should succeed with active session id");
+
+        await svc.NotifyResourceUpdatedAsync(uri);
+
+        var completed = await Task.WhenAny(notificationLineTcs.Task, Task.Delay(TimeSpan.FromSeconds(15), cts.Token));
+        completed.Should().Be(notificationLineTcs.Task, "SSE should receive notifications/resources/updated for the subscribed URI");
+
+        var lineOut = await notificationLineTcs.Task;
+        lineOut.Should().Contain(uri);
+
+        cts.Cancel();
+        try
+        {
+            await readLoop.ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) { /* ok */ }
+    }
+
+    // -----------------------------------------------------------------------
+    // 12. SSE response includes Mcp-Session-Id header
     // -----------------------------------------------------------------------
     [Fact]
     public async Task SseHandler_ReturnsMcpSessionIdHeader()

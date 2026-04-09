@@ -399,35 +399,51 @@ public sealed class McpToolDiscoveryService
             }
             if (param.Source.Id == "Form" || param.Source.Id == "FormFile")
             {
+                string? desc = param.ModelMetadata?.Description;
+                if (string.IsNullOrWhiteSpace(desc) && _options.EnableXMLDocAnalysis)
+                    desc = XmlDocHelper.GetParameterDescription(controllerDescriptor.MethodInfo, param.Name!);
+
                 formParams.Add(new McpParameterDescriptor
                 {
                     Name = param.Name!,
                     ParameterType = t,
                     IsRequired = param.IsRequired,
-                    Description = param.ModelMetadata?.Description
+                    Description = desc
                 });
                 continue;
             }
             switch (param.Source.Id)
             {
                 case "Path":
-                    routeParams.Add(new McpParameterDescriptor
                     {
-                        Name = param.Name,
-                        ParameterType = param.Type ?? typeof(string),
-                        IsRequired = param.IsRequired,
-                        Description = param.ModelMetadata?.Description
-                    });
+                        string? desc = param.ModelMetadata?.Description;
+                        if (string.IsNullOrWhiteSpace(desc) && _options.EnableXMLDocAnalysis)
+                            desc = XmlDocHelper.GetParameterDescription(controllerDescriptor.MethodInfo, param.Name!);
+
+                        routeParams.Add(new McpParameterDescriptor
+                        {
+                            Name = param.Name,
+                            ParameterType = param.Type ?? typeof(string),
+                            IsRequired = param.IsRequired,
+                            Description = desc
+                        });
+                    }
                     break;
 
                 case "Query":
-                    queryParams.Add(new McpParameterDescriptor
                     {
-                        Name = param.Name,
-                        ParameterType = param.Type ?? typeof(string),
-                        IsRequired = param.IsRequired,
-                        Description = param.ModelMetadata?.Description
-                    });
+                        string? desc = param.ModelMetadata?.Description;
+                        if (string.IsNullOrWhiteSpace(desc) && _options.EnableXMLDocAnalysis)
+                            desc = XmlDocHelper.GetParameterDescription(controllerDescriptor.MethodInfo, param.Name!);
+
+                        queryParams.Add(new McpParameterDescriptor
+                        {
+                            Name = param.Name,
+                            ParameterType = param.Type ?? typeof(string),
+                            IsRequired = param.IsRequired,
+                            Description = desc
+                        });
+                    }
                     break;
 
                 case "Body":

@@ -1,5 +1,14 @@
 # Progress
 
+## 2026-03-20 – Tests: SSE session + `resources/subscribe` end-to-end
+
+- **`ZeroMCP.Tests/McpResourceSubscriptionTests.cs`**
+  - Added **`Subscribe_WithActiveSseConnection_SseReceivesResourceUpdatedNotification`**: keeps a live GET `/mcp` (`Accept: text/event-stream`) open, POSTs `resources/subscribe` with **`Mcp-Session-Id`**, calls **`McpNotificationService.NotifyResourceUpdatedAsync`**, and asserts the SSE stream receives a `data:` line for **`notifications/resources/updated`** (full HTTP parity with shell/bootstrap + notification delivery).
+  - Strengthened **`Subscribe_WithoutSessionId_ReturnsError`**: error **message** must mention **`Mcp-Session-Id`** (not only JSON-RPC code **-32602**).
+- **Build / test:** `dotnet build ZeroMCP.Tests/ZeroMCP.Tests.csproj /p:BuildProjectReferences=false -v minimal` (avoids `ZeroMCP.Sample` copy lock when the sample is running); `dotnet test ... --filter FullyQualifiedName~McpResourceSubscriptionTests --no-build -v normal` — all 12 tests passed.
+
+---
+
 ## 2026-03-19 – Documentation upgrade: enterprise solution README + NuGet package README
 
 - **ZeroMCP/README.md** (package-level): rewritten as a professional NuGet-focused README with concise install/quick-start guidance, feature matrix, configuration summary, transport options, security/governance notes, and links to full documentation.
