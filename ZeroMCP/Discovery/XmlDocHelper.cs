@@ -36,6 +36,35 @@ internal static class XmlDocHelper
         }
     }
 
+    /// <summary>
+    /// Gets the &lt;param name="..."/&gt; text for the given method parameter from the assembly's XML doc file, if present.
+    /// Returns null if the file is missing, the member or param is not found, or the text is empty.
+    /// </summary>
+    public static string? GetParameterDescription(MethodInfo method, string paramName)
+    {
+        if (method.DeclaringType is null) return null;
+
+        var assembly = method.DeclaringType.Assembly;
+        var xmlPath = Path.ChangeExtension(assembly.Location, ".xml");
+        if (string.IsNullOrEmpty(xmlPath) || !File.Exists(xmlPath)) return null;
+
+        try
+        {
+            var doc = new XmlDocument();
+            doc.Load(xmlPath);
+            var memberId = GetMemberId(method);
+            var escaped = memberId.Replace("'", "&apos;");
+            var member = doc.SelectSingleNode($"/doc/members/member[@name='{escaped}']");
+            var paramNode = member?.SelectSingleNode($"param[@name='{paramName}']");
+            var text = paramNode?.InnerText?.Trim();
+            return string.IsNullOrWhiteSpace(text) ? null : text;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private static string GetMemberId(MethodInfo method)
     {
         // XML doc member ID for methods: M:Namespace.Type.MethodName(ParamType1,ParamType2)
