@@ -4,7 +4,7 @@ ZeroMCP follows [Semantic Versioning](https://semver.org/) (SemVer) for the **Nu
 
 ---
 
-## Package version (e.g. 1.0.2)
+## Package version (e.g. 2.0.0)
 
 - **MAJOR** (e.g. 2.0.0) — Breaking changes. Upgrading may require code or config changes.
 - **MINOR** (e.g. 1.1.0) — New features, backward compatible.
@@ -16,14 +16,21 @@ ZeroMCP follows [Semantic Versioning](https://semver.org/) (SemVer) for the **Nu
 
 - Removing or renaming public types, methods, or options (e.g. **AddZeroMCP**, **MapZeroMCP**, **\[Mcp\]**, **.AsMcp()**).
 - Changing the meaning of existing options so current callers behave differently.
-- Changing the **MCP protocol version** we advertise or the shape of JSON-RPC responses (`initialize`, `tools/list`, `tools/call`) in a way that breaks existing MCP clients.
+- Changing the **MCP protocol versions** we advertise or the shape of JSON-RPC responses in a way that breaks existing MCP clients.
 - Changing default option values in a way that alters behavior (reserved for MAJOR or documented exceptions).
 
 ---
 
-## MCP protocol version
+## MCP protocol versions (dual-era)
 
-The supported MCP protocol version is **locked** to a single value (**McpProtocolConstants.ProtocolVersion**). It is used in the **initialize** response and in the GET **/mcp** example. We will **not** change it in a MINOR or PATCH release; a change would be a MAJOR release with release notes and migration notes.
+ZeroMCP 2.0 supports both eras:
+
+| Era | Constant | Version | Entry point |
+|-----|----------|---------|-------------|
+| Modern | `McpProtocolConstants.ProtocolVersion` | **2026-07-28** | `server/discover` + per-request `_meta` / `MCP-Protocol-Version` |
+| Legacy | `McpProtocolConstants.LegacyProtocolVersion` | **2024-11-05** | `initialize` (when **EnableLegacyProtocol** is true, default) |
+
+We will **not** change these locked strings in a MINOR or PATCH release.
 
 ---
 
@@ -38,7 +45,7 @@ The supported MCP protocol version is **locked** to a single value (**McpProtoco
 
 ## Compatibility tests
 
-The repo includes tests that assert the locked protocol version and required MCP response shapes so MINOR and PATCH releases do not break the MCP contract.
+The repo includes tests for modern discover/header validation and legacy initialize so MINOR and PATCH releases do not break the MCP contract.
 
 ---
 

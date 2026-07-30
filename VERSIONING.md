@@ -17,12 +17,16 @@ ZeroMCP follows [Semantic Versioning](https://semver.org/) (SemVer) for the **Nu
 
 ## MCP protocol version
 
-The **MCP protocol version** supported by this library is **locked** to a single value (see `McpProtocolConstants.ProtocolVersion`). It is used in:
+ZeroMCP **2.0** is a **dual-era** MCP server:
 
-- The `initialize` response (`protocolVersion`).
-- The GET `/mcp` example payload.
+| Era | Version | How clients open |
+|-----|---------|------------------|
+| **Modern** | `2026-07-28` (`McpProtocolConstants.ProtocolVersion`) | Per-request `params._meta` + Streamable HTTP headers; `server/discover` |
+| **Legacy** | `2024-11-05` (`McpProtocolConstants.LegacyProtocolVersion`) | `initialize` / `notifications/initialized` handshake (when `EnableLegacyProtocol` is true) |
 
-We will **not** change this constant in a MINOR or PATCH release. A change to the supported MCP protocol version will be done in a **MAJOR** release and documented in release notes and, if needed, in this file.
+- Modern version is advertised via `server/discover` (`supportedVersions`) and used in GET `/mcp` examples.
+- Legacy `initialize` continues to return `2024-11-05` for existing clients.
+- Changing either locked version string is a **MAJOR** release.
 
 ## Non-breaking changes
 
@@ -36,7 +40,9 @@ We will **not** change this constant in a MINOR or PATCH release. A change to th
 
 The repository includes **compatibility tests** that assert:
 
-- The locked MCP protocol version in `initialize` responses.
+- Modern protocol version `2026-07-28` and legacy `2024-11-05` constants.
+- `server/discover`, mirrored HTTP headers, and `UnsupportedProtocolVersion` / `HeaderMismatch` errors.
+- Legacy `initialize` response shapes for dual-era clients.
 - Required JSON-RPC and MCP response shapes (e.g. `tools/list` tool structure, error `code`/`message`).
 
 These tests help ensure that MINOR and PATCH releases do not introduce breaking changes to the MCP contract.

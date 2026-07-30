@@ -1,5 +1,23 @@
 # Progress
 
+## 2026-07-30 – MCP 2026-07-28 dual-era compliance (v2.0.0)
+
+- **Protocol:** ZeroMCP is now a dual-era MCP server.
+  - Modern: `McpProtocolConstants.ProtocolVersion` = **`2026-07-28`**
+  - Legacy: `McpProtocolConstants.LegacyProtocolVersion` = **`2024-11-05`** (default via `EnableLegacyProtocol = true`)
+- **Modern transport surface:**
+  - Required `server/discover`
+  - Per-request `params._meta` (`protocolVersion`, `clientInfo`, `clientCapabilities`)
+  - Streamable HTTP mirrored headers: `MCP-Protocol-Version`, `Mcp-Method`, `Mcp-Name`
+  - Errors: `-32020` HeaderMismatch, `-32022` UnsupportedProtocolVersion (HTTP 400)
+  - Results: `resultType`, `_meta.io.modelcontextprotocol/serverInfo`, list/read `ttlMs`/`cacheScope`
+  - `subscriptions/listen` SSE stream with `notifications/subscriptions/acknowledged`
+- **Legacy retained:** `initialize` / GET SSE / `resources/subscribe` when dual-era is enabled.
+- **Package:** NuGet version bumped **1.4.0 → 2.0.0** (MAJOR).
+- **Files:** `McpProtocolConstants.cs`, `Protocol/McpModernRequestContext.cs`, `McpHttpEndpointHandler(.Modern).cs`, `McpNotificationService.cs`, options, tests (`McpModernProtocolTests.cs`), README/VERSIONING/wiki migration docs.
+- **Build/test:** `dotnet build ZeroMCP` (0 errors); `dotnet test` — **162 passed**, 0 failed.
+
+---
 ## 2026-03-20 – Tests: SSE session + `resources/subscribe` end-to-end
 
 - **`ZeroMCP.Tests/McpResourceSubscriptionTests.cs`**

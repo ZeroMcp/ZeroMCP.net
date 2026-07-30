@@ -9,20 +9,17 @@ using Microsoft.Extensions.Logging;
 using ZeroMCP.Notifications;
 using ZeroMCP.Options;
 using ZeroMCP;
+using ZeroMCP.Protocol;
 using ZeroMCP.Transport;
 
 namespace ZeroMCP.Transport;
 
 /// <summary>
 /// Handles the streamable HTTP MCP transport protocol.
-/// Implements the JSON-RPC 2.0 envelope that MCP uses over HTTP.
-/// 
-/// Supported methods:
-///   initialize        — handshake, returns server capabilities
-///   tools/list        — returns all registered tools
-///   tools/call        — invokes a tool and returns its result
+/// Dual-era: modern <c>2026-07-28</c> (per-request <c>_meta</c>, <c>server/discover</c>)
+/// and legacy <c>2024-11-05</c> (<c>initialize</c> handshake).
 /// </summary>
-internal sealed class McpHttpEndpointHandler
+internal sealed partial class McpHttpEndpointHandler
 {
     internal const string CorrelationIdItemKey = "McpCorrelationId";
 
@@ -60,30 +57,40 @@ internal sealed class McpHttpEndpointHandler
     {
         if (context.Request.Method == "GET")
         {
-            // Codex (and Claude in HTTP mode) send GET /mcp with Accept: text/event-stream
-            // to open a persistent server-sent events channel for server-to-client
-            // notifications and progress events (MCP streamable HTTP spec).
+            // Legacy dual-era: GET /mcp with Accept: text/event-stream opens a notification stream
+            // (Codex / Claude HTTP, and Streamable HTTP revisions through 2025-11-25).
+            // Modern-only mode rejects GET streams with 405 (use subscriptions/listen).
             var acceptHeader = context.Request.Headers.Accept.ToString();
             if (acceptHeader.Contains("text/event-stream", StringComparison.OrdinalIgnoreCase))
             {
+                if (!_options.EnableLegacyProtocol)
+                {
+                    context.Response.StatusCode = StatusCodes.Status405MethodNotAllowed;
+                    context.Response.Headers.Allow = "POST";
+                    await context.Response.WriteAsync(
+                        "GET SSE streams are not used in MCP 2026-07-28; use subscriptions/listen over POST.");
+                    return;
+                }
+
                 // Register the SSE session BEFORE flushing headers so that the
                 // session is visible to callers as soon as SendAsync returns.
-                // Any notifications queued before the loop starts are drained
-                // on the first iteration.
                 var channel = Channel.CreateUnbounded<string>();
                 string? sessionId = null;
-                if (_notificationService is not null)
-                    sessionId = _notificationService.RegisterSession(channel.Writer);
+                var notificationsEnabled = _notificationService is not null
+                    && (_options.EnableListChangedNotifications || _options.EnableResourceSubscriptions);
+                if (notificationsEnabled)
+                    sessionId = _notificationService!.RegisterSession(channel.Writer);
 
                 context.Response.StatusCode = 200;
                 context.Response.ContentType = "text/event-stream";
                 context.Response.Headers.CacheControl = "no-cache";
                 context.Response.Headers.Connection = "keep-alive";
-                context.Response.Headers["X-ZeroMCP-Notifications"] = _notificationService is not null
+                context.Response.Headers["X-Accel-Buffering"] = "no";
+                context.Response.Headers["X-ZeroMCP-Notifications"] = notificationsEnabled
                     ? $"enabled;session={sessionId}"
                     : "disabled";
                 if (sessionId is not null)
-                    context.Response.Headers["Mcp-Session-Id"] = sessionId;
+                    context.Response.Headers[McpProtocolConstants.HeaderSessionId] = sessionId;
                 await context.Response.StartAsync(context.RequestAborted);
                 try
                 {
@@ -102,7 +109,6 @@ internal sealed class McpHttpEndpointHandler
                         }
                         catch (OperationCanceledException) when (!context.RequestAborted.IsCancellationRequested)
                         {
-                            // 15 s timeout with no message — send keep-alive
                             await context.Response.WriteAsync(": keep-alive\n\n", context.RequestAborted);
                             await context.Response.Body.FlushAsync(context.RequestAborted);
                         }
@@ -119,14 +125,20 @@ internal sealed class McpHttpEndpointHandler
             }
 
             // Plain GET (browser / developer inspection): return a human-readable JSON description.
+            // Modern-only servers reject GET streams with 405; dual-era still documents both eras.
             context.Response.ContentType = "application/json";
-            var methods = new List<string> { "initialize", "tools/list", "tools/call" };
+            var methods = new List<string> { "server/discover", "tools/list", "tools/call", "subscriptions/listen" };
+            if (_options.EnableLegacyProtocol)
+                methods.Insert(0, "initialize");
             if (_resourceHandler is not null) methods.AddRange(["resources/list", "resources/templates/list", "resources/read"]);
             if (_promptHandler is not null) methods.AddRange(["prompts/list", "prompts/get"]);
             await context.Response.WriteAsync(JsonSerializer.Serialize(new
             {
                 protocol = "MCP",
                 transport = "streamable HTTP",
+                protocolVersions = McpProtocolConstants.SupportedProtocolVersions,
+                modernProtocolVersion = McpProtocolConstants.ModernProtocolVersion,
+                legacyProtocolVersion = _options.EnableLegacyProtocol ? McpProtocolConstants.LegacyProtocolVersion : null,
                 message = $"Send POST requests with JSON-RPC 2.0 body. Methods: {string.Join(", ", methods)}.",
                 server = _options.ServerName,
                 version = _options.ServerVersion,
@@ -134,8 +146,16 @@ internal sealed class McpHttpEndpointHandler
                 {
                     jsonrpc = "2.0",
                     id = 1,
-                    method = "initialize",
-                    @params = new { protocolVersion = McpProtocolConstants.ProtocolVersion, clientInfo = new { name = "client", version = "1.0" } }
+                    method = "server/discover",
+                    @params = new
+                    {
+                        _meta = new Dictionary<string, object>
+                        {
+                            [McpProtocolConstants.MetaProtocolVersion] = McpProtocolConstants.ModernProtocolVersion,
+                            [McpProtocolConstants.MetaClientInfo] = new { name = "client", version = "1.0" },
+                            [McpProtocolConstants.MetaClientCapabilities] = new { }
+                        }
+                    }
                 }
             }, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = true }));
             return;
@@ -194,13 +214,70 @@ internal sealed class McpHttpEndpointHandler
                 context.Response.OnStarting(() => { context.Response.Headers[headerName] = correlationId; return Task.CompletedTask; });
         }
 
-        using (_logger.BeginScope("CorrelationId={CorrelationId}, JsonRpcId={JsonRpcId}, Method={Method}", correlationId ?? "", idValue?.ToString() ?? "", method))
+        var isModern = McpModernProtocol.LooksModern(context, root, method);
+
+        using (_logger.BeginScope("CorrelationId={CorrelationId}, JsonRpcId={JsonRpcId}, Method={Method}, Era={Era}",
+                   correlationId ?? "", idValue?.ToString() ?? "", method, isModern ? "modern" : "legacy"))
         {
             var stopwatch = Stopwatch.StartNew();
             try
             {
+                if (isModern)
+                {
+                    var headerError = McpModernProtocol.ValidateHttpHeaders(context, method, root);
+                    if (headerError is not null)
+                    {
+                        await WriteProtocolErrorAsync(context, idValue, headerError.Value.Code, headerError.Value.Message, null, httpStatus: 400);
+                        return;
+                    }
+
+                    var metaError = McpModernProtocol.ValidateAndParseMeta(root, out _);
+                    if (metaError is not null)
+                    {
+                        var httpStatus = metaError.Value.Code == McpProtocolConstants.ErrorUnsupportedProtocolVersion ? 400 : 400;
+                        await WriteProtocolErrorAsync(context, idValue, metaError.Value.Code, metaError.Value.Message, metaError.Value.Data, httpStatus);
+                        return;
+                    }
+
+                    // Modern path uses protocol version 2026-07-28 only for RPC (aside from discover advertising both).
+                    if (method != "server/discover"
+                        && TryGetRequestedModernVersion(root) is { } requested
+                        && requested != McpProtocolConstants.ModernProtocolVersion)
+                    {
+                        await WriteProtocolErrorAsync(context, idValue,
+                            McpProtocolConstants.ErrorUnsupportedProtocolVersion,
+                            "Unsupported protocol version",
+                            new
+                            {
+                                supported = McpProtocolConstants.SupportedProtocolVersions,
+                                requested
+                            },
+                            httpStatus: 400);
+                        return;
+                    }
+                }
+                else if (!_options.EnableLegacyProtocol && method != "server/discover")
+                {
+                    await WriteProtocolErrorAsync(context, idValue,
+                        McpProtocolConstants.ErrorUnsupportedProtocolVersion,
+                        "Legacy MCP protocol is disabled; use 2026-07-28 with params._meta",
+                        new
+                        {
+                            supported = new[] { McpProtocolConstants.ModernProtocolVersion },
+                            requested = McpProtocolConstants.LegacyProtocolVersion
+                        },
+                        httpStatus: 400);
+                    return;
+                }
+
+                if (method == "subscriptions/listen")
+                {
+                    await HandleSubscriptionsListenAsync(@params, context, idValue);
+                    return;
+                }
+
                 // Streaming tool detection: if tools/call targets a streaming tool, use SSE output
-                if (method == "tools/call" && await TryHandleStreamingToolCallAsync(@params, context, idValue, stopwatch))
+                if (method == "tools/call" && await TryHandleStreamingToolCallAsync(@params, context, idValue, stopwatch, isModern))
                     return;
 
                 object? responsePayload;
@@ -218,42 +295,20 @@ internal sealed class McpHttpEndpointHandler
                     }
                     else
                     {
-                        responsePayload = method switch
-                        {
-                            "initialize" => HandleInitialize(@params),
-                            "notifications/initialized" => null, // fire and forget, no response
-                            "tools/list" => await HandleToolsListAsync(context),
-                            "tools/call" => await HandleToolsCallAsync(@params, context, _endpointVersion, null),
-                            "resources/list" => _resourceHandler is not null
-                                ? _resourceHandler.HandleResourcesList()
-                                : (object)new { resources = Array.Empty<object>() },
-                            "resources/templates/list" => _resourceHandler is not null
-                                ? _resourceHandler.HandleResourcesTemplatesList()
-                                : (object)new { resourceTemplates = Array.Empty<object>() },
-                            "resources/read" => _resourceHandler is not null
-                                ? await _resourceHandler.HandleResourcesReadAsync(@params, context, context.RequestAborted)
-                                : throw new McpMethodNotFoundException($"Method not found: {method}"),
-                            "resources/subscribe" => HandleResourceSubscribe(@params, context),
-                            "resources/unsubscribe" => HandleResourceUnsubscribe(@params, context),
-                            "prompts/list" => _promptHandler is not null
-                                ? _promptHandler.HandlePromptsList()
-                                : (object)new { prompts = Array.Empty<object>() },
-                            "prompts/get" => _promptHandler is not null
-                                ? await _promptHandler.HandlePromptsGetAsync(@params, context, context.RequestAborted)
-                                : throw new McpMethodNotFoundException($"Method not found: {method}"),
-                            _ => throw new McpMethodNotFoundException($"Method not found: {method}")
-                        };
+                        responsePayload = await DispatchMethodAsync(method, @params, context, isModern);
                     }
                 }
 
                 if (responsePayload is null)
                 {
-                    // notifications/initialized: Codex (and Claude HTTP) require 202 Accepted.
-                    // All other fire-and-forget notifications stay at 204 No Content.
-                    context.Response.StatusCode = method == "notifications/initialized" ? 202 : 204;
+                    // Spec: accepted notifications return 202. Legacy clients (Codex) also require 202 for initialized.
+                    context.Response.StatusCode = 202;
                     _logger.LogDebug("MCP request completed: Method={Method}, DurationMs={DurationMs}", method, stopwatch.ElapsedMilliseconds);
                     return;
                 }
+
+                if (isModern)
+                    responsePayload = EnsureModernResultShape(responsePayload, method);
 
                 await WriteResultAsync(context, idValue, responsePayload);
                 _logger.LogDebug("MCP request completed: Method={Method}, DurationMs={DurationMs}", method, stopwatch.ElapsedMilliseconds);
@@ -270,7 +325,7 @@ internal sealed class McpHttpEndpointHandler
             }
             catch (OperationCanceledException)
             {
-                await WriteErrorAsync(context, idValue, -32800, "Request cancelled", null);
+                await WriteErrorAsync(context, idValue, McpProtocolConstants.ErrorRequestCancelled, "Request cancelled", null);
             }
             catch (Exception ex)
             {
@@ -400,8 +455,47 @@ internal sealed class McpHttpEndpointHandler
         if (!string.IsNullOrEmpty(correlationId))
             context.Items[CorrelationIdItemKey] = correlationId;
 
+        var isModern = McpModernProtocol.LooksModern(context, root, method);
+
         try
         {
+            if (isModern)
+            {
+                var metaError = McpModernProtocol.ValidateAndParseMeta(root, out _);
+                if (metaError is not null)
+                    return SerializeErrorResponse(idValue, metaError.Value.Code, metaError.Value.Message, metaError.Value.Data);
+
+                if (method != "server/discover"
+                    && TryGetRequestedModernVersion(root) is { } requested
+                    && requested != McpProtocolConstants.ModernProtocolVersion)
+                {
+                    return SerializeErrorResponse(idValue,
+                        McpProtocolConstants.ErrorUnsupportedProtocolVersion,
+                        "Unsupported protocol version",
+                        new
+                        {
+                            supported = McpProtocolConstants.SupportedProtocolVersions,
+                            requested
+                        });
+                }
+            }
+            else if (!_options.EnableLegacyProtocol && method != "server/discover")
+            {
+                return SerializeErrorResponse(idValue,
+                    McpProtocolConstants.ErrorUnsupportedProtocolVersion,
+                    "Legacy MCP protocol is disabled; use 2026-07-28 with params._meta",
+                    new
+                    {
+                        supported = new[] { McpProtocolConstants.ModernProtocolVersion },
+                        requested = McpProtocolConstants.LegacyProtocolVersion
+                    });
+            }
+
+            // subscriptions/listen over stdio is not supported as a long-lived HTTP SSE stream;
+            // return method guidance via invalid params so clients can use HTTP Streamable.
+            if (method == "subscriptions/listen")
+                throw new McpInvalidParamsException("subscriptions/listen requires Streamable HTTP (SSE response stream)");
+
             object? responsePayload;
             if (method == "tools/call" && idValue is not null)
             {
@@ -417,36 +511,15 @@ internal sealed class McpHttpEndpointHandler
                 }
                 else
                 {
-                    responsePayload = method switch
-                    {
-                        "initialize" => HandleInitialize(@params),
-                        "notifications/initialized" => null,
-                        "tools/list" => await HandleToolsListAsync(context),
-                        "tools/call" => await HandleToolsCallAsync(@params, context, _endpointVersion, null),
-                        "resources/list" => _resourceHandler is not null
-                            ? _resourceHandler.HandleResourcesList()
-                            : (object)new { resources = Array.Empty<object>() },
-                        "resources/templates/list" => _resourceHandler is not null
-                            ? _resourceHandler.HandleResourcesTemplatesList()
-                            : (object)new { resourceTemplates = Array.Empty<object>() },
-                        "resources/read" => _resourceHandler is not null
-                            ? await _resourceHandler.HandleResourcesReadAsync(@params, context, context.RequestAborted)
-                            : throw new McpMethodNotFoundException($"Method not found: {method}"),
-                        "resources/subscribe" => HandleResourceSubscribe(@params, context),
-                        "resources/unsubscribe" => HandleResourceUnsubscribe(@params, context),
-                        "prompts/list" => _promptHandler is not null
-                            ? _promptHandler.HandlePromptsList()
-                            : (object)new { prompts = Array.Empty<object>() },
-                        "prompts/get" => _promptHandler is not null
-                            ? await _promptHandler.HandlePromptsGetAsync(@params, context, context.RequestAborted)
-                            : throw new McpMethodNotFoundException($"Method not found: {method}"),
-                        _ => throw new McpMethodNotFoundException($"Method not found: {method}")
-                    };
+                    responsePayload = await DispatchMethodAsync(method, @params, context, isModern);
                 }
             }
 
             if (responsePayload is null)
                 return null;
+
+            if (isModern)
+                responsePayload = EnsureModernResultShape(responsePayload, method);
 
             return SerializeResultResponse(idValue, responsePayload);
         }
@@ -560,16 +633,33 @@ internal sealed class McpHttpEndpointHandler
         return JsonSerializer.Serialize(response, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = false });
     }
 
-    private static string SerializeErrorResponse(object? id, int code, string message, string? data)
+    private static string SerializeErrorResponse(object? id, int code, string message, object? data)
     {
-        var error = data is not null ? (object)new { code, message, data } : new { code, message };
+        object error = data is not null
+            ? new { code, message, data }
+            : new { code, message };
         var response = new { jsonrpc = "2.0", id, error };
         return JsonSerializer.Serialize(response, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
     }
 
     private object HandleInitialize(JsonElement @params)
     {
-        var listChanged = _notificationService is not null;
+        if (!_options.EnableLegacyProtocol)
+            throw new McpMethodNotFoundException("Method not found: initialize (legacy protocol disabled)");
+
+        var capabilities = BuildServerCapabilities();
+
+        return new
+        {
+            protocolVersion = McpProtocolConstants.LegacyProtocolVersion,
+            serverInfo = new { name = _options.ServerName, version = _options.ServerVersion },
+            capabilities
+        };
+    }
+
+    private Dictionary<string, object> BuildServerCapabilities()
+    {
+        var listChanged = _notificationService is not null && _options.EnableListChangedNotifications;
 
         var capabilities = new Dictionary<string, object>(StringComparer.Ordinal)
         {
@@ -585,15 +675,10 @@ internal sealed class McpHttpEndpointHandler
         if (_promptHandler is not null)
             capabilities["prompts"] = new { listChanged };
 
-        return new
-        {
-            protocolVersion = McpProtocolConstants.ProtocolVersion,
-            serverInfo = new { name = _options.ServerName, version = _options.ServerVersion },
-            capabilities
-        };
+        return capabilities;
     }
 
-    private async Task<object> HandleToolsListAsync(HttpContext context)
+    private async Task<object> HandleToolsListAsync(HttpContext context, bool modern)
     {
         var list = await _toolHandler.GetToolDefinitionsAsync(context, context.RequestAborted, _endpointVersion);
         var tools = list.Select(t =>
@@ -612,14 +697,24 @@ internal sealed class McpHttpEndpointHandler
             if (t.IsStreaming) obj["streaming"] = true;
             return (object)obj;
         }).ToList();
-        return new { tools };
+
+        var result = new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["tools"] = tools
+        };
+        if (modern)
+        {
+            result["ttlMs"] = _options.ListResultTtlMs;
+            result["cacheScope"] = _options.ListResultCacheScope;
+        }
+        return result;
     }
 
     /// <summary>
     /// If the tools/call target is a streaming tool, writes SSE events and returns true.
     /// Returns false if the tool is non-streaming (caller should use the normal path).
     /// </summary>
-    private async Task<bool> TryHandleStreamingToolCallAsync(JsonElement @params, HttpContext httpContext, object? idValue, Stopwatch stopwatch)
+    private async Task<bool> TryHandleStreamingToolCallAsync(JsonElement @params, HttpContext httpContext, object? idValue, Stopwatch stopwatch, bool modern = false)
     {
         if (@params.ValueKind == JsonValueKind.Undefined) return false;
         if (!@params.TryGetProperty("name", out var nameEl) || nameEl.ValueKind != JsonValueKind.String) return false;
@@ -647,62 +742,87 @@ internal sealed class McpHttpEndpointHandler
         httpContext.Response.ContentType = "text/event-stream";
         httpContext.Response.Headers.CacheControl = "no-cache";
         httpContext.Response.Headers.Connection = "keep-alive";
+        httpContext.Response.Headers["X-Accel-Buffering"] = "no";
         httpContext.Response.StatusCode = 200;
         await httpContext.Response.StartAsync(httpContext.RequestAborted);
 
         var chunkIndex = 0;
         var hasError = false;
+        var serverMeta = McpModernProtocol.CreateServerInfoMeta(_options.ServerName, _options.ServerVersion);
 
         await foreach (var chunk in _toolHandler.StreamToolAsync(descriptor, args, httpContext.RequestAborted, httpContext))
         {
             if (chunk.IsLast && string.IsNullOrEmpty(chunk.Content) && !chunk.IsError)
             {
-                // Final empty sentinel: write the done event
-                var donePayload = new
+                var doneResult = new Dictionary<string, object?>(StringComparer.Ordinal)
                 {
-                    jsonrpc = "2.0",
-                    id = idValue,
-                    result = new
+                    ["content"] = Array.Empty<object>(),
+                    ["isError"] = false,
+                    ["_meta"] = MergeMeta(serverMeta, new Dictionary<string, object?>
                     {
-                        content = Array.Empty<object>(),
-                        isError = false,
-                        _meta = new { streaming = true, status = "done", totalChunks = chunkIndex }
-                    }
+                        ["streaming"] = true,
+                        ["status"] = "done",
+                        ["totalChunks"] = chunkIndex
+                    })
                 };
-                await WriteSseEventAsync(httpContext, "done", JsonSerializer.Serialize(donePayload, jsonOptions));
+                if (modern) doneResult["resultType"] = "complete";
+                var donePayload = new { jsonrpc = "2.0", id = idValue, result = doneResult };
+                await WriteSseEventAsync(httpContext, modern ? "message" : "done", JsonSerializer.Serialize(donePayload, jsonOptions));
                 break;
             }
 
             if (chunk.IsError)
             {
                 hasError = true;
-                var errorPayload = new
+                var errorResult = new Dictionary<string, object?>(StringComparer.Ordinal)
+                {
+                    ["content"] = new[] { new { type = "text", text = chunk.Content } },
+                    ["isError"] = true,
+                    ["_meta"] = MergeMeta(serverMeta, new Dictionary<string, object?>
+                    {
+                        ["streaming"] = true,
+                        ["status"] = "error",
+                        ["chunkIndex"] = chunkIndex
+                    })
+                };
+                if (modern) errorResult["resultType"] = "complete";
+                var errorPayload = new { jsonrpc = "2.0", id = idValue, result = errorResult };
+                await WriteSseEventAsync(httpContext, modern ? "message" : "error", JsonSerializer.Serialize(errorPayload, jsonOptions));
+                break;
+            }
+
+            // Modern SSE carries request-scoped notifications before the final response;
+            // emit progress-style intermediate JSON-RPC notifications then the final result.
+            if (modern)
+            {
+                var progress = new
+                {
+                    jsonrpc = "2.0",
+                    method = "notifications/progress",
+                    @params = new Dictionary<string, object?>
+                    {
+                        ["progressToken"] = idValue,
+                        ["progress"] = chunkIndex,
+                        ["content"] = new[] { new { type = "text", text = chunk.Content } }
+                    }
+                };
+                await WriteSseEventAsync(httpContext, "message", JsonSerializer.Serialize(progress, jsonOptions));
+            }
+            else
+            {
+                var chunkPayload = new
                 {
                     jsonrpc = "2.0",
                     id = idValue,
                     result = new
                     {
                         content = new[] { new { type = "text", text = chunk.Content } },
-                        isError = true,
-                        _meta = new { streaming = true, status = "error", chunkIndex }
+                        isError = false,
+                        _meta = new { streaming = true, status = "streaming", chunkIndex }
                     }
                 };
-                await WriteSseEventAsync(httpContext, "error", JsonSerializer.Serialize(errorPayload, jsonOptions));
-                break;
+                await WriteSseEventAsync(httpContext, "chunk", JsonSerializer.Serialize(chunkPayload, jsonOptions));
             }
-
-            var chunkPayload = new
-            {
-                jsonrpc = "2.0",
-                id = idValue,
-                result = new
-                {
-                    content = new[] { new { type = "text", text = chunk.Content } },
-                    isError = false,
-                    _meta = new { streaming = true, status = "streaming", chunkIndex }
-                }
-            };
-            await WriteSseEventAsync(httpContext, "chunk", JsonSerializer.Serialize(chunkPayload, jsonOptions));
             chunkIndex++;
         }
 
@@ -843,20 +963,31 @@ internal sealed class McpHttpEndpointHandler
         }));
     }
 
-    private static async Task WriteErrorAsync(HttpContext context, object? id, int code, string message, string? data)
+    private static async Task WriteErrorAsync(HttpContext context, object? id, int code, string message, object? data, int httpStatus = 200)
     {
-        var error = data is not null
-            ? (object)new { code, message, data }
+        object error = data is not null
+            ? new { code, message, data }
             : new { code, message };
 
         var response = new { jsonrpc = "2.0", id, error };
 
         context.Response.ContentType = "application/json";
-        context.Response.StatusCode = 200; // JSON-RPC errors still return HTTP 200
+        context.Response.StatusCode = httpStatus;
         await context.Response.WriteAsync(JsonSerializer.Serialize(response, new JsonSerializerOptions
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase
         }));
+    }
+
+    private static Task WriteProtocolErrorAsync(HttpContext context, object? id, int code, string message, object? data, int httpStatus)
+        => WriteErrorAsync(context, id, code, message, data, httpStatus);
+
+    private static Dictionary<string, object?> MergeMeta(Dictionary<string, object?> baseMeta, Dictionary<string, object?> extra)
+    {
+        var merged = new Dictionary<string, object?>(baseMeta, StringComparer.Ordinal);
+        foreach (var (k, v) in extra)
+            merged[k] = v;
+        return merged;
     }
 }
 

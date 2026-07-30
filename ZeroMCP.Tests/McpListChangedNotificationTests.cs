@@ -47,6 +47,7 @@ public sealed class ListChangedDisabledFactory : WebApplicationFactory<Program>
             services.PostConfigure<ZeroMCPOptions>(opts =>
             {
                 opts.EnableListChangedNotifications = false;
+                opts.EnableResourceSubscriptions = false;
             });
         });
     }

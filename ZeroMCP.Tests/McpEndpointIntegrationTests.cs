@@ -42,29 +42,38 @@ public sealed class McpEndpointIntegrationTests : IClassFixture<SampleAppWebAppl
             jsonrpc = "2.0",
             id = 1,
             method = "initialize",
-            @params = new { protocolVersion = McpProtocolConstants.ProtocolVersion, clientInfo = new { name = "test", version = "1.0" } }
+            @params = new { protocolVersion = McpProtocolConstants.LegacyProtocolVersion, clientInfo = new { name = "test", version = "1.0" } }
         });
 
         response.Should().HaveProperty("result");
         var result = response["result"]!.AsObject();
-        result["protocolVersion"]!.GetValue<string>().Should().Be(McpProtocolConstants.ProtocolVersion);
+        result["protocolVersion"]!.GetValue<string>().Should().Be(McpProtocolConstants.LegacyProtocolVersion);
         result["serverInfo"]!.AsObject()["name"]!.GetValue<string>().Should().Be("Orders API");
     }
 
     // --- Production Hardening: compatibility tests (Phase 1) ---
 
     [Fact]
-    public async Task Compatibility_ProtocolVersion_IsLocked()
+    public async Task Compatibility_LegacyProtocolVersion_IsLockedOnInitialize()
     {
         var response = await PostMcpAsync(new
         {
             jsonrpc = "2.0",
             id = 100,
             method = "initialize",
-            @params = new { protocolVersion = McpProtocolConstants.ProtocolVersion, clientInfo = new { name = "compat", version = "1.0" } }
+            @params = new { protocolVersion = McpProtocolConstants.LegacyProtocolVersion, clientInfo = new { name = "compat", version = "1.0" } }
         });
         var result = response["result"]!.AsObject();
-        result["protocolVersion"]!.GetValue<string>().Should().Be(McpProtocolConstants.ProtocolVersion, "MCP protocol version must be locked for production");
+        result["protocolVersion"]!.GetValue<string>().Should().Be(McpProtocolConstants.LegacyProtocolVersion, "Legacy initialize must advertise locked 2024-11-05");
+    }
+
+    [Fact]
+    public async Task Compatibility_ModernProtocolVersion_IsLocked()
+    {
+        McpProtocolConstants.ProtocolVersion.Should().Be("2026-07-28");
+        McpProtocolConstants.ModernProtocolVersion.Should().Be("2026-07-28");
+        McpProtocolConstants.SupportedProtocolVersions.Should().Contain(McpProtocolConstants.ModernProtocolVersion);
+        McpProtocolConstants.SupportedProtocolVersions.Should().Contain(McpProtocolConstants.LegacyProtocolVersion);
     }
 
     [Fact]
@@ -1076,7 +1085,7 @@ public sealed class McpStdioTests : IClassFixture<SampleAppWebApplicationFactory
             jsonrpc = "2.0",
             id = 1,
             method = "initialize",
-            @params = new { protocolVersion = McpProtocolConstants.ProtocolVersion, clientInfo = new { name = "test", version = "1.0" } }
+            @params = new { protocolVersion = McpProtocolConstants.LegacyProtocolVersion, clientInfo = new { name = "test", version = "1.0" } }
         });
         await pipeToServer.Writer.WriteAsync(Encoding.UTF8.GetBytes(request + "\n"));
         await pipeToServer.Writer.CompleteAsync();
@@ -1085,7 +1094,7 @@ public sealed class McpStdioTests : IClassFixture<SampleAppWebApplicationFactory
         responseLine.Should().NotBeNullOrWhiteSpace();
         var response = JsonNode.Parse(responseLine!)!.AsObject();
         response.Should().HaveProperty("result");
-        response["result"]!.AsObject()["protocolVersion"]!.GetValue<string>().Should().Be(McpProtocolConstants.ProtocolVersion);
+        response["result"]!.AsObject()["protocolVersion"]!.GetValue<string>().Should().Be(McpProtocolConstants.LegacyProtocolVersion);
         response["result"]!.AsObject()["serverInfo"]!.AsObject()["name"]!.GetValue<string>().Should().Be("Orders API");
 
         await runTask;
@@ -1193,12 +1202,12 @@ public sealed class McpCancellationTests : IClassFixture<SampleAppWebApplication
     public McpCancellationTests(SampleAppWebApplicationFactory factory) => _client = factory.CreateClient();
 
     [Fact]
-    public async Task Cancellation_NotificationsCancelled_Returns204()
+    public async Task Cancellation_NotificationsCancelled_Returns202()
     {
         var body = new { jsonrpc = "2.0", method = "notifications/cancelled", @params = new { requestId = "999" } };
         var content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
         var response = await _client.PostAsync("/mcp", content);
-        response.StatusCode.Should().Be(System.Net.HttpStatusCode.NoContent);
+        response.StatusCode.Should().Be(System.Net.HttpStatusCode.Accepted);
     }
 }
 

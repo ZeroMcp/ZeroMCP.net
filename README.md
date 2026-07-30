@@ -18,7 +18,9 @@ ZeroMCP lets teams expose existing controller and minimal API endpoints as MCP (
 ## Core Capabilities
 
 - In-process dispatch through your real ASP.NET Core pipeline
-- Streamable HTTP MCP endpoint (`GET` and `POST`)
+- Dual-era MCP support: modern **2026-07-28** and legacy **2024-11-05**
+- Streamable HTTP MCP endpoint (`POST`; legacy GET SSE retained by default)
+- `server/discover`, mirrored HTTP headers, and `subscriptions/listen`
 - Optional stdio transport for local/desktop MCP clients
 - Streaming tool results via `IAsyncEnumerable<T>`
 - Tools, resources, templates, and prompts in one framework
@@ -42,7 +44,7 @@ This model preserves middleware behavior and avoids "shadow implementations."
 ### 1) Install package
 
 ```xml
-<PackageReference Include="ZeroMCP" Version="1.*" />
+<PackageReference Include="ZeroMCP" Version="2.*" />
 ```
 
 ### 2) Register and map
@@ -144,19 +146,26 @@ builder.Services.AddZeroMCP(options =>
 
 ## Supported MCP Surface
 
-- `initialize`
+### Modern (2026-07-28)
+
+- `server/discover`
 - `tools/list`, `tools/call`
 - `resources/list`, `resources/templates/list`, `resources/read`
-- `resources/subscribe`, `resources/unsubscribe` (when enabled)
 - `prompts/list`, `prompts/get`
-- notification flows such as list-changed updates (when enabled)
+- `subscriptions/listen` (SSE response stream for change notifications)
+
+### Legacy dual-era (2024-11-05, default enabled)
+
+- `initialize`, `notifications/initialized`
+- `resources/subscribe`, `resources/unsubscribe` (when enabled)
+- GET `/mcp` with `Accept: text/event-stream` for notification streams
 
 ## Transport Options
 
 ### Streamable HTTP (default)
 
-- `GET /mcp` for metadata and SSE scenarios
-- `POST /mcp` for JSON-RPC methods
+- `POST /mcp` for JSON-RPC methods (modern and legacy)
+- `GET /mcp` for human-readable metadata; legacy clients may open GET SSE when **EnableLegacyProtocol** is true
 
 ### stdio (optional)
 

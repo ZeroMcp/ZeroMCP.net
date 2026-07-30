@@ -17,8 +17,8 @@ namespace ZeroMCP.Tests;
 //
 // These tests verify behaviour required by specific AI clients:
 //
-//   Codex    — GET /mcp with Accept: text/event-stream must open an SSE stream
-//              notifications/initialized must return 202 Accepted (not 204)
+//   Codex    — GET /mcp with Accept: text/event-stream must open an SSE stream (legacy dual-era)
+//              notifications/initialized must return 202 Accepted
 //
 //   Copilot  — resources/templates/list and prompts/list must return empty
 //              lists (not -32601) even when the features are disabled, because
@@ -255,10 +255,9 @@ public sealed class McpClientCompatibilityTests : IClassFixture<SampleAppWebAppl
     }
 
     [Fact]
-    public async Task NotificationsCancelled_Returns204()
+    public async Task NotificationsCancelled_Returns202Accepted()
     {
-        // notifications/cancelled is a different notification; it should NOT be
-        // changed to 202 — verify the targeted fix doesn't bleed over.
+        // MCP 2026-07-28 Streamable HTTP: accepted notifications return 202 Accepted.
         var body = JsonSerializer.Serialize(new
         {
             jsonrpc = "2.0",
@@ -269,8 +268,8 @@ public sealed class McpClientCompatibilityTests : IClassFixture<SampleAppWebAppl
         using var content = new StringContent(body, Encoding.UTF8, "application/json");
         using var response = await _client.PostAsync("/mcp", content);
 
-        response.StatusCode.Should().Be(HttpStatusCode.NoContent,
-            "notifications/cancelled is not initialized and should still return 204");
+        response.StatusCode.Should().Be(HttpStatusCode.Accepted,
+            "MCP notifications must return 202 Accepted when accepted by the server");
     }
 
     // -----------------------------------------------------------------------
