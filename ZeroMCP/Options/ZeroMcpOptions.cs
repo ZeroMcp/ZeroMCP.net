@@ -14,14 +14,32 @@ public sealed class ZeroMCPOptions
     public string RoutePrefix { get; set; } = "/mcp";
 
     /// <summary>
-    /// The server name advertised during MCP handshake. Defaults to the entry assembly name.
+    /// The server name advertised via <c>server/discover</c> and legacy <c>initialize</c>. Defaults to the entry assembly name.
     /// </summary>
     public string? ServerName { get; set; }
 
     /// <summary>
-    /// The server version advertised during MCP handshake. Defaults to "1.0.0".
+    /// The server version advertised via <c>server/discover</c> and legacy <c>initialize</c>. Defaults to "1.0.0".
     /// </summary>
     public string ServerVersion { get; set; } = "1.0.0";
+
+    /// <summary>
+    /// When true (default), the server accepts both modern MCP <c>2026-07-28</c> (per-request <c>_meta</c>,
+    /// <c>server/discover</c>) and legacy <c>2024-11-05</c> (<c>initialize</c> handshake, GET SSE).
+    /// When false, only the modern protocol is accepted; <c>initialize</c> and GET SSE return errors.
+    /// </summary>
+    public bool EnableLegacyProtocol { get; set; } = true;
+
+    /// <summary>
+    /// Cache TTL hint (<c>ttlMs</c>) returned on modern-era list/read results. Default 0 (immediately stale).
+    /// </summary>
+    public int ListResultTtlMs { get; set; }
+
+    /// <summary>
+    /// Cache scope hint for modern-era list/read results: <c>public</c> or <c>private</c>. Default <c>private</c>
+    /// because tool visibility can depend on the caller's authorization context.
+    /// </summary>
+    public string ListResultCacheScope { get; set; } = "private";
 
     /// <summary>
     /// Whether to include JSON Schema definitions in tool input descriptions.

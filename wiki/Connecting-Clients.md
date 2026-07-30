@@ -78,10 +78,26 @@ Configure your MCP client with the same auth (e.g. API key header) if required.
 
 ## Other MCP clients
 
-Any client that supports the [MCP Streamable HTTP](https://modelcontextprotocol.io/specification/2024-11-05/specification/#streamable-http) transport can target:
+Any client that supports [MCP Streamable HTTP](https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http) can target:
 
-- **GET /mcp** — Server info and example payload.
-- **POST /mcp** — JSON-RPC 2.0 (`initialize`, `tools/list`, `tools/call`).
+- **GET /mcp** — Server info and example payload (legacy dual-era also supports GET SSE).
+- **POST /mcp** — JSON-RPC 2.0.
+
+### Modern clients (2026-07-28)
+
+Send per-request metadata and mirrored headers:
+
+- Headers: `MCP-Protocol-Version`, `Mcp-Method`, and `Mcp-Name` when required (`tools/call`, `resources/read`, `prompts/get`)
+- Body `params._meta`: `io.modelcontextprotocol/protocolVersion`, `io.modelcontextprotocol/clientInfo`, `io.modelcontextprotocol/clientCapabilities`
+- Optional first call: `server/discover`
+- Long-lived notifications: `subscriptions/listen` (SSE response), not GET `/mcp`
+
+### Legacy clients (2024-11-05)
+
+When **EnableLegacyProtocol** is true (default):
+
+- **POST** `initialize` / `notifications/initialized`, then `tools/list` / `tools/call`
+- Optional **GET** `/mcp` with `Accept: text/event-stream` for list-changed / resource notifications
 
 Ensure the client sends **Content-Type: application/json** for POST and that auth headers (if you use **ForwardHeaders**) are sent so tool dispatch receives them.
 

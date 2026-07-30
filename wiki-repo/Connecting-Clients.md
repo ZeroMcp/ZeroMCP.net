@@ -1,10 +1,51 @@
 # Connecting MCP Clients
 
-Point MCP clients at your app's **/mcp** endpoint (or the route you set in **MapZeroMcp**).
+Point MCP clients at your app's **/mcp** endpoint (or the route you set in **MapZeroMCP**). ZeroMCP supports both **HTTP** and **stdio** transports.
 
 ---
 
 ## Claude Desktop
+
+### Option A: stdio (recommended for local development)
+
+Claude Desktop and Claude Code default to stdio for local MCP servers. Add to **claude_desktop_config.json**:
+
+```json
+{
+  "mcpServers": {
+    "my-api": {
+      "command": "dotnet",
+      "args": ["run", "--project", "MyApi", "--", "--mcp-stdio"]
+    }
+  }
+}
+```
+
+Or with a published binary:
+
+```json
+{
+  "mcpServers": {
+    "my-api": {
+      "command": "C:\\MyApi\\MyApi.exe",
+      "args": ["--mcp-stdio"]
+    }
+  }
+}
+```
+
+In `Program.cs`, add the stdio branch before `app.Run()`:
+
+```csharp
+if (args.Contains("--mcp-stdio"))
+{
+    await app.RunMcpStdioAsync();
+    return;
+}
+app.Run();
+```
+
+### Option B: HTTP
 
 Add to **claude_desktop_config.json**:
 
@@ -25,10 +66,10 @@ Use the URL of your running app (e.g. after `dotnet run` or in production your d
 
 ## Claude.ai (remote MCP)
 
-Use your deployed API's `/mcp` URL. For production, add authentication — ZeroMcp does not add auth to the `/mcp` route; use standard ASP.NET Core middleware or endpoint auth:
+Use your deployed API's `/mcp` URL. For production, add authentication — ZeroMCP does not add auth to the `/mcp` route; use standard ASP.NET Core middleware or endpoint auth:
 
 ```csharp
-app.MapZeroMcp().RequireAuthorization("McpPolicy");
+app.MapZeroMCP().RequireAuthorization("McpPolicy");
 ```
 
 Configure your MCP client with the same auth (e.g. API key header) if required.
@@ -37,10 +78,26 @@ Configure your MCP client with the same auth (e.g. API key header) if required.
 
 ## Other MCP clients
 
-Any client that supports the [MCP Streamable HTTP](https://modelcontextprotocol.io/specification/2024-11-05/specification/#streamable-http) transport can target:
+Any client that supports [MCP Streamable HTTP](https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http) can target:
 
-- **GET /mcp** — Server info and example payload.
-- **POST /mcp** — JSON-RPC 2.0 (`initialize`, `tools/list`, `tools/call`).
+- **GET /mcp** — Server info and example payload (legacy dual-era also supports GET SSE).
+- **POST /mcp** — JSON-RPC 2.0.
+
+### Modern clients (2026-07-28)
+
+Send per-request metadata and mirrored headers:
+
+- Headers: `MCP-Protocol-Version`, `Mcp-Method`, and `Mcp-Name` when required (`tools/call`, `resources/read`, `prompts/get`)
+- Body `params._meta`: `io.modelcontextprotocol/protocolVersion`, `io.modelcontextprotocol/clientInfo`, `io.modelcontextprotocol/clientCapabilities`
+- Optional first call: `server/discover`
+- Long-lived notifications: `subscriptions/listen` (SSE response), not GET `/mcp`
+
+### Legacy clients (2024-11-05)
+
+When **EnableLegacyProtocol** is true (default):
+
+- **POST** `initialize` / `notifications/initialized`, then `tools/list` / `tools/call`
+- Optional **GET** `/mcp` with `Accept: text/event-stream` for list-changed / resource notifications
 
 Ensure the client sends **Content-Type: application/json** for POST and that auth headers (if you use **ForwardHeaders**) are sent so tool dispatch receives them.
 

@@ -55,9 +55,10 @@ public static class EndpointRouteBuilderExtensions
         var promptHandler = options.EnablePrompts
             ? endpoints.ServiceProvider.GetService<McpPromptHandler>()
             : null;
-        var notificationService = options.EnableListChangedNotifications
-            ? endpoints.ServiceProvider.GetService<McpNotificationService>()
-            : null;
+        // Always wire the notification service when registered: modern subscriptions/listen,
+        // legacy GET SSE, listChanged, and resource subscriptions all share it.
+        // Capability advertising remains gated by EnableListChangedNotifications / EnableResourceSubscriptions.
+        var notificationService = endpoints.ServiceProvider.GetService<McpNotificationService>();
 
         // Pre-warm the tool registry — needed immediately to decide whether versioned endpoints exist.
         // Resources and prompts are intentionally NOT pre-warmed here: they must stay lazy so that

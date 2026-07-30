@@ -21,7 +21,7 @@ Expose your ASP.NET Core API as an **MCP (Model Context Protocol)** server.
 ## Install
 
 ```xml
-<PackageReference Include="ZeroMCP" Version="1.*" />
+<PackageReference Include="ZeroMCP" Version="2.*" />
 ```
 
 ---
@@ -129,7 +129,10 @@ See `wiki/Connecting-Clients.md` for full client setup options.
 | Option | Default | Description |
 |--------|---------|-------------|
 | `RoutePrefix` | `"/mcp"` | Endpoint path |
-| `ServerName` / `ServerVersion` | — | Shown in MCP handshake |
+| `ServerName` / `ServerVersion` | — | Shown in `server/discover` and legacy `initialize` |
+| `EnableLegacyProtocol` | `true` | Dual-era: accept legacy `initialize` / GET SSE (`2024-11-05`) alongside modern `2026-07-28` |
+| `ListResultTtlMs` | `0` | Modern list/read `ttlMs` cache hint |
+| `ListResultCacheScope` | `"private"` | Modern list/read `cacheScope` (`public` or `private`) |
 | `IncludeInputSchemas` | `true` | Include JSON Schema in tools/list |
 | `EnableXMLDocAnalysis` | `true` | Use XML doc summary as tool description when [Mcp] Description is blank |
 | `ForwardHeaders` | `["Authorization"]` | Headers copied to tool dispatch |
@@ -145,10 +148,10 @@ See `wiki/Connecting-Clients.md` for full client setup options.
 | `EnableToolInspectorUI` | `true` | GET {RoutePrefix}/ui serves Swagger-like test invocation UI |
 | `EnableResources` | `true` | Enable `resources/list`, `resources/read`, `resources/templates/list` |
 | `EnablePrompts` | `true` | Enable `prompts/list`, `prompts/get` |
-| `EnableLegacySseTransport` | `false` | Add GET /mcp/sse and POST /mcp/messages for MCP spec 2024-11-05 clients |
+| `EnableLegacySseTransport` | `false` | Add GET /mcp/sse and POST /mcp/messages for deprecated HTTP+SSE transport |
 | `MaxFormFileSizeBytes` | `10485760` (10 MB) | Max size for base64-decoded form files; enforced before decode |
-| `EnableListChangedNotifications` | `false` | Advertise `listChanged: true` and enable SSE push for list changes |
-| `EnableResourceSubscriptions` | `false` | Advertise `subscribe: true` in resources; handle `resources/subscribe` / `resources/unsubscribe` |
+| `EnableListChangedNotifications` | `false` | Advertise `listChanged: true` and enable notification push for list changes |
+| `EnableResourceSubscriptions` | `false` | Advertise `subscribe: true`; legacy `resources/subscribe` + modern `subscriptions/listen` resource URIs |
 
 Set `EnableToolInspector` or `EnableToolInspectorUI` to `false` to disable the JSON endpoint or the UI (e.g. in production if the list is sensitive). The sample app uses `builder.Environment.IsDevelopment()` to enable them only in Development.
 
